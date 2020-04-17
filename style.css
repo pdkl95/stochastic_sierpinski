@@ -1,0 +1,33 @@
+h1 {
+  margin-top: 1.5rem;
+  padding-bottom: 7px;
+}
+
+.panel {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #F2F2F2;
+  padding: 4px;
+}
+
+#graph {
+  width: 420px;
+  height: 320px;
+  box-shadow: 1px 1px 2px;
+}
+
+.graph.panel {
+  float: left;
+}
+
+.info.panel {
+  float: left;
+}
+
+.ui.panel {
+  clear: both;
+}
+
+footer {
+  clear: both;
+}
