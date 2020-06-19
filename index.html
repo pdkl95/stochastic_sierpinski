@@ -12,8 +12,11 @@
     </header>
 
     <div id="content">
-      <div class="graph panel">
-        <canvas id="graph" width="420" height="320">
+      <div class="graph panel canvas_size">
+        <canvas id="graph" class="graph_canvas canvas_size" width="420" height="320">
+          This requires a browser that supports the &lt;canvas&gt; tag.
+        </canvas>
+        <canvas id="graph_ui" class="graph_canvas canvas_size" width="420" height="320">
           This requires a browser that supports the &lt;canvas&gt; tag.
         </canvas>
       </div>
@@ -44,11 +47,6 @@
             <td>Cur</td>
             <td id="point_cur_x"></td>
             <td id="point_cur_y"></td>
-          </tr>
-          <tr>
-            <td>Prev</td>
-            <td id="point_prev_x"></td>
-            <td id="point_prev_y"></td>
           </tr>
         </table>
       </div>
