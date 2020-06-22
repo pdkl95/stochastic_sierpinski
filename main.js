@@ -64,6 +64,13 @@
       return this.move_no_text_update(this.x + dx * perc, this.y + dy * perc);
     };
 
+    Point.prototype.distance = function(other) {
+      var dx, dy;
+      dx = this.x - other.x;
+      dy = this.y - other.y;
+      return Math.sqrt((dx * dx) + (dy * dy));
+    };
+
     return Point;
 
   })();
@@ -94,6 +101,26 @@
     extend(PointWidget, superClass);
 
     PointWidget.widgets = [];
+
+    PointWidget.NEARBY_RADIUS = 8;
+
+    PointWidget.nearby_widgets = function(loc) {
+      return this.widgets.filter((function(_this) {
+        return function(w) {
+          return w.distance(loc) < _this.NEARBY_RADIUS;
+        };
+      })(this));
+    };
+
+    PointWidget.first_nearby_widget = function(loc) {
+      var nearlist;
+      nearlist = PointWidget.nearby_widgets(loc);
+      if (nearlist != null) {
+        return nearlist[0];
+      } else {
+        return null;
+      }
+    };
 
     PointWidget.random_widget = function() {
       var idx;
@@ -199,7 +226,7 @@
       var ctx;
       ctx = APP.graph_ctx;
       ctx.fillStyle = target.color_alpha;
-      return ctx.fillRect(this.x - 1, this.y - 1, 3, 3);
+      return ctx.fillRect(this.x, this.y, 1, 1);
     };
 
     return DrawPoint;
@@ -218,11 +245,15 @@
       this.on_step = bind(this.on_step, this);
       this.on_reset = bind(this.on_reset, this);
       this.resumable_reset = bind(this.resumable_reset, this);
+      this.on_mousemove = bind(this.on_mousemove, this);
+      this.on_mouseup = bind(this.on_mouseup, this);
+      this.on_mousedown = bind(this.on_mousedown, this);
     }
 
     StochasticSierpinski.prototype.init = function() {
       this.running = false;
       this.steps_per_tick = 100;
+      this.step_count = 0;
       this.graph_canvas = this.context.getElementById('graph');
       this.graph_ui_canvas = this.context.getElementById('graph_ui');
       this.graph_ctx = this.graph_canvas.getContext('2d', {
@@ -234,6 +265,7 @@
       this.btn_reset = this.context.getElementById('button_reset');
       this.btn_step = this.context.getElementById('button_step');
       this.btn_run = this.context.getElementById('button_run');
+      this.total_steps_cell = this.context.getElementById('total_steps');
       this.point_pos_table = this.context.getElementById('point_pos_table');
       PointWidget.create({
         hue: '0',
@@ -259,7 +291,61 @@
       this.btn_reset.addEventListener('click', this.on_reset);
       this.btn_step.addEventListener('click', this.on_step);
       this.btn_run.addEventListener('click', this.on_run);
+      this.graph_ui_canvas.addEventListener('mousedown', this.on_mousedown);
+      this.graph_ui_canvas.addEventListener('mouseup', this.on_mouseup);
+      this.graph_ui_canvas.addEventListener('mousemove', this.on_mousemove);
       return this.draw();
+    };
+
+    StochasticSierpinski.prototype.update_info_elements = function() {
+      this.total_steps_cell.textContent = this.step_count;
+      return this.cur.update_text();
+    };
+
+    StochasticSierpinski.prototype.event_to_canvas_loc = function(event) {
+      return {
+        x: event.layerX,
+        y: event.layerY
+      };
+    };
+
+    StochasticSierpinski.prototype.is_inside_ui = function(loc) {
+      var ref, ref1;
+      return ((0 <= (ref = loc.x) && ref <= this.graph_ui_canvas.width)) && ((0 <= (ref1 = loc.y) && ref1 <= this.graph_ui_canvas.height));
+    };
+
+    StochasticSierpinski.prototype.on_mousedown = function(event) {
+      var loc, w;
+      loc = this.event_to_canvas_loc(event);
+      w = PointWidget.first_nearby_widget(loc);
+      if (w != null) {
+        return this.dnd_target = w;
+      }
+    };
+
+    StochasticSierpinski.prototype.on_mouseup = function(event) {
+      var loc;
+      if (this.dnd_target != null) {
+        loc = this.event_to_canvas_loc(event);
+        if (this.is_inside_ui(loc)) {
+          this.dnd_target.move(loc.x, loc.y);
+          this.draw();
+          this.resumable_reset();
+        }
+        return this.dnd_target = null;
+      }
+    };
+
+    StochasticSierpinski.prototype.on_mousemove = function(event) {
+      var loc;
+      if (this.dnd_target != null) {
+        loc = this.event_to_canvas_loc(event);
+        if (this.is_inside_ui(loc)) {
+          this.dnd_target.move(loc.x, loc.y);
+          this.draw();
+          return this.resumable_reset();
+        }
+      }
     };
 
     StochasticSierpinski.prototype.resumable_reset = function() {
@@ -274,6 +360,8 @@
       was_running = this.running;
       this.stop();
       this.cur.move(this.graph_ui_canvas.width / 2, this.graph_ui_canvas.height / 2);
+      this.step_count = 0;
+      this.update_info_elements();
       this.graph_ctx.clearRect(0, 0, this.graph_canvas.width, this.graph_canvas.height);
       this.draw();
       if (restart_ok && was_running) {
@@ -308,14 +396,22 @@
       return this.btn_run.textContent = 'Run';
     };
 
-    StochasticSierpinski.prototype.step = function() {
-      var i, ref, target;
-      for (i = 0, ref = this.steps_per_tick; 0 <= ref ? i < ref : i > ref; 0 <= ref ? i++ : i--) {
-        target = PointWidget.random_widget();
+    StochasticSierpinski.prototype.single_step = function() {
+      var target;
+      target = PointWidget.random_widget();
+      if (target != null) {
         this.cur.move_towards_no_text_update(target);
         this.cur.draw_graph(target);
+        return this.step_count += 1;
       }
-      this.cur.update_text();
+    };
+
+    StochasticSierpinski.prototype.step = function() {
+      var i, ref;
+      for (i = 0, ref = this.steps_per_tick; 0 <= ref ? i < ref : i > ref; 0 <= ref ? i++ : i--) {
+        this.single_step();
+      }
+      this.update_info_elements();
       return this.draw();
     };
 

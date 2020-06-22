@@ -35,6 +35,11 @@ class Point
     dy = other.y - (@y)
     @move_no_text_update @x + dx * perc, @y + dy * perc
 
+  distance: (other) ->
+    dx = @x - other.x
+    dy = @y - other.y
+    Math.sqrt((dx * dx) + (dy * dy))
+
 class UIPoint extends Point
   constructor: (hue, args...) ->
     @color       = 'hsl(' + hue + ', 100%, 50%)'
@@ -48,6 +53,18 @@ class UIPoint extends Point
 
 class PointWidget extends UIPoint
   @widgets = []
+  @NEARBY_RADIUS = 8
+
+  @nearby_widgets: (loc) ->
+    @widgets.filter (w) =>
+      w.distance(loc) < @NEARBY_RADIUS
+
+  @first_nearby_widget: (loc) ->
+    nearlist = PointWidget.nearby_widgets(loc)
+    if nearlist?
+      nearlist[0]
+    else
+      null
 
   @random_widget: () ->
     idx = parseInt(Math.random() * PointWidget.widgets.length)
@@ -127,7 +144,7 @@ class DrawPoint extends UIPoint
   draw_graph: (target) ->
     ctx = APP.graph_ctx
     ctx.fillStyle = target.color_alpha
-    ctx.fillRect(@x - 1, @y - 1, 3, 3)
+    ctx.fillRect(@x, @y, 1, 1)
 
 class StochasticSierpinski
   constructor: (@context) ->
@@ -136,6 +153,7 @@ class StochasticSierpinski
     @running = false
 
     @steps_per_tick = 100
+    @step_count = 0
 
     @graph_canvas    = @context.getElementById('graph')
     @graph_ui_canvas = @context.getElementById('graph_ui')
@@ -147,7 +165,8 @@ class StochasticSierpinski
     @btn_step  = @context.getElementById('button_step')
     @btn_run   = @context.getElementById('button_run')
 
-    @point_pos_table = @context.getElementById('point_pos_table')
+    @total_steps_cell = @context.getElementById('total_steps')
+    @point_pos_table  = @context.getElementById('point_pos_table')
 
     PointWidget.create
       hue: '0'
@@ -175,7 +194,49 @@ class StochasticSierpinski
     @btn_step.addEventListener  'click', @on_step
     @btn_run.addEventListener   'click', @on_run
 
+    @graph_ui_canvas.addEventListener 'mousedown', @on_mousedown
+    @graph_ui_canvas.addEventListener 'mouseup',   @on_mouseup
+    @graph_ui_canvas.addEventListener 'mousemove', @on_mousemove
+
     @draw()
+
+  update_info_elements: () ->
+    @total_steps_cell.textContent = @step_count
+    @cur.update_text()
+
+  event_to_canvas_loc: (event) ->
+    return
+      x: event.layerX
+      y: event.layerY
+
+  is_inside_ui: (loc) ->
+    return (
+      (0 <= loc.x <= @graph_ui_canvas.width) and
+      (0 <= loc.y <= @graph_ui_canvas.height))
+
+  on_mousedown: (event) =>
+    loc = @event_to_canvas_loc(event)
+    w = PointWidget.first_nearby_widget(loc)
+    if w?
+      @dnd_target = w
+
+  on_mouseup: (event) =>
+    if @dnd_target?
+      loc = @event_to_canvas_loc(event)
+      if @is_inside_ui(loc)
+        @dnd_target.move(loc.x, loc.y)
+        @draw()
+        @resumable_reset()
+
+      @dnd_target = null
+
+  on_mousemove: (event) =>
+    if @dnd_target?
+      loc = @event_to_canvas_loc(event)
+      if @is_inside_ui(loc)
+        @dnd_target.move(loc.x, loc.y)
+        @draw()
+        @resumable_reset()
 
   resumable_reset: () =>
     @on_reset(true)
@@ -187,6 +248,10 @@ class StochasticSierpinski
     @cur.move(
       @graph_ui_canvas.width / 2,
       @graph_ui_canvas.height / 2)
+
+    @step_count = 0
+
+    @update_info_elements()
 
     @graph_ctx.clearRect(0, 0, @graph_canvas.width, @graph_canvas.height)
 
@@ -215,14 +280,17 @@ class StochasticSierpinski
     @running = false
     @btn_run.textContent = 'Run'
 
-  step: =>
-    for [0...@steps_per_tick]
-      target = PointWidget.random_widget()
+  single_step: ->
+    target = PointWidget.random_widget()
+    if target?
       @cur.move_towards_no_text_update target
       @cur.draw_graph(target)
+      @step_count += 1
 
-    @cur.update_text()
+  step: =>
+    @single_step() for [0...@steps_per_tick]
 
+    @update_info_elements()
     @draw()
 
   draw: =>

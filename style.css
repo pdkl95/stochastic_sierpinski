@@ -44,3 +44,7 @@ h1 {
 footer {
   clear: both;
 }
+
+.panel tr > th:first-child {
+  text-align: right
+}
