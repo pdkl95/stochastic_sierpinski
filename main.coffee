@@ -1,7 +1,7 @@
 APP = null
 
 class Point
-  constructor: (@name, x, y) ->
+  constructor: (@name, x, y, @move_perc = 0.5) ->
     x ?= APP.graph_ui_canvas.width / 2
     y ?= APP.graph_ui_canvas.height / 2
 
@@ -11,20 +11,29 @@ class Point
 
     @move x, y
 
-    @move_perc = 0.5
+  update_text: () ->
+    @info_x.textContent = @ix if @info_x
+    @info_y.textContent = @iy if @info_y
 
-  move: (x, y) ->
+  move_no_text_update: (x, y) ->
     @x = x
     @y = y
     @ix = Math.floor(@x)
     @iy = Math.floor(@y)
-    @info_x.textContent = @ix if @info_x
-    @info_y.textContent = @iy if @info_y
 
-  move_towards: (other, perc = @move_perc) ->
+  move: (x, y) ->
+    @move_no_text_update(x, y)
+    @update_text()
+
+  move_towards: (other, perc = other.move_perc) ->
     dx = other.x - (@x)
     dy = other.y - (@y)
     @move @x + dx * perc, @y + dy * perc
+
+  move_towards_no_text_update: (other, perc = other.move_perc) ->
+    dx = other.x - (@x)
+    dy = other.y - (@y)
+    @move_no_text_update @x + dx * perc, @y + dy * perc
 
 class UIPoint extends Point
   constructor: (hue, args...) ->
@@ -61,8 +70,9 @@ class PointWidget extends UIPoint
   @create: (opt) ->
     opt.name ?= PointWidget.next_name()
     opt.hue  ?= Math.random() * 360
+    opt.move_perc ?= 0.5
 
-    w = new PointWidget(opt.hue, opt.name, opt.x, opt.y)
+    w = new PointWidget(opt.hue, opt.name, opt.x, opt.y, opt.move_perc)
     PointWidget.widgets.push(w)
     w
 
@@ -103,6 +113,8 @@ class StochasticSierpinski
   init: () ->
     @running = false
 
+    @steps_per_tick = 100
+
     @graph_canvas    = @context.getElementById('graph')
     @graph_ui_canvas = @context.getElementById('graph_ui')
 
@@ -129,6 +141,11 @@ class StochasticSierpinski
       hue: '240'
       x: 380
       y: 300
+
+    PointWidget.create
+      x: 210
+      y: 210
+      move_perc: 0.85
 
     @cur  = new DrawPoint('Cur')
 
@@ -171,9 +188,12 @@ class StochasticSierpinski
     @btn_run.textContent = 'Run'
 
   step: =>
-    target = PointWidget.random_widget()
-    @cur.move_towards target, 0.5
-    @cur.draw_graph(target)
+    for [0...@steps_per_tick]
+      target = PointWidget.random_widget()
+      @cur.move_towards_no_text_update target
+      @cur.draw_graph(target)
+
+    @cur.update_text()
 
     @draw()
 

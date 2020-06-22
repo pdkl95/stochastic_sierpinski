@@ -8,8 +8,9 @@
   APP = null;
 
   Point = (function() {
-    function Point(name1, x, y) {
+    function Point(name1, x, y, move_perc) {
       this.name = name1;
+      this.move_perc = move_perc != null ? move_perc : 0.5;
       if (x == null) {
         x = APP.graph_ui_canvas.width / 2;
       }
@@ -20,14 +21,9 @@
       this.info_x_id = 'point_' + this.el_id + '_x';
       this.info_y_id = 'point_' + this.el_id + '_y';
       this.move(x, y);
-      this.move_perc = 0.5;
     }
 
-    Point.prototype.move = function(x, y) {
-      this.x = x;
-      this.y = y;
-      this.ix = Math.floor(this.x);
-      this.iy = Math.floor(this.y);
+    Point.prototype.update_text = function() {
       if (this.info_x) {
         this.info_x.textContent = this.ix;
       }
@@ -36,14 +32,36 @@
       }
     };
 
+    Point.prototype.move_no_text_update = function(x, y) {
+      this.x = x;
+      this.y = y;
+      this.ix = Math.floor(this.x);
+      return this.iy = Math.floor(this.y);
+    };
+
+    Point.prototype.move = function(x, y) {
+      this.move_no_text_update(x, y);
+      return this.update_text();
+    };
+
     Point.prototype.move_towards = function(other, perc) {
       var dx, dy;
       if (perc == null) {
-        perc = this.move_perc;
+        perc = other.move_perc;
       }
       dx = other.x - this.x;
       dy = other.y - this.y;
       return this.move(this.x + dx * perc, this.y + dy * perc);
+    };
+
+    Point.prototype.move_towards_no_text_update = function(other, perc) {
+      var dx, dy;
+      if (perc == null) {
+        perc = other.move_perc;
+      }
+      dx = other.x - this.x;
+      dy = other.y - this.y;
+      return this.move_no_text_update(this.x + dx * perc, this.y + dy * perc);
     };
 
     return Point;
@@ -115,7 +133,10 @@
       if (opt.hue == null) {
         opt.hue = Math.random() * 360;
       }
-      w = new PointWidget(opt.hue, opt.name, opt.x, opt.y);
+      if (opt.move_perc == null) {
+        opt.move_perc = 0.5;
+      }
+      w = new PointWidget(opt.hue, opt.name, opt.x, opt.y, opt.move_perc);
       PointWidget.widgets.push(w);
       return w;
     };
@@ -175,6 +196,7 @@
 
     StochasticSierpinski.prototype.init = function() {
       this.running = false;
+      this.steps_per_tick = 100;
       this.graph_canvas = this.context.getElementById('graph');
       this.graph_ui_canvas = this.context.getElementById('graph_ui');
       this.graph_ctx = this.graph_canvas.getContext('2d', {
@@ -201,6 +223,11 @@
         hue: '240',
         x: 380,
         y: 300
+      });
+      PointWidget.create({
+        x: 210,
+        y: 210,
+        move_perc: 0.85
       });
       this.cur = new DrawPoint('Cur');
       this.btn_reset.addEventListener('click', this.on_reset);
@@ -244,10 +271,13 @@
     };
 
     StochasticSierpinski.prototype.step = function() {
-      var target;
-      target = PointWidget.random_widget();
-      this.cur.move_towards(target, 0.5);
-      this.cur.draw_graph(target);
+      var i, ref, target;
+      for (i = 0, ref = this.steps_per_tick; 0 <= ref ? i < ref : i > ref; 0 <= ref ? i++ : i--) {
+        target = PointWidget.random_widget();
+        this.cur.move_towards_no_text_update(target);
+        this.cur.draw_graph(target);
+      }
+      this.cur.update_text();
       return this.draw();
     };
 
