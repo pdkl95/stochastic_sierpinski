@@ -142,8 +142,9 @@
     };
 
     function PointWidget() {
-      var args, namecell, row;
+      var args, move_perc_adj_cell, namecell, row;
       args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+      this.on_move_per_range_input = bind(this.on_move_per_range_input, this);
       PointWidget.__super__.constructor.apply(this, args);
       row = APP.point_pos_table.insertRow(-1);
       namecell = row.insertCell(0);
@@ -152,7 +153,31 @@
       this.info_x.textContent = this.x;
       this.info_y = row.insertCell(2);
       this.info_y.textContent = this.y;
+      this.move_perc_cell = row.insertCell(3);
+      this.move_perc_cell.style.textAlign = 'right';
+      this.move_perc_cell.textContent = this.move_perc.toFixed(2);
+      this.move_per_range_el = document.createElement('input');
+      this.move_per_range_el.type = 'range';
+      this.move_per_range_el.min = 0;
+      this.move_per_range_el.max = 1;
+      this.move_per_range_el.step = 0.05;
+      this.move_per_range_el.value = this.move_perc;
+      this.move_per_range_el.addEventListener('input', this.on_move_per_range_input);
+      move_perc_adj_cell = row.insertCell(4);
+      move_perc_adj_cell.appendChild(this.move_per_range_el);
     }
+
+    PointWidget.prototype.on_move_per_range_input = function(event) {
+      this.set_move_perc(event.target.value);
+      return APP.resumable_reset();
+    };
+
+    PointWidget.prototype.set_move_perc = function(newvalue) {
+      this.move_perc = parseFloat(newvalue);
+      if (this.move_perc_cell) {
+        return this.move_perc_cell.textContent = this.move_perc.toFixed(2);
+      }
+    };
 
     return PointWidget;
 
@@ -192,6 +217,7 @@
       this.on_run = bind(this.on_run, this);
       this.on_step = bind(this.on_step, this);
       this.on_reset = bind(this.on_reset, this);
+      this.resumable_reset = bind(this.resumable_reset, this);
     }
 
     StochasticSierpinski.prototype.init = function() {
@@ -236,11 +262,23 @@
       return this.draw();
     };
 
-    StochasticSierpinski.prototype.on_reset = function() {
+    StochasticSierpinski.prototype.resumable_reset = function() {
+      return this.on_reset(true);
+    };
+
+    StochasticSierpinski.prototype.on_reset = function(restart_ok) {
+      var was_running;
+      if (restart_ok == null) {
+        restart_ok = false;
+      }
+      was_running = this.running;
       this.stop();
       this.cur.move(this.graph_ui_canvas.width / 2, this.graph_ui_canvas.height / 2);
       this.graph_ctx.clearRect(0, 0, this.graph_canvas.width, this.graph_canvas.height);
-      return this.draw();
+      this.draw();
+      if (restart_ok && was_running) {
+        return this.start();
+      }
     };
 
     StochasticSierpinski.prototype.on_step = function() {

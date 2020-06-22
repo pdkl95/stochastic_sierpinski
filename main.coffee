@@ -89,7 +89,29 @@ class PointWidget extends UIPoint
 
     @info_y = row.insertCell(2)
     @info_y.textContent = @y
-    
+
+    @move_perc_cell = row.insertCell(3)
+    @move_perc_cell.style.textAlign = 'right'
+    @move_perc_cell.textContent = @move_perc.toFixed(2)
+
+    @move_per_range_el = document.createElement('input')
+    @move_per_range_el.type = 'range'
+    @move_per_range_el.min = 0
+    @move_per_range_el.max = 1
+    @move_per_range_el.step = 0.05
+    @move_per_range_el.value = @move_perc
+    @move_per_range_el.addEventListener('input', @on_move_per_range_input)
+
+    move_perc_adj_cell = row.insertCell(4)
+    move_perc_adj_cell.appendChild(@move_per_range_el)
+
+  on_move_per_range_input: (event) =>
+    @set_move_perc(event.target.value)
+    APP.resumable_reset()
+
+  set_move_perc: (newvalue) ->
+    @move_perc = parseFloat(newvalue)
+    @move_perc_cell.textContent = @move_perc.toFixed(2) if @move_perc_cell
 
 class DrawPoint extends UIPoint
   @ALPHA = '0.333'
@@ -155,7 +177,11 @@ class StochasticSierpinski
 
     @draw()
 
-  on_reset: =>
+  resumable_reset: () =>
+    @on_reset(true)
+
+  on_reset: (restart_ok = false) =>
+    was_running = @running
     @stop()
 
     @cur.move(
@@ -165,6 +191,8 @@ class StochasticSierpinski
     @graph_ctx.clearRect(0, 0, @graph_canvas.width, @graph_canvas.height)
 
     @draw()
+
+    @start() if restart_ok and was_running
 
   on_step: =>
     if @running
