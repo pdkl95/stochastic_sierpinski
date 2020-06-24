@@ -1,5 +1,56 @@
 APP = null
 
+class Color
+  # from: https://www.w3.org/TR/2011/REC-css3-color-20110607/#hsl-color
+  @hsl_to_rgb: (h, s, l) ->
+    m2 = if l <= 0.5
+      l * (s + 1)
+    else
+      l + s - (l * s)
+
+    m1 = (l * 2) - m2
+
+    return [
+      Color.hue_to_rgb(m1, m2, h + (1 / 3)),
+      Color.hue_to_rgb(m1, m2, h),
+      Color.hue_to_rgb(m1, m2, h - (1 / 3))
+    ]
+
+  @hue_to_rgb: (m1, m2, h) ->
+    h = h + 1 if h < 0
+    h = h - 1 if h > 1
+
+    return m1 + ((m2 - m1) * h * 6) if h * 6 < 1
+    return m2 if h * 2 < 1
+    return m1 + ((m2 - m1) * ((2 / 3) - h) * 6) if h * 3 < 2
+    m1
+
+  @component_to_hex: (x) ->
+    str = Math.round(x * 255).toString(16);
+    if str.length == 1
+      '0' + str
+    else
+      str
+
+  @hsl_to_hexrgb: (args...) ->
+    hex = Color.hsl_to_rgb(args...).map(Color.component_to_hex)
+    return "##{hex.join('')}"
+
+  @hexrgb_to_rgb: (hexrgb) ->
+    md = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hexrgb)
+    if md
+      return [
+        parseInt(md[1], 16),
+        parseInt(md[2], 16),
+        parseInt(md[3], 16)
+      ]
+    else
+      return [0,0,0]
+
+  @hexrgb_and_alpha_to_rgba_str: (hexrgb, alpha) ->
+    rgb = Color.hexrgb_to_rgb(hexrgb)
+    "rgba(#{rgb[0]},#{rgb[1]},#{rgb[2]},#{alpha})"
+
 class Point
   constructor: (@name, x, y, @move_perc = 0.5) ->
     x ?= APP.graph_ui_canvas.width / 2
@@ -42,9 +93,19 @@ class Point
 
 class UIPoint extends Point
   constructor: (hue, args...) ->
-    @color       = 'hsl(' + hue + ', 100%, 50%)'
-    @color_alpha = 'hsla(' + hue + ', 100%, 50%, ' + DrawPoint.ALPHA + ')'
+    @set_color_hue(hue)
     super args...
+
+  update_color_alpha_from_color: () ->
+    @color_alpha = Color.hexrgb_and_alpha_to_rgba_str(@color, DrawPoint.ALPHA)
+
+  set_color_hue: (hue) ->
+    @color = Color.hsl_to_hexrgb(hue / 360, 1.0, 0.5)
+    @update_color_alpha_from_color()
+
+  set_color_hexrgb: (hexrgb) ->
+    @color = hexrgb
+    @update_color_alpha_from_color()
 
   draw_ui: () ->
     ctx = APP.graph_ui_ctx
@@ -101,14 +162,21 @@ class PointWidget extends UIPoint
     namecell = row.insertCell(0)
     namecell.textContent = @name
 
-    @info_x = row.insertCell(1)
+    @color_selector_el = document.createElement('input')
+    @color_selector_el.type = 'color'
+    @color_selector_el.value = @color
+    @color_selector_el.addEventListener('change', @on_color_change)
+
+    color_selector = row.insertCell(1)
+    color_selector.appendChild(@color_selector_el)
+
+    @info_x = row.insertCell(2)
     @info_x.textContent = @x
 
-    @info_y = row.insertCell(2)
+    @info_y = row.insertCell(3)
     @info_y.textContent = @y
 
-    @move_perc_cell = row.insertCell(3)
-    @move_perc_cell.style.textAlign = 'right'
+    @move_perc_cell = row.insertCell(4)
     @move_perc_cell.textContent = @move_perc.toFixed(2)
 
     @move_per_range_el = document.createElement('input')
@@ -119,8 +187,12 @@ class PointWidget extends UIPoint
     @move_per_range_el.value = @move_perc
     @move_per_range_el.addEventListener('input', @on_move_per_range_input)
 
-    move_perc_adj_cell = row.insertCell(4)
+    move_perc_adj_cell = row.insertCell(5)
     move_perc_adj_cell.appendChild(@move_per_range_el)
+
+  on_color_change: (event) =>
+    @set_color_hexrgb(event.target.value)
+    APP.resumable_reset()
 
   on_move_per_range_input: (event) =>
     @set_move_perc(event.target.value)
@@ -152,8 +224,14 @@ class StochasticSierpinski
   init: () ->
     @running = false
 
-    @steps_per_tick = 100
+    @steps_per_frame = 100
     @step_count = 0
+
+    @steps_per_frame_el = @context.getElementById('steps_per_frame')
+    @steps_per_frame_el.value = if @steps_per_frame == 1
+      0
+    else
+      @steps_per_frame
 
     @graph_canvas    = @context.getElementById('graph')
     @graph_ui_canvas = @context.getElementById('graph_ui')
@@ -190,6 +268,8 @@ class StochasticSierpinski
 
     @cur  = new DrawPoint('Cur')
 
+    @steps_per_frame_el.addEventListener 'input', @on_steps_per_frame_input
+
     @btn_reset.addEventListener 'click', @on_reset
     @btn_step.addEventListener  'click', @on_step
     @btn_run.addEventListener   'click', @on_run
@@ -198,7 +278,12 @@ class StochasticSierpinski
     @graph_ui_canvas.addEventListener 'mouseup',   @on_mouseup
     @graph_ui_canvas.addEventListener 'mousemove', @on_mousemove
 
+    @update_info_elements()
     @draw()
+
+  on_steps_per_frame_input: (event) =>
+    @steps_per_frame = event.target.value
+    @steps_per_frame = 1 if @steps_per_frame < 1
 
   update_info_elements: () ->
     @total_steps_cell.textContent = @step_count
@@ -288,7 +373,7 @@ class StochasticSierpinski
       @step_count += 1
 
   step: =>
-    @single_step() for [0...@steps_per_tick]
+    @single_step() for [0...@steps_per_frame]
 
     @update_info_elements()
     @draw()

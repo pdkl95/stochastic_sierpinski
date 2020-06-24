@@ -1,11 +1,77 @@
 (function() {
-  var APP, DrawPoint, Point, PointWidget, StochasticSierpinski, UIPoint,
+  var APP, Color, DrawPoint, Point, PointWidget, StochasticSierpinski, UIPoint,
+    slice = [].slice,
     extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
     hasProp = {}.hasOwnProperty,
-    slice = [].slice,
     bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
   APP = null;
+
+  Color = (function() {
+    function Color() {}
+
+    Color.hsl_to_rgb = function(h, s, l) {
+      var m1, m2;
+      m2 = l <= 0.5 ? l * (s + 1) : l + s - (l * s);
+      m1 = (l * 2) - m2;
+      return [Color.hue_to_rgb(m1, m2, h + (1 / 3)), Color.hue_to_rgb(m1, m2, h), Color.hue_to_rgb(m1, m2, h - (1 / 3))];
+    };
+
+    Color.hue_to_rgb = function(m1, m2, h) {
+      if (h < 0) {
+        h = h + 1;
+      }
+      if (h > 1) {
+        h = h - 1;
+      }
+      if (h * 6 < 1) {
+        return m1 + ((m2 - m1) * h * 6);
+      }
+      if (h * 2 < 1) {
+        return m2;
+      }
+      if (h * 3 < 2) {
+        return m1 + ((m2 - m1) * ((2 / 3) - h) * 6);
+      }
+      return m1;
+    };
+
+    Color.component_to_hex = function(x) {
+      var str;
+      str = Math.round(x * 255).toString(16);
+      if (str.length === 1) {
+        return '0' + str;
+      } else {
+        return str;
+      }
+    };
+
+    Color.hsl_to_hexrgb = function() {
+      var args, hex;
+      args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+      hex = Color.hsl_to_rgb.apply(Color, args).map(Color.component_to_hex);
+      return "#" + (hex.join(''));
+    };
+
+    Color.hexrgb_to_rgb = function(hexrgb) {
+      var md;
+      md = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hexrgb);
+      if (md) {
+        return [parseInt(md[1], 16), parseInt(md[2], 16), parseInt(md[3], 16)];
+      } else {
+        return [0, 0, 0];
+      }
+    };
+
+    Color.hexrgb_and_alpha_to_rgba_str = function(hexrgb, alpha) {
+      var rgb;
+      rgb = Color.hexrgb_to_rgb(hexrgb);
+      return "rgba(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + "," + alpha + ")";
+    };
+
+    return Color;
+
+  })();
 
   Point = (function() {
     function Point(name1, x, y, move_perc) {
@@ -81,10 +147,24 @@
     function UIPoint() {
       var args, hue;
       hue = arguments[0], args = 2 <= arguments.length ? slice.call(arguments, 1) : [];
-      this.color = 'hsl(' + hue + ', 100%, 50%)';
-      this.color_alpha = 'hsla(' + hue + ', 100%, 50%, ' + DrawPoint.ALPHA + ')';
+      this.set_color_hue(hue);
       UIPoint.__super__.constructor.apply(this, args);
     }
+
+    UIPoint.prototype.update_color_alpha_from_color = function() {
+      this.color_alpha = Color.hexrgb_and_alpha_to_rgba_str(this.color, DrawPoint.ALPHA);
+      return console.log('@color =', this.color, '@color_alpha =', this.color_alpha);
+    };
+
+    UIPoint.prototype.set_color_hue = function(hue) {
+      this.color = Color.hsl_to_hexrgb(hue / 360, 1.0, 0.5);
+      return this.update_color_alpha_from_color();
+    };
+
+    UIPoint.prototype.set_color_hexrgb = function(hexrgb) {
+      this.color = hexrgb;
+      return this.update_color_alpha_from_color();
+    };
 
     UIPoint.prototype.draw_ui = function() {
       var ctx;
@@ -169,19 +249,25 @@
     };
 
     function PointWidget() {
-      var args, move_perc_adj_cell, namecell, row;
+      var args, color_selector, move_perc_adj_cell, namecell, row;
       args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
       this.on_move_per_range_input = bind(this.on_move_per_range_input, this);
+      this.on_color_change = bind(this.on_color_change, this);
       PointWidget.__super__.constructor.apply(this, args);
       row = APP.point_pos_table.insertRow(-1);
       namecell = row.insertCell(0);
       namecell.textContent = this.name;
-      this.info_x = row.insertCell(1);
+      this.color_selector_el = document.createElement('input');
+      this.color_selector_el.type = 'color';
+      this.color_selector_el.value = this.color;
+      this.color_selector_el.addEventListener('change', this.on_color_change);
+      color_selector = row.insertCell(1);
+      color_selector.appendChild(this.color_selector_el);
+      this.info_x = row.insertCell(2);
       this.info_x.textContent = this.x;
-      this.info_y = row.insertCell(2);
+      this.info_y = row.insertCell(3);
       this.info_y.textContent = this.y;
-      this.move_perc_cell = row.insertCell(3);
-      this.move_perc_cell.style.textAlign = 'right';
+      this.move_perc_cell = row.insertCell(4);
       this.move_perc_cell.textContent = this.move_perc.toFixed(2);
       this.move_per_range_el = document.createElement('input');
       this.move_per_range_el.type = 'range';
@@ -190,9 +276,14 @@
       this.move_per_range_el.step = 0.05;
       this.move_per_range_el.value = this.move_perc;
       this.move_per_range_el.addEventListener('input', this.on_move_per_range_input);
-      move_perc_adj_cell = row.insertCell(4);
+      move_perc_adj_cell = row.insertCell(5);
       move_perc_adj_cell.appendChild(this.move_per_range_el);
     }
+
+    PointWidget.prototype.on_color_change = function(event) {
+      this.set_color_hexrgb(event.target.value);
+      return APP.resumable_reset();
+    };
 
     PointWidget.prototype.on_move_per_range_input = function(event) {
       this.set_move_perc(event.target.value);
@@ -248,12 +339,15 @@
       this.on_mousemove = bind(this.on_mousemove, this);
       this.on_mouseup = bind(this.on_mouseup, this);
       this.on_mousedown = bind(this.on_mousedown, this);
+      this.on_steps_per_frame_input = bind(this.on_steps_per_frame_input, this);
     }
 
     StochasticSierpinski.prototype.init = function() {
       this.running = false;
-      this.steps_per_tick = 100;
+      this.steps_per_frame = 100;
       this.step_count = 0;
+      this.steps_per_frame_el = this.context.getElementById('steps_per_frame');
+      this.steps_per_frame_el.value = this.steps_per_frame === 1 ? 0 : this.steps_per_frame;
       this.graph_canvas = this.context.getElementById('graph');
       this.graph_ui_canvas = this.context.getElementById('graph_ui');
       this.graph_ctx = this.graph_canvas.getContext('2d', {
@@ -288,13 +382,22 @@
         move_perc: 0.85
       });
       this.cur = new DrawPoint('Cur');
+      this.steps_per_frame_el.addEventListener('input', this.on_steps_per_frame_input);
       this.btn_reset.addEventListener('click', this.on_reset);
       this.btn_step.addEventListener('click', this.on_step);
       this.btn_run.addEventListener('click', this.on_run);
       this.graph_ui_canvas.addEventListener('mousedown', this.on_mousedown);
       this.graph_ui_canvas.addEventListener('mouseup', this.on_mouseup);
       this.graph_ui_canvas.addEventListener('mousemove', this.on_mousemove);
+      this.update_info_elements();
       return this.draw();
+    };
+
+    StochasticSierpinski.prototype.on_steps_per_frame_input = function(event) {
+      this.steps_per_frame = event.target.value;
+      if (this.steps_per_frame < 1) {
+        return this.steps_per_frame = 1;
+      }
     };
 
     StochasticSierpinski.prototype.update_info_elements = function() {
@@ -408,7 +511,7 @@
 
     StochasticSierpinski.prototype.step = function() {
       var i, ref;
-      for (i = 0, ref = this.steps_per_tick; 0 <= ref ? i < ref : i > ref; 0 <= ref ? i++ : i--) {
+      for (i = 0, ref = this.steps_per_frame; 0 <= ref ? i < ref : i > ref; 0 <= ref ? i++ : i--) {
         this.single_step();
       }
       this.update_info_elements();

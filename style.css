@@ -31,6 +31,8 @@ h1 {
 
 .graph.panel {
   float: left;
+  margin-right: 7px;
+  margin-bottom: 7px;
 }
 
 .info.panel {
@@ -46,5 +48,20 @@ footer {
 }
 
 .panel tr > th:first-child {
-  text-align: right
+  text-align: right;
+  padding-right: 0.4em;
+}
+
+#steps_per_frame {
+  width: 4em;
+}
+
+#point_pos_table input[type="range"] {
+  width: 10em;
+}
+
+#point_pos_table td:nth-child(3),
+#point_pos_table td:nth-child(4),
+#point_pos_table td:nth-child(5) {
+  text-align: right;
 }
