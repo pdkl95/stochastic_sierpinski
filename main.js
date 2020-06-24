@@ -152,8 +152,7 @@
     }
 
     UIPoint.prototype.update_color_alpha_from_color = function() {
-      this.color_alpha = Color.hexrgb_and_alpha_to_rgba_str(this.color, DrawPoint.ALPHA);
-      return console.log('@color =', this.color, '@color_alpha =', this.color_alpha);
+      return this.color_alpha = Color.hexrgb_and_alpha_to_rgba_str(this.color, DrawPoint.ALPHA);
     };
 
     UIPoint.prototype.set_color_hue = function(hue) {
