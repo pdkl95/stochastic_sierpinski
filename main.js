@@ -207,6 +207,17 @@
       return PointWidget.widgets[idx];
     };
 
+    PointWidget.unhighlight_all = function() {
+      var i, len, ref, results, w;
+      ref = this.widgets;
+      results = [];
+      for (i = 0, len = ref.length; i < len; i++) {
+        w = ref[i];
+        results.push(w.unhighlight());
+      }
+      return results;
+    };
+
     PointWidget.is_name_used = function(name) {
       var i, len, ref, w;
       ref = PointWidget.widgets;
@@ -248,25 +259,25 @@
     };
 
     function PointWidget() {
-      var args, color_selector, move_perc_adj_cell, namecell, row;
+      var args, color_selector, move_perc_adj_cell, namecell;
       args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
       this.on_move_per_range_input = bind(this.on_move_per_range_input, this);
       this.on_color_change = bind(this.on_color_change, this);
       PointWidget.__super__.constructor.apply(this, args);
-      row = APP.point_pos_table.insertRow(-1);
-      namecell = row.insertCell(0);
+      this.row = APP.point_pos_table.insertRow(-1);
+      namecell = this.row.insertCell(0);
       namecell.textContent = this.name;
       this.color_selector_el = document.createElement('input');
       this.color_selector_el.type = 'color';
       this.color_selector_el.value = this.color;
       this.color_selector_el.addEventListener('change', this.on_color_change);
-      color_selector = row.insertCell(1);
+      color_selector = this.row.insertCell(1);
       color_selector.appendChild(this.color_selector_el);
-      this.info_x = row.insertCell(2);
+      this.info_x = this.row.insertCell(2);
       this.info_x.textContent = this.x;
-      this.info_y = row.insertCell(3);
+      this.info_y = this.row.insertCell(3);
       this.info_y.textContent = this.y;
-      this.move_perc_cell = row.insertCell(4);
+      this.move_perc_cell = this.row.insertCell(4);
       this.move_perc_cell.textContent = this.move_perc.toFixed(2);
       this.move_per_range_el = document.createElement('input');
       this.move_per_range_el.type = 'range';
@@ -275,7 +286,7 @@
       this.move_per_range_el.step = 0.05;
       this.move_per_range_el.value = this.move_perc;
       this.move_per_range_el.addEventListener('input', this.on_move_per_range_input);
-      move_perc_adj_cell = row.insertCell(5);
+      move_perc_adj_cell = this.row.insertCell(5);
       move_perc_adj_cell.appendChild(this.move_per_range_el);
     }
 
@@ -294,6 +305,14 @@
       if (this.move_perc_cell) {
         return this.move_perc_cell.textContent = this.move_perc.toFixed(2);
       }
+    };
+
+    PointWidget.prototype.highlight = function() {
+      return this.row.classList.add('highlight');
+    };
+
+    PointWidget.prototype.unhighlight = function() {
+      return this.row.classList.remove('highlight');
     };
 
     return PointWidget;
@@ -418,10 +437,12 @@
 
     StochasticSierpinski.prototype.on_mousedown = function(event) {
       var loc, w;
+      PointWidget.unhighlight_all();
       loc = this.event_to_canvas_loc(event);
       w = PointWidget.first_nearby_widget(loc);
       if (w != null) {
-        return this.dnd_target = w;
+        this.dnd_target = w;
+        return w.highlight();
       }
     };
 
@@ -439,13 +460,19 @@
     };
 
     StochasticSierpinski.prototype.on_mousemove = function(event) {
-      var loc;
+      var loc, w;
+      loc = this.event_to_canvas_loc(event);
       if (this.dnd_target != null) {
-        loc = this.event_to_canvas_loc(event);
         if (this.is_inside_ui(loc)) {
           this.dnd_target.move(loc.x, loc.y);
           this.draw();
           return this.resumable_reset();
+        }
+      } else {
+        PointWidget.unhighlight_all();
+        w = PointWidget.first_nearby_widget(loc);
+        if (w != null) {
+          return w.highlight();
         }
       }
     };

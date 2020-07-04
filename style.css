@@ -65,3 +65,7 @@ footer {
 #point_pos_table td:nth-child(5) {
   text-align: right;
 }
+
+.highlight > td {
+  background-color: #F9FBB6;
+}

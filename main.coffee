@@ -131,6 +131,10 @@ class PointWidget extends UIPoint
     idx = parseInt(Math.random() * PointWidget.widgets.length)
     PointWidget.widgets[idx]
 
+  @unhighlight_all: () ->
+    for w in @widgets
+      w.unhighlight()
+
   @is_name_used: (name) ->
     for w in PointWidget.widgets
       return true if w.name == name
@@ -157,9 +161,9 @@ class PointWidget extends UIPoint
   constructor: (args...) ->
     super args...
 
-    row = APP.point_pos_table.insertRow(-1)
+    @row = APP.point_pos_table.insertRow(-1)
 
-    namecell = row.insertCell(0)
+    namecell = @row.insertCell(0)
     namecell.textContent = @name
 
     @color_selector_el = document.createElement('input')
@@ -167,16 +171,16 @@ class PointWidget extends UIPoint
     @color_selector_el.value = @color
     @color_selector_el.addEventListener('change', @on_color_change)
 
-    color_selector = row.insertCell(1)
+    color_selector = @row.insertCell(1)
     color_selector.appendChild(@color_selector_el)
 
-    @info_x = row.insertCell(2)
+    @info_x = @row.insertCell(2)
     @info_x.textContent = @x
 
-    @info_y = row.insertCell(3)
+    @info_y = @row.insertCell(3)
     @info_y.textContent = @y
 
-    @move_perc_cell = row.insertCell(4)
+    @move_perc_cell = @row.insertCell(4)
     @move_perc_cell.textContent = @move_perc.toFixed(2)
 
     @move_per_range_el = document.createElement('input')
@@ -187,7 +191,7 @@ class PointWidget extends UIPoint
     @move_per_range_el.value = @move_perc
     @move_per_range_el.addEventListener('input', @on_move_per_range_input)
 
-    move_perc_adj_cell = row.insertCell(5)
+    move_perc_adj_cell = @row.insertCell(5)
     move_perc_adj_cell.appendChild(@move_per_range_el)
 
   on_color_change: (event) =>
@@ -201,6 +205,12 @@ class PointWidget extends UIPoint
   set_move_perc: (newvalue) ->
     @move_perc = parseFloat(newvalue)
     @move_perc_cell.textContent = @move_perc.toFixed(2) if @move_perc_cell
+
+  highlight: () ->
+    @row.classList.add('highlight')
+
+  unhighlight: () ->
+    @row.classList.remove('highlight')
 
 class DrawPoint extends UIPoint
   @ALPHA = '0.333'
@@ -300,10 +310,12 @@ class StochasticSierpinski
       (0 <= loc.y <= @graph_ui_canvas.height))
 
   on_mousedown: (event) =>
+    PointWidget.unhighlight_all()
     loc = @event_to_canvas_loc(event)
     w = PointWidget.first_nearby_widget(loc)
     if w?
       @dnd_target = w
+      w.highlight()
 
   on_mouseup: (event) =>
     if @dnd_target?
@@ -316,12 +328,17 @@ class StochasticSierpinski
       @dnd_target = null
 
   on_mousemove: (event) =>
+    loc = @event_to_canvas_loc(event)
     if @dnd_target?
-      loc = @event_to_canvas_loc(event)
       if @is_inside_ui(loc)
         @dnd_target.move(loc.x, loc.y)
         @draw()
         @resumable_reset()
+    else
+      PointWidget.unhighlight_all()
+      w = PointWidget.first_nearby_widget(loc)
+      if w?
+        w.highlight()
 
   resumable_reset: () =>
     @on_reset(true)
