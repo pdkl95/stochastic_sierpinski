@@ -115,6 +115,44 @@ class UIPoint extends Point
 class PointWidget extends UIPoint
   @widgets = []
   @NEARBY_RADIUS = 8
+  @REG_POLYGON_MARGIN = 20
+
+  @add_widget: () ->
+    PointWidget.create()
+    APP.resumable_reset()
+
+  @remove_widget: () ->
+    len = PointWidget.widgets.length
+    if len > 0
+      PointWidget.widgets[len - 1].destroy()
+
+  @set_num_widgets: (n) ->
+    PointWidget.add_widget()    while PointWidget.widgets.length < n
+    PointWidget.remove_widget() while PointWidget.widgets.length > n
+
+  @move_all_reg_polygon: () ->
+    [cx, cy] = APP.max_xy()
+    cx /= 2
+    cy /= 2
+    r = Math.min(cx, cy) - @REG_POLYGON_MARGIN
+    theta = (Math.PI * 2) / PointWidget.widgets.length
+    console.log(APP.max_xy(), [cx, cy], r, theta)
+
+    rotate = -Math.PI/2
+
+    for w, i in PointWidget.widgets
+      x = parseInt(r * Math.cos(rotate + theta * i))
+      y = parseInt(r * Math.sin(rotate + theta * i))
+      w.move(cx + x, cy + y)
+      console.log(w.name, [x,y], [w.x, w.y])
+
+    APP.resumable_reset()
+
+  @move_all_random: () ->
+    for w in PointWidget.widgets
+      w.move(APP.random_x(), APP.random_y())
+
+    APP.resumable_reset()
 
   @nearby_widgets: (loc) ->
     @widgets.filter (w) =>
@@ -149,10 +187,12 @@ class PointWidget extends UIPoint
     alert('sorry, cannot generate more than 26 point names')
     throw 'cannot generate a unique point name'
 
-  @create: (opt) ->
+  @create: (opt = {}) ->
     opt.name ?= PointWidget.next_name()
     opt.hue  ?= Math.random() * 360
     opt.move_perc ?= 0.5
+    opt.x ?= APP.random_x()
+    opt.y ?= APP.random_y()
 
     w = new PointWidget(opt.hue, opt.name, opt.x, opt.y, opt.move_perc)
     PointWidget.widgets.push(w)
@@ -212,6 +252,16 @@ class PointWidget extends UIPoint
   unhighlight: () ->
     @row.classList.remove('highlight')
 
+  destroy: () ->
+    idx = PointWidget.widgets.indexOf(this)
+    PointWidget.widgets.splice(idx, 1) if idx > -1
+
+    @color_selector_el.remove()
+    @move_per_range_el.remove()
+    @row.remove()
+
+    APP.resumable_reset()
+
 class DrawPoint extends UIPoint
   @ALPHA = '0.333'
 
@@ -253,8 +303,13 @@ class StochasticSierpinski
     @btn_step  = @context.getElementById('button_step')
     @btn_run   = @context.getElementById('button_run')
 
+    @btn_create_png = @context.getElementById('button_create_png')
+
     @total_steps_cell = @context.getElementById('total_steps')
     @point_pos_table  = @context.getElementById('point_pos_table')
+
+    @btn_move_all_reg_polygon = @context.getElementById('move_all_reg_polygon')
+    @btn_move_all_random      = @context.getElementById('move_all_random')
 
     PointWidget.create
       hue: '0'
@@ -271,29 +326,64 @@ class StochasticSierpinski
       x: 380
       y: 300
 
-    PointWidget.create
-      x: 210
-      y: 210
-      move_perc: 0.85
+    # PointWidget.create
+    #   x: 210
+    #   y: 210
+    #   move_perc: 0.85
 
     @cur  = new DrawPoint('Cur')
 
+    @num_points_el = @context.getElementById('num_points')
+    @num_points_el.value = PointWidget.widgets.length;
+
+    @num_points_el.addEventListener 'input', @on_num_points_input
     @steps_per_frame_el.addEventListener 'input', @on_steps_per_frame_input
 
     @btn_reset.addEventListener 'click', @on_reset
     @btn_step.addEventListener  'click', @on_step
     @btn_run.addEventListener   'click', @on_run
 
+    @btn_create_png.addEventListener 'click', @on_create_png
+
+    @btn_move_all_reg_polygon.addEventListener 'click', @on_move_all_reg_polygon
+    @btn_move_all_random.addEventListener 'click', @on_move_all_random
+
     @graph_ui_canvas.addEventListener 'mousedown', @on_mousedown
     @graph_ui_canvas.addEventListener 'mouseup',   @on_mouseup
     @graph_ui_canvas.addEventListener 'mousemove', @on_mousemove
 
+    @clear_update_and_draw()
+
+  clear_update_and_draw: ->
     @update_info_elements()
+    @clear_graph_canvas()
     @draw()
+
+  on_num_points_input: (event) =>
+    PointWidget.set_num_widgets event.target.value
 
   on_steps_per_frame_input: (event) =>
     @steps_per_frame = event.target.value
     @steps_per_frame = 1 if @steps_per_frame < 1
+
+  on_create_png: =>
+    dataurl = @graph_canvas.toDataURL('png')
+    window.open(dataurl, '_blank')
+
+  on_move_all_reg_polygon: =>
+    PointWidget.move_all_reg_polygon()
+
+  on_move_all_random: =>
+    PointWidget.move_all_random()
+
+  random_x: =>
+    parseInt(Math.random() * @graph_ui_canvas.width)
+
+  random_y: =>
+    parseInt(Math.random() * @graph_ui_canvas.height)
+
+  max_xy: =>
+    [@graph_ui_canvas.width, @graph_ui_canvas.height]
 
   update_info_elements: () ->
     @total_steps_cell.textContent = @step_count
@@ -343,6 +433,11 @@ class StochasticSierpinski
   resumable_reset: () =>
     @on_reset(true)
 
+  clear_graph_canvas: () ->
+    @graph_ctx.clearRect(0, 0, @graph_canvas.width, @graph_canvas.height)
+    @graph_ctx.fillStyle = '#fff'
+    @graph_ctx.fillRect(0, 0, @graph_canvas.width, @graph_canvas.height)
+
   on_reset: (restart_ok = false) =>
     was_running = @running
     @stop()
@@ -353,11 +448,7 @@ class StochasticSierpinski
 
     @step_count = 0
 
-    @update_info_elements()
-
-    @graph_ctx.clearRect(0, 0, @graph_canvas.width, @graph_canvas.height)
-
-    @draw()
+    @clear_update_and_draw()
 
     @start() if restart_ok and was_running
 

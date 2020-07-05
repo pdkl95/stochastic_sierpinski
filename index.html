@@ -12,13 +12,15 @@
     </header>
 
     <div id="content">
-      <div class="graph panel canvas_size">
-        <canvas id="graph" class="graph_canvas canvas_size" width="420" height="320">
-          This requires a browser that supports the &lt;canvas&gt; tag.
-        </canvas>
-        <canvas id="graph_ui" class="graph_canvas canvas_size" width="420" height="320">
-          This requires a browser that supports the &lt;canvas&gt; tag.
-        </canvas>
+      <div class="graph panel">
+        <div class="canvas_wrapper canvas_size">
+          <canvas id="graph" class="graph_canvas canvas_size" width="420" height="320">
+            This requires a browser that supports the &lt;canvas&gt; tag.
+          </canvas>
+          <canvas id="graph_ui" class="graph_canvas canvas_size" width="420" height="320">
+            This requires a browser that supports the &lt;canvas&gt; tag.
+          </canvas>
+        </div>
       </div>
 
       <div class="info panel">
@@ -53,9 +55,25 @@
       </div>
 
       <div class="ui panel">
-        <button id="button_reset">Reset</button>
-        <button id="button_step">Step</button>
-        <button id="button_run">Run</button>
+        <div class="runbox buttonbox">
+          <button id="button_reset">Reset</button>
+          <button id="button_step">Step</button>
+          <button id="button_run">Run</button>
+        </div>
+
+        <div class="imgbox buttonbox">
+          <button id="button_create_png">Create PNG</button>
+        </div>
+
+        <div class="pointsbox buttonbox">
+          <span class="title">Points</span>
+          <label for="num_points">N =</label>
+          <input type="number" id="num_points" value="3"
+                 min="3" max="8" step="1">
+          <span class="title">Move All</span>
+          <button id="move_all_reg_polygon">Reg. Polygon</button>
+          <button id="move_all_random">Random</button>
+        </div>
       </div>
     </div>
 
