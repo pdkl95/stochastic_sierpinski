@@ -217,7 +217,6 @@
       cy /= 2;
       r = Math.min(cx, cy) - this.REG_POLYGON_MARGIN;
       theta = (Math.PI * 2) / PointWidget.widgets.length;
-      console.log(APP.max_xy(), [cx, cy], r, theta);
       rotate = -Math.PI / 2;
       ref1 = PointWidget.widgets;
       for (i = j = 0, len1 = ref1.length; j < len1; i = ++j) {
@@ -225,7 +224,6 @@
         x = parseInt(r * Math.cos(rotate + theta * i));
         y = parseInt(r * Math.sin(rotate + theta * i));
         w.move(cx + x, cy + y);
-        console.log(w.name, [x, y], [w.x, w.y]);
       }
       return APP.resumable_reset();
     };
@@ -238,6 +236,31 @@
         w.move(APP.random_x(), APP.random_y());
       }
       return APP.resumable_reset();
+    };
+
+    PointWidget.clamp_widgets_to_canvas = function() {
+      var height, j, len1, ref, ref1, results, w, width;
+      ref = APP.max_xy(), width = ref[0], height = ref[1];
+      ref1 = PointWidget.widgets;
+      results = [];
+      for (j = 0, len1 = ref1.length; j < len1; j++) {
+        w = ref1[j];
+        if (w.x < 0) {
+          w.x = 0;
+        }
+        if (w.y < 0) {
+          w.y = 0;
+        }
+        if (w.x >= width) {
+          w.x = width - 1;
+        }
+        if (w.y >= height) {
+          results.push(w.y = height - 1);
+        } else {
+          results.push(void 0);
+        }
+      }
+      return results;
     };
 
     PointWidget.nearby_widgets = function(loc) {
@@ -555,6 +578,7 @@
       this.graph_ui_canvas.height = h;
       this.canvas_size_rule.style.width = w + "px";
       this.canvas_size_rule.style.height = h + "px";
+      PointWidget.clamp_widgets_to_canvas();
       return this.resumable_reset();
     };
 

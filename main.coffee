@@ -136,7 +136,6 @@ class PointWidget extends UIPoint
     cy /= 2
     r = Math.min(cx, cy) - @REG_POLYGON_MARGIN
     theta = (Math.PI * 2) / PointWidget.widgets.length
-    console.log(APP.max_xy(), [cx, cy], r, theta)
 
     rotate = -Math.PI/2
 
@@ -144,7 +143,6 @@ class PointWidget extends UIPoint
       x = parseInt(r * Math.cos(rotate + theta * i))
       y = parseInt(r * Math.sin(rotate + theta * i))
       w.move(cx + x, cy + y)
-      console.log(w.name, [x,y], [w.x, w.y])
 
     APP.resumable_reset()
 
@@ -153,6 +151,15 @@ class PointWidget extends UIPoint
       w.move(APP.random_x(), APP.random_y())
 
     APP.resumable_reset()
+
+  @clamp_widgets_to_canvas: () ->
+    [width, height] = APP.max_xy()
+
+    for w in PointWidget.widgets
+      w.x = 0 if w.x < 0
+      w.y = 0 if w.y < 0
+      w.x = width  - 1 if w.x >= width
+      w.y = height - 1 if w.y >= height
 
   @nearby_widgets: (loc) ->
     @widgets.filter (w) =>
@@ -397,6 +404,8 @@ class StochasticSierpinski
     @graph_ui_canvas.height = h
     @canvas_size_rule.style.width  = "#{w}px"
     @canvas_size_rule.style.height = "#{h}px"
+
+    PointWidget.clamp_widgets_to_canvas()
     @resumable_reset()
 
   on_num_points_input: (event) =>
