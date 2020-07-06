@@ -443,14 +443,19 @@
       this.on_create_png = bind(this.on_create_png, this);
       this.on_steps_per_frame_input = bind(this.on_steps_per_frame_input, this);
       this.on_num_points_input = bind(this.on_num_points_input, this);
+      this.on_graph_wrapper_mutate = bind(this.on_graph_wrapper_mutate, this);
+      this.on_mouseleave = bind(this.on_mouseleave, this);
+      this.on_mouseenter = bind(this.on_mouseenter, this);
     }
 
     StochasticSierpinski.prototype.init = function() {
+      var i, j, k, r, ref, ref1, s;
       this.running = false;
       this.steps_per_frame = 100;
       this.step_count = 0;
       this.steps_per_frame_el = this.context.getElementById('steps_per_frame');
       this.steps_per_frame_el.value = this.steps_per_frame === 1 ? 0 : this.steps_per_frame;
+      this.graph_wrapper = this.context.getElementById('graph_wrapper');
       this.graph_canvas = this.context.getElementById('graph');
       this.graph_ui_canvas = this.context.getElementById('graph_ui');
       this.graph_ctx = this.graph_canvas.getContext('2d', {
@@ -496,6 +501,30 @@
       this.graph_ui_canvas.addEventListener('mousedown', this.on_mousedown);
       this.graph_ui_canvas.addEventListener('mouseup', this.on_mouseup);
       this.graph_ui_canvas.addEventListener('mousemove', this.on_mousemove);
+      this.graph_wrapper.addEventListener('mouseenter', this.on_mouseenter);
+      this.graph_wrapper.addEventListener('mouseleave', this.on_mouseleave);
+      for (i = j = 0, ref = document.styleSheets.length; 0 <= ref ? j <= ref : j >= ref; i = 0 <= ref ? ++j : --j) {
+        s = document.styleSheets[i];
+        if ((s != null ? s.title : void 0) === 'app_stylesheet') {
+          this.app_stylesheet = s;
+          break;
+        }
+      }
+      if (this.app_stylesheet != null) {
+        for (i = k = 0, ref1 = this.app_stylesheet.cssRules.length; 0 <= ref1 ? k <= ref1 : k >= ref1; i = 0 <= ref1 ? ++k : --k) {
+          r = this.app_stylesheet.cssRules[i];
+          if ((r != null ? r.selectorText : void 0) === '.canvas_size') {
+            this.canvas_size_rule = r;
+            break;
+          }
+        }
+        if (this.canvas_size_rule != null) {
+          this.graph_wrapper_observer = new MutationObserver(this.on_graph_wrapper_mutate);
+          this.graph_wrapper_observer.observe(this.graph_wrapper, {
+            attributes: true
+          });
+        }
+      }
       return this.clear_update_and_draw();
     };
 
@@ -503,6 +532,30 @@
       this.update_info_elements();
       this.clear_graph_canvas();
       return this.draw();
+    };
+
+    StochasticSierpinski.prototype.on_mouseenter = function() {
+      return this.graph_wrapper.classList.add('resizable');
+    };
+
+    StochasticSierpinski.prototype.on_mouseleave = function() {
+      return this.graph_wrapper.classList.remove('resizable');
+    };
+
+    StochasticSierpinski.prototype.on_graph_wrapper_mutate = function(event) {
+      if (this.graph_wrapper.offsetWidth !== this.graph_ui_canvas.width || this.graph_wrapper.offsetHeight !== this.graph_ui_canvas.height) {
+        return this.resize_graph(this.graph_wrapper.offsetWidth, this.graph_wrapper.offsetHeight);
+      }
+    };
+
+    StochasticSierpinski.prototype.resize_graph = function(w, h) {
+      this.graph_canvas.width = w;
+      this.graph_canvas.height = h;
+      this.graph_ui_canvas.width = w;
+      this.graph_ui_canvas.height = h;
+      this.canvas_size_rule.style.width = w + "px";
+      this.canvas_size_rule.style.height = h + "px";
+      return this.resumable_reset();
     };
 
     StochasticSierpinski.prototype.on_num_points_input = function(event) {

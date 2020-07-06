@@ -293,6 +293,7 @@ class StochasticSierpinski
     else
       @steps_per_frame
 
+    @graph_wrapper   = @context.getElementById('graph_wrapper')
     @graph_canvas    = @context.getElementById('graph')
     @graph_ui_canvas = @context.getElementById('graph_ui')
 
@@ -352,12 +353,51 @@ class StochasticSierpinski
     @graph_ui_canvas.addEventListener 'mouseup',   @on_mouseup
     @graph_ui_canvas.addEventListener 'mousemove', @on_mousemove
 
+    @graph_wrapper.addEventListener 'mouseenter', @on_mouseenter
+    @graph_wrapper.addEventListener 'mouseleave', @on_mouseleave
+
+    for i in [0..document.styleSheets.length]
+      s = document.styleSheets[i]
+      if s?.title == 'app_stylesheet'
+        @app_stylesheet = s
+        break
+
+    if @app_stylesheet?
+      for i in [0..@app_stylesheet.cssRules.length]
+        r = @app_stylesheet.cssRules[i]
+        if r?.selectorText == '.canvas_size'
+          @canvas_size_rule = r
+          break
+
+      if @canvas_size_rule?
+        @graph_wrapper_observer = new MutationObserver(@on_graph_wrapper_mutate)
+        @graph_wrapper_observer.observe(@graph_wrapper, { attributes: true })
+
     @clear_update_and_draw()
 
   clear_update_and_draw: ->
     @update_info_elements()
     @clear_graph_canvas()
     @draw()
+
+  on_mouseenter: =>
+    @graph_wrapper.classList.add('resizable')
+
+  on_mouseleave: =>
+    @graph_wrapper.classList.remove('resizable')
+
+  on_graph_wrapper_mutate: (event) =>
+    if @graph_wrapper.offsetWidth != @graph_ui_canvas.width or @graph_wrapper.offsetHeight != @graph_ui_canvas.height
+      @resize_graph(@graph_wrapper.offsetWidth, @graph_wrapper.offsetHeight)
+
+  resize_graph: (w, h) ->
+    @graph_canvas.width  = w
+    @graph_canvas.height = h
+    @graph_ui_canvas.width  = w
+    @graph_ui_canvas.height = h
+    @canvas_size_rule.style.width  = "#{w}px"
+    @canvas_size_rule.style.height = "#{h}px"
+    @resumable_reset()
 
   on_num_points_input: (event) =>
     PointWidget.set_num_widgets event.target.value
