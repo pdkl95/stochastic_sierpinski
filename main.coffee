@@ -117,6 +117,62 @@ class PointWidget extends UIPoint
   @NEARBY_RADIUS = 8
   @REG_POLYGON_MARGIN = 20
 
+  @restriction:
+    single:
+      self: true
+      next: false
+      prev: false
+      opposite: false
+    double:
+      self: false
+      next: false
+      prev: false
+      opposite: false
+
+  @restricted:
+    single: []
+    double: []
+
+  @prev_target: [null, null]
+
+  @using_double_restrictions: ->
+    r = @restriction.double
+    r.self or r.next or r.prev or r.opposite
+
+  @target_chosen_twice: ->
+    @prev_target[0] == @prev_target[1]
+
+  @current_restricted_choices: ->
+    if @using_double_restrictions() and @target_chosen_twice()
+      @restricted.double
+    else
+      @restricted.single
+
+  @filtered_choices: (opt) ->
+    last = @widgets.length - 1
+    choices = [0..last]
+
+    if opt.opposite and choices.length > 1
+      choices.splice(parseInt(last / 2), 1)
+
+    if opt.prev and choices.length > 1
+      choices.pop()
+
+    if opt.next and choices.length > 1
+      choices.splice(1, 1)
+
+    if opt.self and choices.length > 1
+      choices.shift()
+
+    choices
+
+  @update_widget_list_metadata: () ->
+    @restricted.single = @filtered_choices(@restriction.single)
+    @restricted.double = @filtered_choices(@restriction.double)
+    @prev_target[0] = @prev_target[1] = @widgets[0]
+    console.log('single', @restricted.single)
+    console.log('double', @restricted.double)
+
   @add_widget: () ->
     PointWidget.create()
     APP.resumable_reset()
@@ -172,9 +228,16 @@ class PointWidget extends UIPoint
     else
       null
 
-  @random_widget: () ->
-    idx = parseInt(Math.random() * PointWidget.widgets.length)
-    PointWidget.widgets[idx]
+  @random_widget: ->
+    choices = @current_restricted_choices()
+    choice = choices[ parseInt(Math.random() * choices.length) ]
+    prev_idx = PointWidget.widgets.indexOf(@prev_target[0])
+    idx = (choice + prev_idx) % PointWidget.widgets.length
+
+    w = PointWidget.widgets[idx]
+    @prev_target[1] = @prev_target[0]
+    @prev_target[0] = w
+    w
 
   @unhighlight_all: () ->
     for w in @widgets
@@ -202,12 +265,14 @@ class PointWidget extends UIPoint
     opt.y ?= APP.random_y()
 
     w = new PointWidget(opt.hue, opt.name, opt.x, opt.y, opt.move_perc)
-    PointWidget.widgets.push(w)
-    w
 
   constructor: (args...) ->
     super args...
+    @build()
+    PointWidget.widgets.push(this)
+    PointWidget.update_widget_list_metadata()
 
+  build: ->
     @row = APP.point_pos_table.insertRow(-1)
 
     namecell = @row.insertCell(0)
@@ -261,7 +326,10 @@ class PointWidget extends UIPoint
 
   destroy: () ->
     idx = PointWidget.widgets.indexOf(this)
-    PointWidget.widgets.splice(idx, 1) if idx > -1
+
+    if idx > -1
+      PointWidget.widgets.splice(idx, 1)
+      PointWidget.update_widget_list_metadata()
 
     @color_selector_el.remove()
     @move_per_range_el.remove()

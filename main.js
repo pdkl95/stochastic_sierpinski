@@ -185,6 +185,77 @@
 
     PointWidget.REG_POLYGON_MARGIN = 20;
 
+    PointWidget.restriction = {
+      single: {
+        self: true,
+        next: false,
+        prev: false,
+        opposite: false
+      },
+      double: {
+        self: false,
+        next: false,
+        prev: false,
+        opposite: false
+      }
+    };
+
+    PointWidget.restricted = {
+      single: [],
+      double: []
+    };
+
+    PointWidget.prev_target = [null, null];
+
+    PointWidget.using_double_restrictions = function() {
+      var r;
+      r = this.restriction.double;
+      return r.self || r.next || r.prev || r.opposite;
+    };
+
+    PointWidget.target_chosen_twice = function() {
+      return this.prev_target[0] === this.prev_target[1];
+    };
+
+    PointWidget.current_restricted_choices = function() {
+      if (this.using_double_restrictions() && this.target_chosen_twice()) {
+        return this.restricted.double;
+      } else {
+        return this.restricted.single;
+      }
+    };
+
+    PointWidget.filtered_choices = function(opt) {
+      var choices, j, last, results;
+      last = this.widgets.length - 1;
+      choices = (function() {
+        results = [];
+        for (var j = 0; 0 <= last ? j <= last : j >= last; 0 <= last ? j++ : j--){ results.push(j); }
+        return results;
+      }).apply(this);
+      if (opt.opposite && choices.length > 1) {
+        choices.splice(parseInt(last / 2), 1);
+      }
+      if (opt.prev && choices.length > 1) {
+        choices.pop();
+      }
+      if (opt.next && choices.length > 1) {
+        choices.splice(1, 1);
+      }
+      if (opt.self && choices.length > 1) {
+        choices.shift();
+      }
+      return choices;
+    };
+
+    PointWidget.update_widget_list_metadata = function() {
+      this.restricted.single = this.filtered_choices(this.restriction.single);
+      this.restricted.double = this.filtered_choices(this.restriction.double);
+      this.prev_target[0] = this.prev_target[1] = this.widgets[0];
+      console.log('single', this.restricted.single);
+      return console.log('double', this.restricted.double);
+    };
+
     PointWidget.add_widget = function() {
       PointWidget.create();
       return APP.resumable_reset();
@@ -282,9 +353,15 @@
     };
 
     PointWidget.random_widget = function() {
-      var idx;
-      idx = parseInt(Math.random() * PointWidget.widgets.length);
-      return PointWidget.widgets[idx];
+      var choice, choices, idx, prev_idx, w;
+      choices = this.current_restricted_choices();
+      choice = choices[parseInt(Math.random() * choices.length)];
+      prev_idx = PointWidget.widgets.indexOf(this.prev_target[0]);
+      idx = (choice + prev_idx) % PointWidget.widgets.length;
+      w = PointWidget.widgets[idx];
+      this.prev_target[1] = this.prev_target[0];
+      this.prev_target[0] = w;
+      return w;
     };
 
     PointWidget.unhighlight_all = function() {
@@ -342,17 +419,22 @@
       if (opt.y == null) {
         opt.y = APP.random_y();
       }
-      w = new PointWidget(opt.hue, opt.name, opt.x, opt.y, opt.move_perc);
-      PointWidget.widgets.push(w);
-      return w;
+      return w = new PointWidget(opt.hue, opt.name, opt.x, opt.y, opt.move_perc);
     };
 
     function PointWidget() {
-      var args, color_selector, move_perc_adj_cell, namecell;
+      var args;
       args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
       this.on_move_per_range_input = bind(this.on_move_per_range_input, this);
       this.on_color_change = bind(this.on_color_change, this);
       PointWidget.__super__.constructor.apply(this, args);
+      this.build();
+      PointWidget.widgets.push(this);
+      PointWidget.update_widget_list_metadata();
+    }
+
+    PointWidget.prototype.build = function() {
+      var color_selector, move_perc_adj_cell, namecell;
       this.row = APP.point_pos_table.insertRow(-1);
       namecell = this.row.insertCell(0);
       namecell.textContent = this.name;
@@ -376,8 +458,8 @@
       this.move_per_range_el.value = this.move_perc;
       this.move_per_range_el.addEventListener('input', this.on_move_per_range_input);
       move_perc_adj_cell = this.row.insertCell(5);
-      move_perc_adj_cell.appendChild(this.move_per_range_el);
-    }
+      return move_perc_adj_cell.appendChild(this.move_per_range_el);
+    };
 
     PointWidget.prototype.on_color_change = function(event) {
       this.set_color_hexrgb(event.target.value);
@@ -409,6 +491,7 @@
       idx = PointWidget.widgets.indexOf(this);
       if (idx > -1) {
         PointWidget.widgets.splice(idx, 1);
+        PointWidget.update_widget_list_metadata();
       }
       this.color_selector_el.remove();
       this.move_per_range_el.remove();
