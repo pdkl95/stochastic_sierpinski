@@ -1,3 +1,7 @@
+body {
+  background: #bbb;
+}
+
 h1 {
   margin-top: 1.5rem;
   padding-bottom: 7px;
@@ -138,4 +142,31 @@ footer {
 
 .highlight > td {
   background-color: #F9FBB6;
+}
+
+#serializebox {
+  display: none;
+  position: fixed;
+  top: 6em;
+  left: 4em;
+  border-radius: 8px;
+  border: 2px outset rgba(0, 0, 0, 0.5);
+  padding: 1em;
+  min-width: 50%;
+  background: #ddd;
+}
+
+#serializebox_title {
+  margin-top: 0;
+  margin-left: 0;
+  margin-bottom: 0.666em;
+}
+
+#serializebox_text {
+  width: 100%;
+  min-height: 8em;
+}
+
+#serializebox > .ui.panel {
+  text-align: right;
 }

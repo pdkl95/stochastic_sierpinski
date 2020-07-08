@@ -100,7 +100,10 @@ class UIPoint extends Point
     @color_alpha = Color.hexrgb_and_alpha_to_rgba_str(@color, DrawPoint.ALPHA)
 
   set_color_hue: (hue) ->
-    @color = Color.hsl_to_hexrgb(hue / 360, 1.0, 0.5)
+    @set_color(Color.hsl_to_hexrgb(hue / 360, 1.0, 0.5))
+
+  set_color: (color) ->
+    @color = color
     @update_color_alpha_from_color()
 
   set_color_hexrgb: (hexrgb) ->
@@ -173,6 +176,7 @@ class PointWidget extends UIPoint
       PointWidget.widgets[len - 1].destroy()
 
   @set_num_widgets: (n) ->
+    return unless n >= 3 and n <= 8
     PointWidget.add_widget()    while PointWidget.widgets.length < n
     PointWidget.remove_widget() while PointWidget.widgets.length > n
 
@@ -265,8 +269,8 @@ class PointWidget extends UIPoint
   build: ->
     @row = APP.point_pos_table.insertRow(-1)
 
-    namecell = @row.insertCell(0)
-    namecell.textContent = @name
+    @namecell = @row.insertCell(0)
+    @set_name(@name)
 
     @color_selector_el = document.createElement('input')
     @color_selector_el.type = 'color'
@@ -296,6 +300,10 @@ class PointWidget extends UIPoint
     move_perc_adj_cell = @row.insertCell(5)
     move_perc_adj_cell.appendChild(@move_per_range_el)
 
+  set_name: (name) ->
+    @name = name
+    @namecell.textContent = @name
+
   on_color_change: (event) =>
     @set_color_hexrgb(event.target.value)
     APP.resumable_reset()
@@ -313,6 +321,29 @@ class PointWidget extends UIPoint
 
   unhighlight: () ->
     @row.classList.remove('highlight')
+
+  save: () ->
+    opt =
+      name:      @name
+      x:         @x
+      y:         @y
+      move_perc: @move_perc
+      color:     @color
+
+  load: (opt) ->
+    if opt.name?
+      @set_name(opt.name)
+
+    if opt.x? and opt.y?
+      @move(opt.x, opt.y)
+
+    if opt.move_perc?
+      @set_move_perc(opt.move_perc)
+
+    if opt.color?
+      @set_color(opt.color)
+
+    APP.resumable_reset()
 
   destroy: () ->
     idx = PointWidget.widgets.indexOf(this)
@@ -372,6 +403,21 @@ class TargetRestriction
       PointWidget.update_widget_list_metadata()
       APP.resumable_reset()
 
+  save: ->
+    opt =
+      self:     @self
+      next:     @next
+      prev:     @prev
+      opposite: @opposite
+
+  load: (opt) ->
+    for name in TargetRestriction.restriction_names
+      if opt.hasOwnProperty(name)
+        this[name] = opt[name]
+        @el[name].checked = this[name]
+    PointWidget.update_widget_list_metadata()
+    APP.resumable_reset()
+
 class StochasticSierpinski
   constructor: (@context) ->
 
@@ -399,12 +445,21 @@ class StochasticSierpinski
     @btn_run   = @context.getElementById('button_run')
 
     @btn_create_png = @context.getElementById('button_create_png')
+    @btn_save       = @context.getElementById('button_save')
+    @btn_load       = @context.getElementById('button_load')
 
     @total_steps_cell = @context.getElementById('total_steps')
     @point_pos_table  = @context.getElementById('point_pos_table')
 
     @btn_move_all_reg_polygon = @context.getElementById('move_all_reg_polygon')
     @btn_move_all_random      = @context.getElementById('move_all_random')
+
+    @serializebox        = @context.getElementById('serializebox')
+    @serializebox_title  = @context.getElementById('serializebox_title')
+    @serializebox_text   = @context.getElementById('serializebox_text')
+    @serializebox_action = @context.getElementById('serializebox_action')
+    @serializebox_cancel = @context.getElementById('serializebox_cancel')
+
 
     PointWidget.restriction.single = new TargetRestriction(@context, 'single')
     PointWidget.restriction.double = new TargetRestriction(@context, 'double')
@@ -442,9 +497,14 @@ class StochasticSierpinski
     @btn_run.addEventListener   'click', @on_run
 
     @btn_create_png.addEventListener 'click', @on_create_png
+    @btn_save.addEventListener 'click', @on_save
+    @btn_load.addEventListener 'click', @on_load
 
     @btn_move_all_reg_polygon.addEventListener 'click', @on_move_all_reg_polygon
     @btn_move_all_random.addEventListener 'click', @on_move_all_random
+
+    @serializebox_action.addEventListener 'click', @on_serializebox_action
+    @serializebox_cancel.addEventListener 'click', @on_serializebox_cancel
 
     @graph_ui_canvas.addEventListener 'mousedown', @on_mousedown
     @graph_ui_canvas.addEventListener 'mouseup',   @on_mouseup
@@ -508,6 +568,76 @@ class StochasticSierpinski
   on_create_png: =>
     dataurl = @graph_canvas.toDataURL('png')
     window.open(dataurl, '_blank')
+
+  show_serializebox: (title, text, action_callback) ->
+    @serializebox_title.textContent = title
+    @serializebox_action.textContent = title
+
+    if text?
+      @serializebox_text.value = text
+    else
+      @serializebox_text.value = ''
+
+    if action_callback?
+      @serializebox_action.style.display = 'inline-block'
+      @serializebox_action_callback = action_callback
+      @serializebox_cancel.textContent = 'Cancel'
+    else
+      @serializebox_action.style.display = 'none'
+      @serializebox_cancel.textContent = 'Close'
+
+    @serializebox.style.display = 'block'
+
+  hide_serializebox: ->
+    @serializebox.style.display = 'none'
+
+  on_serializebox_action: =>
+    if @serializebox_action_callback?
+      @serializebox_action_callback(@serializebox_text.value)
+
+    @hide_serializebox()
+
+  on_serializebox_cancel: =>
+    @hide_serializebox()
+
+  serialize: ->
+    opt =
+      canvas:
+        width:  @graph_ui_canvas.width
+        height: @graph_ui_canvas.height
+      points: PointWidget.widgets.map( (x) -> x.save() )
+      restrictions:
+        single: PointWidget.restriction.single.save()
+        double: PointWidget.restriction.double.save()
+
+    JSON.stringify(opt)
+
+  deserialize: (text) =>
+    opt = JSON.parse(text)
+
+    if opt.canvas?
+      if opt.canvas.width? and opt.canvas.height?
+        @resize_graph(opt.canvas.width, opt.canvas.height)
+
+    if opt.points?
+      @num_points_el.valueAsNumber = PointWidget.widgets.length;
+      console.log(PointWidget.widgets.length, @num_points_el.valueAsNumber)
+
+      PointWidget.set_num_widgets(opt.points.length)
+      for p, i in opt.points
+        PointWidget.widgets[i].load(p)
+
+    if opt.restrictions?
+      if opt.restrictions.single?
+        PointWidget.restriction.single.load(opt.restrictions.single)
+      if opt.restrictions.double?
+        PointWidget.restriction.double.load(opt.restrictions.double)
+    
+  on_save: =>
+    @show_serializebox('Save', @serialize(), null)
+
+  on_load: =>
+    @show_serializebox('Load', null, @deserialize)
 
   on_move_all_reg_polygon: =>
     PointWidget.move_all_reg_polygon()

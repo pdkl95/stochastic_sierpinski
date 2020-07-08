@@ -156,7 +156,11 @@
     };
 
     UIPoint.prototype.set_color_hue = function(hue) {
-      this.color = Color.hsl_to_hexrgb(hue / 360, 1.0, 0.5);
+      return this.set_color(Color.hsl_to_hexrgb(hue / 360, 1.0, 0.5));
+    };
+
+    UIPoint.prototype.set_color = function(color) {
+      this.color = color;
       return this.update_color_alpha_from_color();
     };
 
@@ -259,6 +263,9 @@
 
     PointWidget.set_num_widgets = function(n) {
       var results;
+      if (!(n >= 3 && n <= 8)) {
+        return;
+      }
       while (PointWidget.widgets.length < n) {
         PointWidget.add_widget();
       }
@@ -422,10 +429,10 @@
     }
 
     PointWidget.prototype.build = function() {
-      var color_selector, move_perc_adj_cell, namecell;
+      var color_selector, move_perc_adj_cell;
       this.row = APP.point_pos_table.insertRow(-1);
-      namecell = this.row.insertCell(0);
-      namecell.textContent = this.name;
+      this.namecell = this.row.insertCell(0);
+      this.set_name(this.name);
       this.color_selector_el = document.createElement('input');
       this.color_selector_el.type = 'color';
       this.color_selector_el.value = this.color;
@@ -447,6 +454,11 @@
       this.move_per_range_el.addEventListener('input', this.on_move_per_range_input);
       move_perc_adj_cell = this.row.insertCell(5);
       return move_perc_adj_cell.appendChild(this.move_per_range_el);
+    };
+
+    PointWidget.prototype.set_name = function(name) {
+      this.name = name;
+      return this.namecell.textContent = this.name;
     };
 
     PointWidget.prototype.on_color_change = function(event) {
@@ -472,6 +484,33 @@
 
     PointWidget.prototype.unhighlight = function() {
       return this.row.classList.remove('highlight');
+    };
+
+    PointWidget.prototype.save = function() {
+      var opt;
+      return opt = {
+        name: this.name,
+        x: this.x,
+        y: this.y,
+        move_perc: this.move_perc,
+        color: this.color
+      };
+    };
+
+    PointWidget.prototype.load = function(opt) {
+      if (opt.name != null) {
+        this.set_name(opt.name);
+      }
+      if ((opt.x != null) && (opt.y != null)) {
+        this.move(opt.x, opt.y);
+      }
+      if (opt.move_perc != null) {
+        this.set_move_perc(opt.move_perc);
+      }
+      if (opt.color != null) {
+        this.set_color(opt.color);
+      }
+      return APP.resumable_reset();
     };
 
     PointWidget.prototype.destroy = function() {
@@ -556,6 +595,30 @@
       })(this));
     };
 
+    TargetRestriction.prototype.save = function() {
+      var opt;
+      return opt = {
+        self: this.self,
+        next: this.next,
+        prev: this.prev,
+        opposite: this.opposite
+      };
+    };
+
+    TargetRestriction.prototype.load = function(opt) {
+      var j, len1, name, ref;
+      ref = TargetRestriction.restriction_names;
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        name = ref[j];
+        if (opt.hasOwnProperty(name)) {
+          this[name] = opt[name];
+          this.el[name].checked = this[name];
+        }
+      }
+      PointWidget.update_widget_list_metadata();
+      return APP.resumable_reset();
+    };
+
     return TargetRestriction;
 
   })();
@@ -580,6 +643,11 @@
       this.random_x = bind(this.random_x, this);
       this.on_move_all_random = bind(this.on_move_all_random, this);
       this.on_move_all_reg_polygon = bind(this.on_move_all_reg_polygon, this);
+      this.on_load = bind(this.on_load, this);
+      this.on_save = bind(this.on_save, this);
+      this.deserialize = bind(this.deserialize, this);
+      this.on_serializebox_cancel = bind(this.on_serializebox_cancel, this);
+      this.on_serializebox_action = bind(this.on_serializebox_action, this);
       this.on_create_png = bind(this.on_create_png, this);
       this.on_steps_per_frame_input = bind(this.on_steps_per_frame_input, this);
       this.on_num_points_input = bind(this.on_num_points_input, this);
@@ -608,10 +676,17 @@
       this.btn_step = this.context.getElementById('button_step');
       this.btn_run = this.context.getElementById('button_run');
       this.btn_create_png = this.context.getElementById('button_create_png');
+      this.btn_save = this.context.getElementById('button_save');
+      this.btn_load = this.context.getElementById('button_load');
       this.total_steps_cell = this.context.getElementById('total_steps');
       this.point_pos_table = this.context.getElementById('point_pos_table');
       this.btn_move_all_reg_polygon = this.context.getElementById('move_all_reg_polygon');
       this.btn_move_all_random = this.context.getElementById('move_all_random');
+      this.serializebox = this.context.getElementById('serializebox');
+      this.serializebox_title = this.context.getElementById('serializebox_title');
+      this.serializebox_text = this.context.getElementById('serializebox_text');
+      this.serializebox_action = this.context.getElementById('serializebox_action');
+      this.serializebox_cancel = this.context.getElementById('serializebox_cancel');
       PointWidget.restriction.single = new TargetRestriction(this.context, 'single');
       PointWidget.restriction.double = new TargetRestriction(this.context, 'double');
       PointWidget.create({
@@ -638,8 +713,12 @@
       this.btn_step.addEventListener('click', this.on_step);
       this.btn_run.addEventListener('click', this.on_run);
       this.btn_create_png.addEventListener('click', this.on_create_png);
+      this.btn_save.addEventListener('click', this.on_save);
+      this.btn_load.addEventListener('click', this.on_load);
       this.btn_move_all_reg_polygon.addEventListener('click', this.on_move_all_reg_polygon);
       this.btn_move_all_random.addEventListener('click', this.on_move_all_random);
+      this.serializebox_action.addEventListener('click', this.on_serializebox_action);
+      this.serializebox_cancel.addEventListener('click', this.on_serializebox_cancel);
       this.graph_ui_canvas.addEventListener('mousedown', this.on_mousedown);
       this.graph_ui_canvas.addEventListener('mouseup', this.on_mouseup);
       this.graph_ui_canvas.addEventListener('mousemove', this.on_mousemove);
@@ -716,6 +795,94 @@
       var dataurl;
       dataurl = this.graph_canvas.toDataURL('png');
       return window.open(dataurl, '_blank');
+    };
+
+    StochasticSierpinski.prototype.show_serializebox = function(title, text, action_callback) {
+      this.serializebox_title.textContent = title;
+      this.serializebox_action.textContent = title;
+      if (text != null) {
+        this.serializebox_text.value = text;
+      } else {
+        this.serializebox_text.value = '';
+      }
+      if (action_callback != null) {
+        this.serializebox_action.style.display = 'inline-block';
+        this.serializebox_action_callback = action_callback;
+        this.serializebox_cancel.textContent = 'Cancel';
+      } else {
+        this.serializebox_action.style.display = 'none';
+        this.serializebox_cancel.textContent = 'Close';
+      }
+      return this.serializebox.style.display = 'block';
+    };
+
+    StochasticSierpinski.prototype.hide_serializebox = function() {
+      return this.serializebox.style.display = 'none';
+    };
+
+    StochasticSierpinski.prototype.on_serializebox_action = function() {
+      if (this.serializebox_action_callback != null) {
+        this.serializebox_action_callback(this.serializebox_text.value);
+      }
+      return this.hide_serializebox();
+    };
+
+    StochasticSierpinski.prototype.on_serializebox_cancel = function() {
+      return this.hide_serializebox();
+    };
+
+    StochasticSierpinski.prototype.serialize = function() {
+      var opt;
+      opt = {
+        canvas: {
+          width: this.graph_ui_canvas.width,
+          height: this.graph_ui_canvas.height
+        },
+        points: PointWidget.widgets.map(function(x) {
+          return x.save();
+        }),
+        restrictions: {
+          single: PointWidget.restriction.single.save(),
+          double: PointWidget.restriction.double.save()
+        }
+      };
+      return JSON.stringify(opt);
+    };
+
+    StochasticSierpinski.prototype.deserialize = function(text) {
+      var i, j, len1, opt, p, ref;
+      opt = JSON.parse(text);
+      if (opt.canvas != null) {
+        if ((opt.canvas.width != null) && (opt.canvas.height != null)) {
+          this.resize_graph(opt.canvas.width, opt.canvas.height);
+        }
+      }
+      if (opt.points != null) {
+        this.num_points_el.valueAsNumber = PointWidget.widgets.length;
+        console.log(PointWidget.widgets.length, this.num_points_el.valueAsNumber);
+        PointWidget.set_num_widgets(opt.points.length);
+        ref = opt.points;
+        for (i = j = 0, len1 = ref.length; j < len1; i = ++j) {
+          p = ref[i];
+          PointWidget.widgets[i].load(p);
+        }
+      }
+      if (opt.restrictions != null) {
+        if (opt.restrictions.single != null) {
+          PointWidget.restriction.single.load(opt.restrictions.single);
+        }
+        if (opt.restrictions.double != null) {
+          return PointWidget.restriction.double.load(opt.restrictions.double);
+        }
+      }
+    };
+
+    StochasticSierpinski.prototype.on_save = function() {
+      return this.show_serializebox('Save', this.serialize(), null);
+    };
+
+    StochasticSierpinski.prototype.on_load = function() {
+      return this.show_serializebox('Load', null, this.deserialize);
     };
 
     StochasticSierpinski.prototype.on_move_all_reg_polygon = function() {
