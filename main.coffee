@@ -118,16 +118,8 @@ class PointWidget extends UIPoint
   @REG_POLYGON_MARGIN = 20
 
   @restriction:
-    single:
-      self: true
-      next: false
-      prev: false
-      opposite: false
-    double:
-      self: false
-      next: false
-      prev: false
-      opposite: false
+    single: null
+    double: null
 
   @restricted:
     single: []
@@ -170,8 +162,6 @@ class PointWidget extends UIPoint
     @restricted.single = @filtered_choices(@restriction.single)
     @restricted.double = @filtered_choices(@restriction.double)
     @prev_target[0] = @prev_target[1] = @widgets[0]
-    console.log('single', @restricted.single)
-    console.log('double', @restricted.double)
 
   @add_widget: () ->
     PointWidget.create()
@@ -353,6 +343,35 @@ class DrawPoint extends UIPoint
     ctx.fillStyle = target.color_alpha
     ctx.fillRect(@x, @y, 1, 1)
 
+class TargetRestriction
+  self: false
+  next: false
+  prev: false
+  opposite: false
+
+  @restriction_names: ['self', 'next', 'prev', 'opposite']
+
+  constructor: (@context, @type) ->
+    @el = {}
+
+    @setup(name) for name in TargetRestriction.restriction_names
+
+  setup: (name) ->
+    elid = "restrict_#{@type}_#{name}"
+    @el[name] = @context.getElementById(elid)
+
+    unless @el[name]?
+      msg = "missing element '#{elid}'"
+      alert(msg)
+      throw msg
+
+    @el[name].checked = false
+
+    @el[name].addEventListener 'change', (event) =>
+      this[name] = event.target.checked
+      PointWidget.update_widget_list_metadata()
+      APP.resumable_reset()
+
 class StochasticSierpinski
   constructor: (@context) ->
 
@@ -386,6 +405,9 @@ class StochasticSierpinski
 
     @btn_move_all_reg_polygon = @context.getElementById('move_all_reg_polygon')
     @btn_move_all_random      = @context.getElementById('move_all_random')
+
+    PointWidget.restriction.single = new TargetRestriction(@context, 'single')
+    PointWidget.restriction.double = new TargetRestriction(@context, 'double')
 
     PointWidget.create
       hue: '0'

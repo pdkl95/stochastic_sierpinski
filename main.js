@@ -1,5 +1,5 @@
 (function() {
-  var APP, Color, DrawPoint, Point, PointWidget, StochasticSierpinski, UIPoint,
+  var APP, Color, DrawPoint, Point, PointWidget, StochasticSierpinski, TargetRestriction, UIPoint,
     slice = [].slice,
     extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
     hasProp = {}.hasOwnProperty,
@@ -186,18 +186,8 @@
     PointWidget.REG_POLYGON_MARGIN = 20;
 
     PointWidget.restriction = {
-      single: {
-        self: true,
-        next: false,
-        prev: false,
-        opposite: false
-      },
-      double: {
-        self: false,
-        next: false,
-        prev: false,
-        opposite: false
-      }
+      single: null,
+      double: null
     };
 
     PointWidget.restricted = {
@@ -251,9 +241,7 @@
     PointWidget.update_widget_list_metadata = function() {
       this.restricted.single = this.filtered_choices(this.restriction.single);
       this.restricted.double = this.filtered_choices(this.restriction.double);
-      this.prev_target[0] = this.prev_target[1] = this.widgets[0];
-      console.log('single', this.restricted.single);
-      return console.log('double', this.restricted.double);
+      return this.prev_target[0] = this.prev_target[1] = this.widgets[0];
     };
 
     PointWidget.add_widget = function() {
@@ -526,6 +514,52 @@
 
   })(UIPoint);
 
+  TargetRestriction = (function() {
+    TargetRestriction.prototype.self = false;
+
+    TargetRestriction.prototype.next = false;
+
+    TargetRestriction.prototype.prev = false;
+
+    TargetRestriction.prototype.opposite = false;
+
+    TargetRestriction.restriction_names = ['self', 'next', 'prev', 'opposite'];
+
+    function TargetRestriction(context, type) {
+      var j, len1, name, ref;
+      this.context = context;
+      this.type = type;
+      this.el = {};
+      ref = TargetRestriction.restriction_names;
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        name = ref[j];
+        this.setup(name);
+      }
+    }
+
+    TargetRestriction.prototype.setup = function(name) {
+      var elid, msg;
+      elid = "restrict_" + this.type + "_" + name;
+      this.el[name] = this.context.getElementById(elid);
+      if (this.el[name] == null) {
+        msg = "missing element '" + elid + "'";
+        alert(msg);
+        throw msg;
+      }
+      this.el[name].checked = false;
+      return this.el[name].addEventListener('change', (function(_this) {
+        return function(event) {
+          _this[name] = event.target.checked;
+          PointWidget.update_widget_list_metadata();
+          return APP.resumable_reset();
+        };
+      })(this));
+    };
+
+    return TargetRestriction;
+
+  })();
+
   StochasticSierpinski = (function() {
     function StochasticSierpinski(context) {
       this.context = context;
@@ -578,6 +612,8 @@
       this.point_pos_table = this.context.getElementById('point_pos_table');
       this.btn_move_all_reg_polygon = this.context.getElementById('move_all_reg_polygon');
       this.btn_move_all_random = this.context.getElementById('move_all_random');
+      PointWidget.restriction.single = new TargetRestriction(this.context, 'single');
+      PointWidget.restriction.double = new TargetRestriction(this.context, 'double');
       PointWidget.create({
         hue: '0',
         x: 210,
