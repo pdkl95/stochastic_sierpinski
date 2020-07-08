@@ -3,9 +3,12 @@
   <head>
     <meta charset="utf-8">
     <title>Integer Sequences</title>
-    <link href="basic.css" media="screen" rel="stylesheet" type="text/css">
-    <link href="style.css" media="screen" rel="stylesheet"
-          type="text/css" title="app_stylesheet">
+    <style type="text/css" media="screen">
+undivert(`basic.css')
+    </style>
+    <style type="text/css" media="screen" title="app_stylesheet">
+undivert(`style.css')
+    </style>
   </head>
   <body>
     <header>
@@ -140,6 +143,8 @@
 
     <footer></footer>
 
-    <script src="main.js" type="text/javascript"></script>
+    <script src="main.js" type="text/javascript">
+undivert(`main.js')
+    </script>
   </body>
 </html>
