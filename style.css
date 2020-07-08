@@ -94,6 +94,30 @@ footer {
   float: right;
 }
 
+.buttonbox.pointsbox ~ hr {
+  clear: both;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  opacity: 0.333;
+}
+
+.ui.panel > hr ~ h3 {
+  margin-top: 1rem;
+}
+
+.restrictbox > h4 {
+  margin-top: 0.3em;
+  margin-bottom: 0.3em;
+  margin-left: 0;
+}
+
+.restrictbox > ul {
+  list-style: none;
+  margin-top: 0.3em;
+  margin-bottom: 0.3em;
+  padding-left: 0;
+}
+
 #num_points {
   width: 3em;
 }

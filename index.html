@@ -75,6 +75,53 @@
           <button id="move_all_reg_polygon">Reg. Polygon</button>
           <button id="move_all_random">Random</button>
         </div>
+
+        <hr>
+        <h3>Restrictions</h3>
+
+        <div class="single restrictbox buttonbox">
+          <h4>Last Target</h4>
+          <ul>
+            <li>
+              <input type="checkbox" class="self" id="restrict_single_self">
+              <label for="restrict_single_self" class="self">Self</label>
+            </li>
+            <li>
+              <input type="checkbox" class="next" id="restrict_single_next">
+              <label for="restrict_single_next" class="next">Neighbor (next)</label>
+            </li>
+            <li>
+              <input type="checkbox" class="prev" id="restrict_single_prev">
+              <label for="restrict_single_prev" class="prev">Neighbor (prev)</label>
+            </li>
+            <li>
+              <input type="checkbox" class="opposite" id="restrict_single_opposite">
+              <label for="restrict_single_opposite" class="opposite">Opposite</label>
+            </li>
+          </ul>
+        </div>
+
+        <div class="double restrictbox buttonbox">
+          <h4>Last Target Selected Twice</h4>
+          <ul>
+            <li>
+              <input type="checkbox" class="self" id="restrict_double_self">
+              <label for="restrict_double_self" class="self">Self</label>
+            </li>
+            <li>
+              <input type="checkbox" class="next" id="restrict_double_next">
+              <label for="restrict_double_next" class="next">Neighbor (next)</label>
+            </li>
+            <li>
+              <input type="checkbox" class="prev" id="restrict_double_prev">
+              <label for="restrict_double_prev" class="prev">Neighbor (prev)</label>
+            </li>
+            <li>
+              <input type="checkbox" class="opposite" id="restrict_double_opposite">
+              <label for="restrict_double_opposite" class="opposite">Opposite</label>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
 
