@@ -106,10 +106,6 @@ class UIPoint extends Point
     @color = color
     @update_color_alpha_from_color()
 
-  set_color_hexrgb: (hexrgb) ->
-    @color = hexrgb
-    @update_color_alpha_from_color()
-
   draw_ui: () ->
     ctx = APP.graph_ui_ctx
     ctx.strokeStyle = @color
@@ -118,7 +114,7 @@ class UIPoint extends Point
 class PointWidget extends UIPoint
   @widgets = []
   @NEARBY_RADIUS = 8
-  @REG_POLYGON_MARGIN = 20
+  @REG_POLYGON_MARGIN = 10
 
   @restriction:
     single: null
@@ -148,7 +144,7 @@ class PointWidget extends UIPoint
     choices = [0..last]
 
     if opt.opposite and choices.length > 1
-      choices.splice(parseInt(last / 2), 1)
+      choices.splice(parseInt(last / 2) + 1, 1)
 
     if opt.prev and choices.length > 1
       choices.pop()
@@ -175,19 +171,48 @@ class PointWidget extends UIPoint
     if len > 0
       PointWidget.widgets[len - 1].destroy()
 
+  @recolor_periodic_hue: (step, start = 0.0) ->
+    hue = start
+    for w in PointWidget.widgets
+      w.set_color_hue(hue)
+      hue += step
+
+  @recolor_equidistant_hue: () ->
+    PointWidget.recolor_periodic_hue(360.0 / PointWidget.widgets.length)
+
+  @set_ngon: (n, recolor = true) ->
+    PointWidget.set_num_widgets(n)
+    PointWidget.move_all_reg_polygon()
+    PointWidget.recolor_equidistant_hue() if recolor
+
   @set_num_widgets: (n) ->
     return unless n >= 3 and n <= 8
     PointWidget.add_widget()    while PointWidget.widgets.length < n
     PointWidget.remove_widget() while PointWidget.widgets.length > n
 
   @move_all_reg_polygon: () ->
-    [cx, cy] = APP.max_xy()
-    cx /= 2
-    cy /= 2
+    len = PointWidget.widgets.length
+
+    [maxx, maxy] = APP.max_xy()
+    minside = Math.min(maxx, maxy)
+    cx = maxx / 2
+    cy = maxy / 2
     r = Math.min(cx, cy) - @REG_POLYGON_MARGIN
-    theta = (Math.PI * 2) / PointWidget.widgets.length
+    theta = (Math.PI * 2) / len
 
     rotate = -Math.PI/2
+
+    switch len
+      when 3
+        side = minside - (2 * @REG_POLYGON_MARGIN)
+        height = side * (Math.sqrt(3) / 2)
+        tri_adj = (minside - height) / 2
+        cy += tri_adj * Math.sqrt(2)
+        r *= 1.2
+
+      when 4
+        rotate += Math.PI/4
+        r *= Math.sqrt(2)
 
     for w, i in PointWidget.widgets
       x = parseInt(r * Math.cos(rotate + theta * i))
@@ -304,8 +329,12 @@ class PointWidget extends UIPoint
     @name = name
     @namecell.textContent = @name
 
+  set_color: (color) ->
+    super(color)
+    @color_selector_el.value = @color if @color_selector_el?
+
   on_color_change: (event) =>
-    @set_color_hexrgb(event.target.value)
+    @set_color(event.target.value)
     APP.resumable_reset()
 
   on_move_per_range_input: (event) =>
@@ -464,27 +493,9 @@ class StochasticSierpinski
     PointWidget.restriction.single = new TargetRestriction(@context, 'single')
     PointWidget.restriction.double = new TargetRestriction(@context, 'double')
 
-    PointWidget.create
-      hue: '0'
-      x: 210
-      y: 20
-
-    PointWidget.create
-      hue: '120'
-      x: 40
-      y: 300
-
-    PointWidget.create
-      hue: '240'
-      x: 380
-      y: 300
-
-    # PointWidget.create
-    #   x: 210
-    #   y: 210
-    #   move_perc: 0.85
-
     @cur  = new DrawPoint('Cur')
+
+    PointWidget.set_ngon(3)
 
     @num_points_el = @context.getElementById('num_points')
     @num_points_el.value = PointWidget.widgets.length;
@@ -559,7 +570,7 @@ class StochasticSierpinski
     @resumable_reset()
 
   on_num_points_input: (event) =>
-    PointWidget.set_num_widgets event.target.value
+    PointWidget.set_ngon(event.target.value)
 
   on_steps_per_frame_input: (event) =>
     @steps_per_frame = event.target.value

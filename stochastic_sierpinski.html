@@ -262,7 +262,7 @@ footer {
 }
 
 .buttonbox ~ .buttonbox {
-  margin-left: 4em;
+  margin-left: 3em;
 }
 
 .buttonbox > .title {
@@ -303,6 +303,10 @@ footer {
   margin-top: 0.3em;
   margin-bottom: 0.3em;
   padding-left: 0;
+}
+
+#button_run {
+  min-width: 4em;
 }
 
 #num_points {
@@ -489,7 +493,7 @@ footer {
 
     <footer></footer>
 
-    <script src="main.js" type="text/javascript">
+    <script type="text/javascript">
 (function() {
   var APP, Color, DrawPoint, Point, PointWidget, StochasticSierpinski, TargetRestriction, UIPoint,
     slice = [].slice,
@@ -656,11 +660,6 @@ footer {
       return this.update_color_alpha_from_color();
     };
 
-    UIPoint.prototype.set_color_hexrgb = function(hexrgb) {
-      this.color = hexrgb;
-      return this.update_color_alpha_from_color();
-    };
-
     UIPoint.prototype.draw_ui = function() {
       var ctx;
       ctx = APP.graph_ui_ctx;
@@ -679,7 +678,7 @@ footer {
 
     PointWidget.NEARBY_RADIUS = 8;
 
-    PointWidget.REG_POLYGON_MARGIN = 20;
+    PointWidget.REG_POLYGON_MARGIN = 10;
 
     PointWidget.restriction = {
       single: null,
@@ -720,7 +719,7 @@ footer {
         return results;
       }).apply(this);
       if (opt.opposite && choices.length > 1) {
-        choices.splice(parseInt(last / 2), 1);
+        choices.splice(parseInt(last / 2) + 1, 1);
       }
       if (opt.prev && choices.length > 1) {
         choices.pop();
@@ -753,6 +752,37 @@ footer {
       }
     };
 
+    PointWidget.recolor_periodic_hue = function(step, start) {
+      var hue, j, len1, ref, results, w;
+      if (start == null) {
+        start = 0.0;
+      }
+      hue = start;
+      ref = PointWidget.widgets;
+      results = [];
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        w = ref[j];
+        w.set_color_hue(hue);
+        results.push(hue += step);
+      }
+      return results;
+    };
+
+    PointWidget.recolor_equidistant_hue = function() {
+      return PointWidget.recolor_periodic_hue(360.0 / PointWidget.widgets.length);
+    };
+
+    PointWidget.set_ngon = function(n, recolor) {
+      if (recolor == null) {
+        recolor = true;
+      }
+      PointWidget.set_num_widgets(n);
+      PointWidget.move_all_reg_polygon();
+      if (recolor) {
+        return PointWidget.recolor_equidistant_hue();
+      }
+    };
+
     PointWidget.set_num_widgets = function(n) {
       var results;
       if (!(n >= 3 && n <= 8)) {
@@ -769,13 +799,27 @@ footer {
     };
 
     PointWidget.move_all_reg_polygon = function() {
-      var cx, cy, i, j, len1, r, ref, ref1, rotate, theta, w, x, y;
-      ref = APP.max_xy(), cx = ref[0], cy = ref[1];
-      cx /= 2;
-      cy /= 2;
+      var cx, cy, height, i, j, len, len1, maxx, maxy, minside, r, ref, ref1, rotate, side, theta, tri_adj, w, x, y;
+      len = PointWidget.widgets.length;
+      ref = APP.max_xy(), maxx = ref[0], maxy = ref[1];
+      minside = Math.min(maxx, maxy);
+      cx = maxx / 2;
+      cy = maxy / 2;
       r = Math.min(cx, cy) - this.REG_POLYGON_MARGIN;
-      theta = (Math.PI * 2) / PointWidget.widgets.length;
+      theta = (Math.PI * 2) / len;
       rotate = -Math.PI / 2;
+      switch (len) {
+        case 3:
+          side = minside - (2 * this.REG_POLYGON_MARGIN);
+          height = side * (Math.sqrt(3) / 2);
+          tri_adj = (minside - height) / 2;
+          cy += tri_adj * Math.sqrt(2);
+          r *= 1.2;
+          break;
+        case 4:
+          rotate += Math.PI / 4;
+          r *= Math.sqrt(2);
+      }
       ref1 = PointWidget.widgets;
       for (i = j = 0, len1 = ref1.length; j < len1; i = ++j) {
         w = ref1[i];
@@ -953,8 +997,15 @@ footer {
       return this.namecell.textContent = this.name;
     };
 
+    PointWidget.prototype.set_color = function(color) {
+      PointWidget.__super__.set_color.call(this, color);
+      if (this.color_selector_el != null) {
+        return this.color_selector_el.value = this.color;
+      }
+    };
+
     PointWidget.prototype.on_color_change = function(event) {
-      this.set_color_hexrgb(event.target.value);
+      this.set_color(event.target.value);
       return APP.resumable_reset();
     };
 
@@ -1181,22 +1232,8 @@ footer {
       this.serializebox_cancel = this.context.getElementById('serializebox_cancel');
       PointWidget.restriction.single = new TargetRestriction(this.context, 'single');
       PointWidget.restriction.double = new TargetRestriction(this.context, 'double');
-      PointWidget.create({
-        hue: '0',
-        x: 210,
-        y: 20
-      });
-      PointWidget.create({
-        hue: '120',
-        x: 40,
-        y: 300
-      });
-      PointWidget.create({
-        hue: '240',
-        x: 380,
-        y: 300
-      });
       this.cur = new DrawPoint('Cur');
+      PointWidget.set_ngon(3);
       this.num_points_el = this.context.getElementById('num_points');
       this.num_points_el.value = PointWidget.widgets.length;
       this.num_points_el.addEventListener('input', this.on_num_points_input);
@@ -1273,7 +1310,7 @@ footer {
     };
 
     StochasticSierpinski.prototype.on_num_points_input = function(event) {
-      return PointWidget.set_num_widgets(event.target.value);
+      return PointWidget.set_ngon(event.target.value);
     };
 
     StochasticSierpinski.prototype.on_steps_per_frame_input = function(event) {

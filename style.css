@@ -79,7 +79,7 @@ footer {
 }
 
 .buttonbox ~ .buttonbox {
-  margin-left: 4em;
+  margin-left: 3em;
 }
 
 .buttonbox > .title {
@@ -120,6 +120,10 @@ footer {
   margin-top: 0.3em;
   margin-bottom: 0.3em;
   padding-left: 0;
+}
+
+#button_run {
+  min-width: 4em;
 }
 
 #num_points {

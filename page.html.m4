@@ -143,7 +143,7 @@ undivert(`style.css')
 
     <footer></footer>
 
-    <script src="main.js" type="text/javascript">
+    <script type="text/javascript">
 undivert(`main.js')
     </script>
   </body>
