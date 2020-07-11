@@ -113,6 +113,9 @@ class UIPoint extends Point
 
 class PointWidget extends UIPoint
   @widgets = []
+  @MIN_POINTS = 3
+  @MAX_POINTS = 8
+
   @NEARBY_RADIUS = 8
   @REG_POLYGON_MARGIN = 10
 
@@ -163,12 +166,13 @@ class PointWidget extends UIPoint
     @prev_target[0] = @prev_target[1] = @widgets[0]
 
   @add_widget: () ->
-    PointWidget.create()
-    APP.resumable_reset()
+    if PointWidget.widgets.lengh < @MAX_POINTS
+      PointWidget.create()
+      APP.resumable_reset()
 
   @remove_widget: () ->
     len = PointWidget.widgets.length
-    if len > 0
+    if len > @MIN_POINTS
       PointWidget.widgets[len - 1].destroy()
 
   @recolor_periodic_hue: (step, start = 0.0) ->
@@ -186,7 +190,7 @@ class PointWidget extends UIPoint
     PointWidget.recolor_equidistant_hue() if recolor
 
   @set_num_widgets: (n) ->
-    return unless n >= 3 and n <= 8
+    return unless n >= @MIN_POINTS and n <= @MAX_POINTS
     PointWidget.add_widget()    while PointWidget.widgets.length < n
     PointWidget.remove_widget() while PointWidget.widgets.length > n
 

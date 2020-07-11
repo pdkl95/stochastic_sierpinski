@@ -85,47 +85,41 @@ undivert(`style.css')
         <h3>Restrictions</h3>
 
         <div class="single restrictbox buttonbox">
-          <h4>Last Target</h4>
-          <ul>
-            <li>
-              <input type="checkbox" class="self" id="restrict_single_self">
-              <label for="restrict_single_self" class="self">Self</label>
-            </li>
-            <li>
-              <input type="checkbox" class="next" id="restrict_single_next">
-              <label for="restrict_single_next" class="next">Neighbor (next)</label>
-            </li>
-            <li>
-              <input type="checkbox" class="prev" id="restrict_single_prev">
-              <label for="restrict_single_prev" class="prev">Neighbor (prev)</label>
-            </li>
-            <li>
-              <input type="checkbox" class="opposite" id="restrict_single_opposite">
-              <label for="restrict_single_opposite" class="opposite">Opposite</label>
-            </li>
-          </ul>
-        </div>
-
-        <div class="double restrictbox buttonbox">
-          <h4>Last Target Selected Twice</h4>
-          <ul>
-            <li>
-              <input type="checkbox" class="self" id="restrict_double_self">
-              <label for="restrict_double_self" class="self">Self</label>
-            </li>
-            <li>
-              <input type="checkbox" class="next" id="restrict_double_next">
-              <label for="restrict_double_next" class="next">Neighbor (next)</label>
-            </li>
-            <li>
-              <input type="checkbox" class="prev" id="restrict_double_prev">
-              <label for="restrict_double_prev" class="prev">Neighbor (prev)</label>
-            </li>
-            <li>
-              <input type="checkbox" class="opposite" id="restrict_double_opposite">
-              <label for="restrict_double_opposite" class="opposite">Opposite</label>
-            </li>
-          </ul>
+          <table id="restrict_table">
+            <tr>
+              <td class="blank"></td>
+              <th scope="col" class="header prev prev3">-3</th>
+              <th scope="col" class="header prev prev2">-2</th>
+              <th scope="col" class="header prev prev1">-1</th>
+              <th scope="col" class="header self">Self</th>
+              <th scope="col" class="header next next1">+1</th>
+              <th scope="col" class="header next next2">+2</th>
+              <th scope="col" class="header next next3">+3</th>
+              <th scope="col" class="header opposite">Opp</th>
+            </tr>
+            <tr>
+              <th scope="row">Last</th>
+              <td class="single prev prev3"><input type="checkbox" id="restrict_single_prev_3"></td>
+              <td class="single prev prev3"><input type="checkbox" id="restrict_single_prev_2"></td>
+              <td class="single prev prev1"><input type="checkbox" id="restrict_single_prev_1"></td>
+              <td class="single self">      <input type="checkbox" id="restrict_single_self"></td>
+              <td class="single next next1"><input type="checkbox" id="restrict_single_next_1"></td>
+              <td class="single next next1"><input type="checkbox" id="restrict_single_next_2"></td>
+              <td class="single next next3"><input type="checkbox" id="restrict_single_next_3"></td>
+              <td class="single opposite">  <input type="checkbox" id="restrict_single_opposite"></td>
+            </tr>
+            <tr>
+              <th scope="row" class="double">Last 2x</th> 
+              <td class="double prev prev3"><input type="checkbox" id="restrict_double_prev_3"></td>
+              <td class="double prev prev3"><input type="checkbox" id="restrict_double_prev_2"></td>
+              <td class="double prev prev1"><input type="checkbox" id="restrict_double_prev_1"></td>
+              <td class="double self">      <input type="checkbox" id="restrict_double_self"></td>
+              <td class="double next next1"><input type="checkbox" id="restrict_double_next_1"></td>
+              <td class="double next next1"><input type="checkbox" id="restrict_double_next_2"></td>
+              <td class="double next next3"><input type="checkbox" id="restrict_double_next_3"></td>
+              <td class="double opposite">  <input type="checkbox" id="restrict_double_opposite"></td>
+            </tr>
+          </table>
         </div>
       </div>
 

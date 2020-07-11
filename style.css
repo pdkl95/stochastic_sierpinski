@@ -109,17 +109,31 @@ footer {
   margin-top: 1rem;
 }
 
-.restrictbox > h4 {
-  margin-top: 0.3em;
-  margin-bottom: 0.3em;
-  margin-left: 0;
+.restrictbox {
+  overflow-x: auto;
 }
 
-.restrictbox > ul {
-  list-style: none;
-  margin-top: 0.3em;
-  margin-bottom: 0.3em;
-  padding-left: 0;
+#restrict_table {
+  border-spacing: 0;
+}
+
+#restrict_table th,
+#restrict_table td {
+  padding: 3px;
+  text-align: center;
+}
+
+#restrict_table th[scope="row"] {
+  text-align: right;
+}
+
+#restrict_table .self,
+#restrict_table .opposite {
+  background-color: #e2e2e2
+}
+
+td.blank {
+  border: none;
 }
 
 #button_run {

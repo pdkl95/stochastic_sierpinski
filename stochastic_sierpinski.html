@@ -292,17 +292,31 @@ footer {
   margin-top: 1rem;
 }
 
-.restrictbox > h4 {
-  margin-top: 0.3em;
-  margin-bottom: 0.3em;
-  margin-left: 0;
+.restrictbox {
+  overflow-x: auto;
 }
 
-.restrictbox > ul {
-  list-style: none;
-  margin-top: 0.3em;
-  margin-bottom: 0.3em;
-  padding-left: 0;
+#restrict_table {
+  border-spacing: 0;
+}
+
+#restrict_table th,
+#restrict_table td {
+  padding: 3px;
+  text-align: center;
+}
+
+#restrict_table th[scope="row"] {
+  text-align: right;
+}
+
+#restrict_table .self,
+#restrict_table .opposite {
+  background-color: #e2e2e2
+}
+
+td.blank {
+  border: none;
 }
 
 #button_run {
@@ -435,47 +449,41 @@ footer {
         <h3>Restrictions</h3>
 
         <div class="single restrictbox buttonbox">
-          <h4>Last Target</h4>
-          <ul>
-            <li>
-              <input type="checkbox" class="self" id="restrict_single_self">
-              <label for="restrict_single_self" class="self">Self</label>
-            </li>
-            <li>
-              <input type="checkbox" class="next" id="restrict_single_next">
-              <label for="restrict_single_next" class="next">Neighbor (next)</label>
-            </li>
-            <li>
-              <input type="checkbox" class="prev" id="restrict_single_prev">
-              <label for="restrict_single_prev" class="prev">Neighbor (prev)</label>
-            </li>
-            <li>
-              <input type="checkbox" class="opposite" id="restrict_single_opposite">
-              <label for="restrict_single_opposite" class="opposite">Opposite</label>
-            </li>
-          </ul>
-        </div>
-
-        <div class="double restrictbox buttonbox">
-          <h4>Last Target Selected Twice</h4>
-          <ul>
-            <li>
-              <input type="checkbox" class="self" id="restrict_double_self">
-              <label for="restrict_double_self" class="self">Self</label>
-            </li>
-            <li>
-              <input type="checkbox" class="next" id="restrict_double_next">
-              <label for="restrict_double_next" class="next">Neighbor (next)</label>
-            </li>
-            <li>
-              <input type="checkbox" class="prev" id="restrict_double_prev">
-              <label for="restrict_double_prev" class="prev">Neighbor (prev)</label>
-            </li>
-            <li>
-              <input type="checkbox" class="opposite" id="restrict_double_opposite">
-              <label for="restrict_double_opposite" class="opposite">Opposite</label>
-            </li>
-          </ul>
+          <table id="restrict_table">
+            <tr>
+              <td class="blank"></td>
+              <th scope="col" class="header prev prev3">-3</th>
+              <th scope="col" class="header prev prev2">-2</th>
+              <th scope="col" class="header prev prev1">-1</th>
+              <th scope="col" class="header self">Self</th>
+              <th scope="col" class="header next next1">+1</th>
+              <th scope="col" class="header next next2">+2</th>
+              <th scope="col" class="header next next3">+3</th>
+              <th scope="col" class="header opposite">Opp</th>
+            </tr>
+            <tr>
+              <th scope="row">Last</th>
+              <td class="single prev prev3"><input type="checkbox" id="restrict_single_prev_3"></td>
+              <td class="single prev prev3"><input type="checkbox" id="restrict_single_prev_2"></td>
+              <td class="single prev prev1"><input type="checkbox" id="restrict_single_prev_1"></td>
+              <td class="single self">      <input type="checkbox" id="restrict_single_self"></td>
+              <td class="single next next1"><input type="checkbox" id="restrict_single_next_1"></td>
+              <td class="single next next1"><input type="checkbox" id="restrict_single_next_2"></td>
+              <td class="single next next3"><input type="checkbox" id="restrict_single_next_3"></td>
+              <td class="single opposite">  <input type="checkbox" id="restrict_single_opposite"></td>
+            </tr>
+            <tr>
+              <th scope="row" class="double">Last 2x</th> 
+              <td class="double prev prev3"><input type="checkbox" id="restrict_double_prev_3"></td>
+              <td class="double prev prev3"><input type="checkbox" id="restrict_double_prev_2"></td>
+              <td class="double prev prev1"><input type="checkbox" id="restrict_double_prev_1"></td>
+              <td class="double self">      <input type="checkbox" id="restrict_double_self"></td>
+              <td class="double next next1"><input type="checkbox" id="restrict_double_next_1"></td>
+              <td class="double next next1"><input type="checkbox" id="restrict_double_next_2"></td>
+              <td class="double next next3"><input type="checkbox" id="restrict_double_next_3"></td>
+              <td class="double opposite">  <input type="checkbox" id="restrict_double_opposite"></td>
+            </tr>
+          </table>
         </div>
       </div>
 
@@ -676,6 +684,10 @@ footer {
 
     PointWidget.widgets = [];
 
+    PointWidget.MIN_POINTS = 3;
+
+    PointWidget.MAX_POINTS = 8;
+
     PointWidget.NEARBY_RADIUS = 8;
 
     PointWidget.REG_POLYGON_MARGIN = 10;
@@ -740,14 +752,16 @@ footer {
     };
 
     PointWidget.add_widget = function() {
-      PointWidget.create();
-      return APP.resumable_reset();
+      if (PointWidget.widgets.lengh < this.MAX_POINTS) {
+        PointWidget.create();
+        return APP.resumable_reset();
+      }
     };
 
     PointWidget.remove_widget = function() {
       var len;
       len = PointWidget.widgets.length;
-      if (len > 0) {
+      if (len > this.MIN_POINTS) {
         return PointWidget.widgets[len - 1].destroy();
       }
     };
@@ -785,7 +799,7 @@ footer {
 
     PointWidget.set_num_widgets = function(n) {
       var results;
-      if (!(n >= 3 && n <= 8)) {
+      if (!(n >= this.MIN_POINTS && n <= this.MAX_POINTS)) {
         return;
       }
       while (PointWidget.widgets.length < n) {
