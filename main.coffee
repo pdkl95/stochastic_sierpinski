@@ -1,5 +1,17 @@
 APP = null
 
+Array::flatten ?= () ->
+  result = []
+  for el in this
+    if el instanceof Array
+      result = result.concat(el.flatten())
+    else
+      result.push(el)
+  result
+
+Object.values ?= (obj) ->
+  Object.keys(obj).map( (x) -> obj[x] )
+
 class Color
   # from: https://www.w3.org/TR/2011/REC-css3-color-20110607/#hsl-color
   @hsl_to_rgb: (h, s, l) ->
@@ -113,15 +125,14 @@ class UIPoint extends Point
 
 class PointWidget extends UIPoint
   @widgets = []
+
   @MIN_POINTS = 3
   @MAX_POINTS = 8
 
   @NEARBY_RADIUS = 8
   @REG_POLYGON_MARGIN = 10
 
-  @restriction:
-    single: null
-    double: null
+  @restrictions: null
 
   @restricted:
     single: []
@@ -129,44 +140,56 @@ class PointWidget extends UIPoint
 
   @prev_target: [null, null]
 
-  @using_double_restrictions: ->
-    r = @restriction.double
-    r.self or r.next or r.prev or r.opposite
-
   @target_chosen_twice: ->
     @prev_target[0] == @prev_target[1]
 
   @current_restricted_choices: ->
-    if @using_double_restrictions() and @target_chosen_twice()
+    if @restrictions.using_double() and @target_chosen_twice()
       @restricted.double
     else
       @restricted.single
 
-  @filtered_choices: (opt) ->
-    last = @widgets.length - 1
-    choices = [0..last]
+  @filtered_choices: (type) ->
+    value_getter = "value_#{type}"
 
-    if opt.opposite and choices.length > 1
-      choices.splice(parseInt(last / 2) + 1, 1)
+    len  = @widgets.length
+    last = len - 1
 
-    if opt.prev and choices.length > 1
-      choices.pop()
+    choices = []
 
-    if opt.next and choices.length > 1
-      choices.splice(1, 1)
+    unless @restrictions.option.self[value_getter]
+      choices.push(0)
+    len -= 1
 
-    if opt.self and choices.length > 1
-      choices.shift()
+    if len % 2 == 1
+      len -= 1
+      unless @restrictions.option.opposite[value_getter]
+        choices.push(parseInt(last / 2) + 1)
+
+    neighbor = 1
+    while len >= 2
+      [p, n] = @restrictions.neighbor(neighbor)
+
+      unless p[value_getter]
+        choices.push(p.offset + @widgets.length)
+
+      unless n[value_getter]
+        choices.push(n.offset)
+
+      len -= 2
+      neighbor += 1
 
     choices
 
   @update_widget_list_metadata: () ->
-    @restricted.single = @filtered_choices(@restriction.single)
-    @restricted.double = @filtered_choices(@restriction.double)
+    return if @widgets.length < 3
+    @restrictions.set_enabled(@widgets.length)
+    @restricted.single = @filtered_choices('single')
+    @restricted.double = @filtered_choices('double')
     @prev_target[0] = @prev_target[1] = @widgets[0]
 
   @add_widget: () ->
-    if PointWidget.widgets.lengh < @MAX_POINTS
+    if PointWidget.widgets.length < @MAX_POINTS
       PointWidget.create()
       APP.resumable_reset()
 
@@ -191,7 +214,8 @@ class PointWidget extends UIPoint
 
   @set_num_widgets: (n) ->
     return unless n >= @MIN_POINTS and n <= @MAX_POINTS
-    PointWidget.add_widget()    while PointWidget.widgets.length < n
+
+    PointWidget.add_widget() while n > PointWidget.widgets.length
     PointWidget.remove_widget() while PointWidget.widgets.length > n
 
   @move_all_reg_polygon: () ->
@@ -407,47 +431,122 @@ class DrawPoint extends UIPoint
     ctx.fillStyle = target.color_alpha
     ctx.fillRect(@x, @y, 1, 1)
 
+class TargetRestrictionOption
+  constructor: (@context, @offset, @name) ->
+    selector = "#restrict_table .#{@name}"
+    @column_cells    = @context.querySelectorAll(selector)
+
+    single_selector = "#{selector}.single input[type=\"checkbox\"]"
+    double_selector = "#{selector}.double input[type=\"checkbox\"]"
+    @checkbox_single = @context.querySelector(single_selector)
+    @checkbox_double = @context.querySelector(double_selector)
+
+    @reset()
+
+    @checkbox_single.addEventListener 'change', @on_change_single
+    @checkbox_double.addEventListener 'change', @on_change_double
+
+  reset: ->
+    @value_single = false
+    @value_double = false
+    @checkbox_single.checked = false
+    @checkbox_double.checked = false
+
+  set_column_cells: (state) ->
+    for cell in @column_cells
+      cell.style.display = state
+
+  enable: ->
+    @enabled = true
+    @set_column_cells('table-cell')
+
+  disable: ->
+    @enabled = false
+    @set_column_cells('none')
+
+  on_change_single: (event) =>
+    @value_single = event.target.checked
+    PointWidget.update_widget_list_metadata()
+    APP.resumable_reset()
+
+  on_change_double: (event) =>
+    @value_double = event.target.checked
+    PointWidget.update_widget_list_metadata()
+    APP.resumable_reset()
+
 class TargetRestriction
-  self: false
-  next: false
-  prev: false
-  opposite: false
+  constructor: (@context) ->
+    @option =
+      prev: [
+        new TargetRestrictionOption(@context, -1, 'prev1'),
+        new TargetRestrictionOption(@context, -2, 'prev2'),
+        new TargetRestrictionOption(@context, -3, 'prev3'),
+      ]
+      self: new TargetRestrictionOption(@context,  0, 'self')
+      next: [
+        new TargetRestrictionOption(@context,  1, 'next1'),
+        new TargetRestrictionOption(@context,  2, 'next2'),
+        new TargetRestrictionOption(@context,  3, 'next3')
+      ]
+      opposite: new TargetRestrictionOption(@context,  4, 'opposite'),
 
-  @restriction_names: ['self', 'next', 'prev', 'opposite']
+    @options = Object.values(@option).flatten()
 
-  constructor: (@context, @type) ->
-    @el = {}
+    @by_name = {}
+    for o in @options
+      @by_name[o.name] = o
 
-    @setup(name) for name in TargetRestriction.restriction_names
+  set_enabled: (n) ->
+    o.disable() for o in @options
 
-  setup: (name) ->
-    elid = "restrict_#{@type}_#{name}"
-    @el[name] = @context.getElementById(elid)
+    @option.self.enable()
+    n -= 1
 
-    unless @el[name]?
-      msg = "missing element '#{elid}'"
-      alert(msg)
-      throw msg
+    if n % 2 == 1
+      @option.opposite.enable()
+      n -= 1
 
-    @el[name].checked = false
+    neighbor = 1
+    while n >= 2
+      [prev, next] = @neighbor(neighbor)
+      prev.enable()
+      next.enable()
 
-    @el[name].addEventListener 'change', (event) =>
-      this[name] = event.target.checked
-      PointWidget.update_widget_list_metadata()
-      APP.resumable_reset()
+      n -= 2
+      neighbor += 1
+
+    null
+
+  using_double: ->
+    for o in @options
+      return true  if o.enabled and o.value_double
+    return false
+
+  restricted_single: ->
+    @options.filter( (o) -> o.value_single )
+
+  restricted_double: ->
+    @options.filter( (o) -> o.value_double )
+
+  neighbor: (n) ->
+    [@by_name["prev#{n}"], @by_name["next#{n}"]]
 
   save: ->
     opt =
-      self:     @self
-      next:     @next
-      prev:     @prev
-      opposite: @opposite
+      single: @restricted_single().map( (x) -> x.name )
+      double: @restricted_double().map( (x) -> x.name )
 
   load: (opt) ->
-    for name in TargetRestriction.restriction_names
-      if opt.hasOwnProperty(name)
-        this[name] = opt[name]
-        @el[name].checked = this[name]
+    o.reset() for o in opt
+
+    if opt.single?
+      for name in opt.single
+        @by_name[name].set_single()
+
+    if opt.double?
+      for name in opt.double
+        @by_name[name].set_double()
+
     PointWidget.update_widget_list_metadata()
     APP.resumable_reset()
 
@@ -494,8 +593,7 @@ class StochasticSierpinski
     @serializebox_cancel = @context.getElementById('serializebox_cancel')
 
 
-    PointWidget.restriction.single = new TargetRestriction(@context, 'single')
-    PointWidget.restriction.double = new TargetRestriction(@context, 'double')
+    PointWidget.restrictions = new TargetRestriction(@context)
 
     @cur  = new DrawPoint('Cur')
 
@@ -621,9 +719,7 @@ class StochasticSierpinski
         width:  @graph_ui_canvas.width
         height: @graph_ui_canvas.height
       points: PointWidget.widgets.map( (x) -> x.save() )
-      restrictions:
-        single: PointWidget.restriction.single.save()
-        double: PointWidget.restriction.double.save()
+      restrictions: PointWidget.restrictions.save()
 
     JSON.stringify(opt)
 
@@ -643,10 +739,7 @@ class StochasticSierpinski
         PointWidget.widgets[i].load(p)
 
     if opt.restrictions?
-      if opt.restrictions.single?
-        PointWidget.restriction.single.load(opt.restrictions.single)
-      if opt.restrictions.double?
-        PointWidget.restriction.double.load(opt.restrictions.double)
+      PointWidget.restrictions.load(opt.restrictions)
     
   on_save: =>
     @show_serializebox('Save', @serialize(), null)

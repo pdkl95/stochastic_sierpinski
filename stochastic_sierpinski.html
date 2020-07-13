@@ -464,22 +464,22 @@ td.blank {
             <tr>
               <th scope="row">Last</th>
               <td class="single prev prev3"><input type="checkbox" id="restrict_single_prev_3"></td>
-              <td class="single prev prev3"><input type="checkbox" id="restrict_single_prev_2"></td>
+              <td class="single prev prev2"><input type="checkbox" id="restrict_single_prev_2"></td>
               <td class="single prev prev1"><input type="checkbox" id="restrict_single_prev_1"></td>
               <td class="single self">      <input type="checkbox" id="restrict_single_self"></td>
               <td class="single next next1"><input type="checkbox" id="restrict_single_next_1"></td>
-              <td class="single next next1"><input type="checkbox" id="restrict_single_next_2"></td>
+              <td class="single next next2"><input type="checkbox" id="restrict_single_next_2"></td>
               <td class="single next next3"><input type="checkbox" id="restrict_single_next_3"></td>
               <td class="single opposite">  <input type="checkbox" id="restrict_single_opposite"></td>
             </tr>
             <tr>
               <th scope="row" class="double">Last 2x</th> 
               <td class="double prev prev3"><input type="checkbox" id="restrict_double_prev_3"></td>
-              <td class="double prev prev3"><input type="checkbox" id="restrict_double_prev_2"></td>
+              <td class="double prev prev2"><input type="checkbox" id="restrict_double_prev_2"></td>
               <td class="double prev prev1"><input type="checkbox" id="restrict_double_prev_1"></td>
               <td class="double self">      <input type="checkbox" id="restrict_double_self"></td>
               <td class="double next next1"><input type="checkbox" id="restrict_double_next_1"></td>
-              <td class="double next next1"><input type="checkbox" id="restrict_double_next_2"></td>
+              <td class="double next next2"><input type="checkbox" id="restrict_double_next_2"></td>
               <td class="double next next3"><input type="checkbox" id="restrict_double_next_3"></td>
               <td class="double opposite">  <input type="checkbox" id="restrict_double_opposite"></td>
             </tr>
@@ -503,13 +503,38 @@ td.blank {
 
     <script type="text/javascript">
 (function() {
-  var APP, Color, DrawPoint, Point, PointWidget, StochasticSierpinski, TargetRestriction, UIPoint,
+  var APP, Color, DrawPoint, Point, PointWidget, StochasticSierpinski, TargetRestriction, TargetRestrictionOption, UIPoint, base,
     slice = [].slice,
     extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
     hasProp = {}.hasOwnProperty,
     bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
   APP = null;
+
+  if ((base = Array.prototype).flatten == null) {
+    base.flatten = function() {
+      var el, j, len1, ref, result;
+      result = [];
+      ref = this;
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        el = ref[j];
+        if (el instanceof Array) {
+          result = result.concat(el.flatten());
+        } else {
+          result.push(el);
+        }
+      }
+      return result;
+    };
+  }
+
+  if (Object.values == null) {
+    Object.values = function(obj) {
+      return Object.keys(obj).map(function(x) {
+        return obj[x];
+      });
+    };
+  }
 
   Color = (function() {
     function Color() {}
@@ -692,10 +717,7 @@ td.blank {
 
     PointWidget.REG_POLYGON_MARGIN = 10;
 
-    PointWidget.restriction = {
-      single: null,
-      double: null
-    };
+    PointWidget.restrictions = null;
 
     PointWidget.restricted = {
       single: [],
@@ -704,55 +726,62 @@ td.blank {
 
     PointWidget.prev_target = [null, null];
 
-    PointWidget.using_double_restrictions = function() {
-      var r;
-      r = this.restriction.double;
-      return r.self || r.next || r.prev || r.opposite;
-    };
-
     PointWidget.target_chosen_twice = function() {
       return this.prev_target[0] === this.prev_target[1];
     };
 
     PointWidget.current_restricted_choices = function() {
-      if (this.using_double_restrictions() && this.target_chosen_twice()) {
+      if (this.restrictions.using_double() && this.target_chosen_twice()) {
         return this.restricted.double;
       } else {
         return this.restricted.single;
       }
     };
 
-    PointWidget.filtered_choices = function(opt) {
-      var choices, j, last, results;
-      last = this.widgets.length - 1;
-      choices = (function() {
-        results = [];
-        for (var j = 0; 0 <= last ? j <= last : j >= last; 0 <= last ? j++ : j--){ results.push(j); }
-        return results;
-      }).apply(this);
-      if (opt.opposite && choices.length > 1) {
-        choices.splice(parseInt(last / 2) + 1, 1);
+    PointWidget.filtered_choices = function(type) {
+      var choices, last, len, n, neighbor, p, ref, value_getter;
+      value_getter = "value_" + type;
+      len = this.widgets.length;
+      last = len - 1;
+      choices = [];
+      if (!this.restrictions.option.self[value_getter]) {
+        choices.push(0);
       }
-      if (opt.prev && choices.length > 1) {
-        choices.pop();
+      len -= 1;
+      if (len % 2 === 1) {
+        len -= 1;
+        if (!this.restrictions.option.opposite[value_getter]) {
+          choices.push(parseInt(last / 2) + 1);
+        }
       }
-      if (opt.next && choices.length > 1) {
-        choices.splice(1, 1);
-      }
-      if (opt.self && choices.length > 1) {
-        choices.shift();
+      neighbor = 1;
+      while (len >= 2) {
+        ref = this.restrictions.neighbor(neighbor), p = ref[0], n = ref[1];
+        if (!p[value_getter]) {
+          choices.push(p.offset + this.widgets.length);
+        }
+        if (!n[value_getter]) {
+          choices.push(n.offset);
+        }
+        len -= 2;
+        neighbor += 1;
       }
       return choices;
     };
 
     PointWidget.update_widget_list_metadata = function() {
-      this.restricted.single = this.filtered_choices(this.restriction.single);
-      this.restricted.double = this.filtered_choices(this.restriction.double);
-      return this.prev_target[0] = this.prev_target[1] = this.widgets[0];
+      if (this.widgets.length < 3) {
+        return;
+      }
+      this.restrictions.set_enabled(this.widgets.length);
+      this.restricted.single = this.filtered_choices('single');
+      this.restricted.double = this.filtered_choices('double');
+      this.prev_target[0] = this.prev_target[1] = this.widgets[0];
+      return console.log('using_double', this.restrictions.using_double());
     };
 
     PointWidget.add_widget = function() {
-      if (PointWidget.widgets.lengh < this.MAX_POINTS) {
+      if (PointWidget.widgets.length < this.MAX_POINTS) {
         PointWidget.create();
         return APP.resumable_reset();
       }
@@ -802,7 +831,7 @@ td.blank {
       if (!(n >= this.MIN_POINTS && n <= this.MAX_POINTS)) {
         return;
       }
-      while (PointWidget.widgets.length < n) {
+      while (n > PointWidget.widgets.length) {
         PointWidget.add_widget();
       }
       results = [];
@@ -1110,66 +1139,172 @@ td.blank {
 
   })(UIPoint);
 
-  TargetRestriction = (function() {
-    TargetRestriction.prototype.self = false;
-
-    TargetRestriction.prototype.next = false;
-
-    TargetRestriction.prototype.prev = false;
-
-    TargetRestriction.prototype.opposite = false;
-
-    TargetRestriction.restriction_names = ['self', 'next', 'prev', 'opposite'];
-
-    function TargetRestriction(context, type) {
-      var j, len1, name, ref;
+  TargetRestrictionOption = (function() {
+    function TargetRestrictionOption(context, offset, name1) {
+      var double_selector, selector, single_selector;
       this.context = context;
-      this.type = type;
-      this.el = {};
-      ref = TargetRestriction.restriction_names;
+      this.offset = offset;
+      this.name = name1;
+      this.on_change_double = bind(this.on_change_double, this);
+      this.on_change_single = bind(this.on_change_single, this);
+      selector = "#restrict_table ." + this.name;
+      this.column_cells = this.context.querySelectorAll(selector);
+      single_selector = selector + ".single input[type=\"checkbox\"]";
+      double_selector = selector + ".double input[type=\"checkbox\"]";
+      this.checkbox_single = this.context.querySelector(single_selector);
+      this.checkbox_double = this.context.querySelector(double_selector);
+      this.reset();
+      this.checkbox_single.addEventListener('change', this.on_change_single);
+      this.checkbox_double.addEventListener('change', this.on_change_double);
+    }
+
+    TargetRestrictionOption.prototype.reset = function() {
+      this.value_single = false;
+      this.value_double = false;
+      this.checkbox_single.checked = false;
+      return this.checkbox_double.checked = false;
+    };
+
+    TargetRestrictionOption.prototype.set_column_cells = function(state) {
+      var cell, j, len1, ref, results;
+      ref = this.column_cells;
+      results = [];
       for (j = 0, len1 = ref.length; j < len1; j++) {
-        name = ref[j];
-        this.setup(name);
+        cell = ref[j];
+        results.push(cell.style.display = state);
+      }
+      return results;
+    };
+
+    TargetRestrictionOption.prototype.enable = function() {
+      this.enabled = true;
+      return this.set_column_cells('table-cell');
+    };
+
+    TargetRestrictionOption.prototype.disable = function() {
+      this.enabled = false;
+      return this.set_column_cells('none');
+    };
+
+    TargetRestrictionOption.prototype.on_change_single = function(event) {
+      console.log('single', event.target.id, event.target.checked);
+      this.value_single = event.target.checked;
+      PointWidget.update_widget_list_metadata();
+      return APP.resumable_reset();
+    };
+
+    TargetRestrictionOption.prototype.on_change_double = function(event) {
+      console.log('double', event.target.id, event.target.checked);
+      this.value_double = event.target.checked;
+      PointWidget.update_widget_list_metadata();
+      return APP.resumable_reset();
+    };
+
+    return TargetRestrictionOption;
+
+  })();
+
+  TargetRestriction = (function() {
+    function TargetRestriction(context) {
+      var j, len1, o, ref;
+      this.context = context;
+      this.option = {
+        prev: [new TargetRestrictionOption(this.context, -1, 'prev1'), new TargetRestrictionOption(this.context, -2, 'prev2'), new TargetRestrictionOption(this.context, -3, 'prev3')],
+        self: new TargetRestrictionOption(this.context, 0, 'self'),
+        next: [new TargetRestrictionOption(this.context, 1, 'next1'), new TargetRestrictionOption(this.context, 2, 'next2'), new TargetRestrictionOption(this.context, 3, 'next3')],
+        opposite: new TargetRestrictionOption(this.context, 4, 'opposite')
+      };
+      this.options = Object.values(this.option).flatten();
+      this.by_name = {};
+      ref = this.options;
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        o = ref[j];
+        this.by_name[o.name] = o;
       }
     }
 
-    TargetRestriction.prototype.setup = function(name) {
-      var elid, msg;
-      elid = "restrict_" + this.type + "_" + name;
-      this.el[name] = this.context.getElementById(elid);
-      if (this.el[name] == null) {
-        msg = "missing element '" + elid + "'";
-        alert(msg);
-        throw msg;
+    TargetRestriction.prototype.set_enabled = function(n) {
+      var j, len1, neighbor, next, o, prev, ref, ref1;
+      ref = this.options;
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        o = ref[j];
+        o.disable();
       }
-      this.el[name].checked = false;
-      return this.el[name].addEventListener('change', (function(_this) {
-        return function(event) {
-          _this[name] = event.target.checked;
-          PointWidget.update_widget_list_metadata();
-          return APP.resumable_reset();
-        };
-      })(this));
+      this.option.self.enable();
+      n -= 1;
+      if (n % 2 === 1) {
+        this.option.opposite.enable();
+        n -= 1;
+      }
+      neighbor = 1;
+      while (n >= 2) {
+        ref1 = this.neighbor(neighbor), prev = ref1[0], next = ref1[1];
+        prev.enable();
+        next.enable();
+        n -= 2;
+        neighbor += 1;
+      }
+      return null;
+    };
+
+    TargetRestriction.prototype.using_double = function() {
+      var j, len1, o, ref;
+      ref = this.options;
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        o = ref[j];
+        if (o.enabled && o.value_double) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    TargetRestriction.prototype.restricted_single = function() {
+      return this.options.filter(function(o) {
+        return o.value_single;
+      });
+    };
+
+    TargetRestriction.prototype.restricted_double = function() {
+      return this.options.filter(function(o) {
+        return o.value_double;
+      });
+    };
+
+    TargetRestriction.prototype.neighbor = function(n) {
+      return [this.by_name["prev" + n], this.by_name["next" + n]];
     };
 
     TargetRestriction.prototype.save = function() {
       var opt;
       return opt = {
-        self: this.self,
-        next: this.next,
-        prev: this.prev,
-        opposite: this.opposite
+        single: this.restricted_single().map(function(x) {
+          return x.name;
+        }),
+        double: this.restricted_double().map(function(x) {
+          return x.name;
+        })
       };
     };
 
     TargetRestriction.prototype.load = function(opt) {
-      var j, len1, name, ref;
-      ref = TargetRestriction.restriction_names;
-      for (j = 0, len1 = ref.length; j < len1; j++) {
-        name = ref[j];
-        if (opt.hasOwnProperty(name)) {
-          this[name] = opt[name];
-          this.el[name].checked = this[name];
+      var j, k, len1, len2, len3, m, name, o, ref, ref1;
+      for (j = 0, len1 = opt.length; j < len1; j++) {
+        o = opt[j];
+        o.reset();
+      }
+      if (opt.single != null) {
+        ref = opt.single;
+        for (k = 0, len2 = ref.length; k < len2; k++) {
+          name = ref[k];
+          this.by_name[name].set_single();
+        }
+      }
+      if (opt.double != null) {
+        ref1 = opt.double;
+        for (m = 0, len3 = ref1.length; m < len3; m++) {
+          name = ref1[m];
+          this.by_name[name].set_double();
         }
       }
       PointWidget.update_widget_list_metadata();
@@ -1244,8 +1379,7 @@ td.blank {
       this.serializebox_text = this.context.getElementById('serializebox_text');
       this.serializebox_action = this.context.getElementById('serializebox_action');
       this.serializebox_cancel = this.context.getElementById('serializebox_cancel');
-      PointWidget.restriction.single = new TargetRestriction(this.context, 'single');
-      PointWidget.restriction.double = new TargetRestriction(this.context, 'double');
+      PointWidget.restrictions = new TargetRestriction(this.context);
       this.cur = new DrawPoint('Cur');
       PointWidget.set_ngon(3);
       this.num_points_el = this.context.getElementById('num_points');
@@ -1384,10 +1518,7 @@ td.blank {
         points: PointWidget.widgets.map(function(x) {
           return x.save();
         }),
-        restrictions: {
-          single: PointWidget.restriction.single.save(),
-          double: PointWidget.restriction.double.save()
-        }
+        restrictions: PointWidget.restrictions.save()
       };
       return JSON.stringify(opt);
     };
@@ -1411,12 +1542,7 @@ td.blank {
         }
       }
       if (opt.restrictions != null) {
-        if (opt.restrictions.single != null) {
-          PointWidget.restriction.single.load(opt.restrictions.single);
-        }
-        if (opt.restrictions.double != null) {
-          return PointWidget.restriction.double.load(opt.restrictions.double);
-        }
+        return PointWidget.restrictions.load(opt.restrictions);
       }
     };
 
