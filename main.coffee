@@ -608,6 +608,7 @@ class StochasticSierpinski
     @btn_reset.addEventListener 'click', @on_reset
     @btn_step.addEventListener  'click', @on_step
     @btn_run.addEventListener   'click', @on_run
+    @context.addEventListener('keydown', @on_run)
 
     @btn_create_png.addEventListener 'click', @on_create_png
     @btn_save.addEventListener 'click', @on_save
@@ -844,11 +845,15 @@ class StochasticSierpinski
   start: =>
     @running = true
     @btn_run.textContent = 'Pause'
+    @btn_run.classList.remove('paused')
+    @btn_run.classList.add('running')
     @schedule_next_frame()
 
   stop: =>
     @running = false
     @btn_run.textContent = 'Run'
+    @btn_run.classList.remove('running')
+    @btn_run.classList.add('paused')
 
   single_step: ->
     target = PointWidget.random_widget()

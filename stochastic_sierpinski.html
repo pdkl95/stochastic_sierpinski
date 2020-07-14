@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Integer Sequences</title>
+    <title>Stochastic Sierpinski</title>
     <style type="text/css" media="screen">
 * {
   -webkit-box-sizing: border-box;
@@ -187,6 +187,7 @@ body {
 
 h1 {
   margin-top: 1.5rem;
+  padding-top: 7px;
   padding-bottom: 7px;
 }
 
@@ -320,7 +321,7 @@ td.blank {
 }
 
 #button_run {
-  min-width: 4em;
+  min-width: 4.5em;
 }
 
 #num_points {
@@ -776,8 +777,7 @@ td.blank {
       this.restrictions.set_enabled(this.widgets.length);
       this.restricted.single = this.filtered_choices('single');
       this.restricted.double = this.filtered_choices('double');
-      this.prev_target[0] = this.prev_target[1] = this.widgets[0];
-      return console.log('using_double', this.restrictions.using_double());
+      return this.prev_target[0] = this.prev_target[1] = this.widgets[0];
     };
 
     PointWidget.add_widget = function() {
@@ -1187,14 +1187,12 @@ td.blank {
     };
 
     TargetRestrictionOption.prototype.on_change_single = function(event) {
-      console.log('single', event.target.id, event.target.checked);
       this.value_single = event.target.checked;
       PointWidget.update_widget_list_metadata();
       return APP.resumable_reset();
     };
 
     TargetRestrictionOption.prototype.on_change_double = function(event) {
-      console.log('double', event.target.id, event.target.checked);
       this.value_double = event.target.checked;
       PointWidget.update_widget_list_metadata();
       return APP.resumable_reset();
@@ -1389,6 +1387,7 @@ td.blank {
       this.btn_reset.addEventListener('click', this.on_reset);
       this.btn_step.addEventListener('click', this.on_step);
       this.btn_run.addEventListener('click', this.on_run);
+      this.context.addEventListener('keydown', this.on_run);
       this.btn_create_png.addEventListener('click', this.on_create_png);
       this.btn_save.addEventListener('click', this.on_save);
       this.btn_load.addEventListener('click', this.on_load);
@@ -1677,12 +1676,16 @@ td.blank {
     StochasticSierpinski.prototype.start = function() {
       this.running = true;
       this.btn_run.textContent = 'Pause';
+      this.btn_run.classList.remove('paused');
+      this.btn_run.classList.add('running');
       return this.schedule_next_frame();
     };
 
     StochasticSierpinski.prototype.stop = function() {
       this.running = false;
-      return this.btn_run.textContent = 'Run';
+      this.btn_run.textContent = 'Run';
+      this.btn_run.classList.remove('running');
+      return this.btn_run.classList.add('paused');
     };
 
     StochasticSierpinski.prototype.single_step = function() {

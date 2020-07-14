@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Integer Sequences</title>
+    <title>Stochastic Sierpinski</title>
     <style type="text/css" media="screen">
 undivert(`basic.css')
     </style>
