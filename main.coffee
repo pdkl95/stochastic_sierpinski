@@ -9,6 +9,8 @@ Array::flatten ?= () ->
       result.push(el)
   result
 
+Math.TAU ?= 2 * Math.PI
+
 Object.values ?= (obj) ->
   Object.keys(obj).map( (x) -> obj[x] )
 
@@ -287,8 +289,10 @@ class PointWidget extends UIPoint
     w
 
   @unhighlight_all: () ->
+    changed = false
     for w in @widgets
-      w.unhighlight()
+      changed = true if w.unhighlight()
+    return changed
 
   @is_name_used: (name) ->
     for w in PointWidget.widgets
@@ -320,6 +324,8 @@ class PointWidget extends UIPoint
     PointWidget.update_widget_list_metadata()
 
   build: ->
+    @draw_highlight = false
+
     @row = APP.point_pos_table.insertRow(-1)
 
     @namecell = @row.insertCell(0)
@@ -375,9 +381,30 @@ class PointWidget extends UIPoint
 
   highlight: () ->
     @row.classList.add('highlight')
+    oldval = @draw_highlight
+    @draw_highlight = true
+    return (oldval != @draw_highlight)
 
   unhighlight: () ->
     @row.classList.remove('highlight')
+    oldval = @draw_highlight
+    @draw_highlight = false
+    return (oldval != @draw_highlight)
+
+  draw_ui: () ->
+    if @draw_highlight
+      ctx = APP.graph_ui_ctx
+      ctx.save()
+      ctx.strokeStyle = '#F97570'
+      ctx.fillStyle   = '#FEFFC6'
+      ctx.setLineDash([4])
+      ctx.beginPath()
+      ctx.arc(@x, @y, 15, 0, Math.TAU, false)
+      ctx.fill()
+      ctx.stroke()
+      ctx.restore()
+
+    super
 
   save: () ->
     opt =
@@ -649,7 +676,7 @@ class StochasticSierpinski
   clear_update_and_draw: ->
     @update_info_elements()
     @clear_graph_canvas()
-    @draw()
+    @redraw_ui()
 
   on_mouseenter: =>
     @graph_wrapper.classList.add('resizable')
@@ -790,7 +817,7 @@ class StochasticSierpinski
       loc = @event_to_canvas_loc(event)
       if @is_inside_ui(loc)
         @dnd_target.move(loc.x, loc.y)
-        @draw()
+        @redraw_ui()
         @resumable_reset()
 
       @dnd_target = null
@@ -800,13 +827,16 @@ class StochasticSierpinski
     if @dnd_target?
       if @is_inside_ui(loc)
         @dnd_target.move(loc.x, loc.y)
-        @draw()
+        @redraw_ui()
         @resumable_reset()
     else
-      PointWidget.unhighlight_all()
+      redraw = PointWidget.unhighlight_all()
+
       w = PointWidget.first_nearby_widget(loc)
       if w?
-        w.highlight()
+        redraw = true if w.highlight()
+
+      @redraw_ui() if redraw
 
   resumable_reset: () =>
     @on_reset(true)
@@ -866,9 +896,9 @@ class StochasticSierpinski
     @single_step() for [0...@steps_per_frame]
 
     @update_info_elements()
-    @draw()
+    @redraw_ui()
 
-  draw: =>
+  redraw_ui: =>
     @graph_ui_ctx.clearRect(0, 0, @graph_ui_canvas.width, @graph_ui_canvas.height)
 
     @cur.draw_ui()
@@ -877,11 +907,14 @@ class StochasticSierpinski
       p.draw_ui()
 
   update: =>
+    @frame_is_scheduled = false
     @step()
     @schedule_next_frame() if @running
 
   schedule_next_frame: () ->
-    window.requestAnimationFrame(@update)
+    unless @frame_is_scheduled
+      @frame_is_scheduled = true
+      window.requestAnimationFrame(@update)
 
 document.addEventListener 'DOMContentLoaded', =>
   APP = new StochasticSierpinski(document)

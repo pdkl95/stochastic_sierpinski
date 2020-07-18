@@ -346,6 +346,10 @@ td.blank {
   background-color: #F9FBB6;
 }
 
+.highlight > td:first-child {
+  font-weight: bold;
+}
+
 #serializebox {
   display: none;
   position: fixed;
@@ -527,6 +531,10 @@ td.blank {
       }
       return result;
     };
+  }
+
+  if (Math.TAU == null) {
+    Math.TAU = 2 * Math.PI;
   }
 
   if (Object.values == null) {
@@ -939,14 +947,16 @@ td.blank {
     };
 
     PointWidget.unhighlight_all = function() {
-      var j, len1, ref, results, w;
+      var changed, j, len1, ref, w;
+      changed = false;
       ref = this.widgets;
-      results = [];
       for (j = 0, len1 = ref.length; j < len1; j++) {
         w = ref[j];
-        results.push(w.unhighlight());
+        if (w.unhighlight()) {
+          changed = true;
+        }
       }
-      return results;
+      return changed;
     };
 
     PointWidget.is_name_used = function(name) {
@@ -1009,6 +1019,7 @@ td.blank {
 
     PointWidget.prototype.build = function() {
       var color_selector, move_perc_adj_cell;
+      this.draw_highlight = false;
       this.row = APP.point_pos_table.insertRow(-1);
       this.namecell = this.row.insertCell(0);
       this.set_name(this.name);
@@ -1065,11 +1076,36 @@ td.blank {
     };
 
     PointWidget.prototype.highlight = function() {
-      return this.row.classList.add('highlight');
+      var oldval;
+      this.row.classList.add('highlight');
+      oldval = this.draw_highlight;
+      this.draw_highlight = true;
+      return oldval !== this.draw_highlight;
     };
 
     PointWidget.prototype.unhighlight = function() {
-      return this.row.classList.remove('highlight');
+      var oldval;
+      this.row.classList.remove('highlight');
+      oldval = this.draw_highlight;
+      this.draw_highlight = false;
+      return oldval !== this.draw_highlight;
+    };
+
+    PointWidget.prototype.draw_ui = function() {
+      var ctx;
+      if (this.draw_highlight) {
+        ctx = APP.graph_ui_ctx;
+        ctx.save();
+        ctx.strokeStyle = '#F97570';
+        ctx.fillStyle = '#FEFFC6';
+        ctx.setLineDash([4]);
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 15, 0, Math.TAU, false);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+      return PointWidget.__super__.draw_ui.apply(this, arguments);
     };
 
     PointWidget.prototype.save = function() {
@@ -1317,7 +1353,7 @@ td.blank {
     function StochasticSierpinski(context) {
       this.context = context;
       this.update = bind(this.update, this);
-      this.draw = bind(this.draw, this);
+      this.redraw_ui = bind(this.redraw_ui, this);
       this.step = bind(this.step, this);
       this.stop = bind(this.stop, this);
       this.start = bind(this.start, this);
@@ -1428,7 +1464,7 @@ td.blank {
     StochasticSierpinski.prototype.clear_update_and_draw = function() {
       this.update_info_elements();
       this.clear_graph_canvas();
-      return this.draw();
+      return this.redraw_ui();
     };
 
     StochasticSierpinski.prototype.on_mouseenter = function() {
@@ -1607,7 +1643,7 @@ td.blank {
         loc = this.event_to_canvas_loc(event);
         if (this.is_inside_ui(loc)) {
           this.dnd_target.move(loc.x, loc.y);
-          this.draw();
+          this.redraw_ui();
           this.resumable_reset();
         }
         return this.dnd_target = null;
@@ -1615,19 +1651,24 @@ td.blank {
     };
 
     StochasticSierpinski.prototype.on_mousemove = function(event) {
-      var loc, w;
+      var loc, redraw, w;
       loc = this.event_to_canvas_loc(event);
       if (this.dnd_target != null) {
         if (this.is_inside_ui(loc)) {
           this.dnd_target.move(loc.x, loc.y);
-          this.draw();
+          this.redraw_ui();
           return this.resumable_reset();
         }
       } else {
-        PointWidget.unhighlight_all();
+        redraw = PointWidget.unhighlight_all();
         w = PointWidget.first_nearby_widget(loc);
         if (w != null) {
-          return w.highlight();
+          if (w.highlight()) {
+            redraw = true;
+          }
+        }
+        if (redraw) {
+          return this.redraw_ui();
         }
       }
     };
@@ -1704,10 +1745,10 @@ td.blank {
         this.single_step();
       }
       this.update_info_elements();
-      return this.draw();
+      return this.redraw_ui();
     };
 
-    StochasticSierpinski.prototype.draw = function() {
+    StochasticSierpinski.prototype.redraw_ui = function() {
       var j, len1, p, ref, results;
       this.graph_ui_ctx.clearRect(0, 0, this.graph_ui_canvas.width, this.graph_ui_canvas.height);
       this.cur.draw_ui();
@@ -1721,6 +1762,7 @@ td.blank {
     };
 
     StochasticSierpinski.prototype.update = function() {
+      this.frame_is_scheduled = false;
       this.step();
       if (this.running) {
         return this.schedule_next_frame();
@@ -1728,7 +1770,10 @@ td.blank {
     };
 
     StochasticSierpinski.prototype.schedule_next_frame = function() {
-      return window.requestAnimationFrame(this.update);
+      if (!this.frame_is_scheduled) {
+        this.frame_is_scheduled = true;
+        return window.requestAnimationFrame(this.update);
+      }
     };
 
     return StochasticSierpinski;

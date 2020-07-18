@@ -163,6 +163,10 @@ td.blank {
   background-color: #F9FBB6;
 }
 
+.highlight > td:first-child {
+  font-weight: bold;
+}
+
 #serializebox {
   display: none;
   position: fixed;
