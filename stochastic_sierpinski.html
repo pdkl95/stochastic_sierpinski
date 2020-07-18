@@ -328,8 +328,9 @@ td.blank {
   width: 3em;
 }
 
-#steps_per_frame {
-  width: 4em;
+#steps_per_frame,
+#draw_opacity {
+  width: 3.5em;
 }
 
 #point_pos_table input[type="range"] {
@@ -499,6 +500,11 @@ td.blank {
               <th>Draw point colors?</th>
               <td><input id="draw_point_colors" type="checkbox"></td>
             </tr>
+            <tr>
+              <th>Draw Opacity</th>
+              <td><input id="draw_opacity" type="number"
+                         min="0" max="100" step="5"></td>
+            </tr>
           </table>
         </div>
       </div>
@@ -518,7 +524,7 @@ td.blank {
 
     <script type="text/javascript">
 (function() {
-  var APP, Color, DrawPoint, Point, PointWidget, StochasticSierpinski, TargetRestriction, TargetRestrictionOption, UIPoint, base,
+  var APP, BoolOtherOption, Color, DrawPoint, NumberOtherOption, OtherOption, Point, PointWidget, StochasticSierpinski, TargetRestriction, TargetRestrictionOption, UIPoint, base,
     slice = [].slice,
     extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
     hasProp = {}.hasOwnProperty,
@@ -700,7 +706,7 @@ td.blank {
     }
 
     UIPoint.prototype.update_color_alpha_from_color = function() {
-      return this.color_alpha = Color.hexrgb_and_alpha_to_rgba_str(this.color, DrawPoint.ALPHA);
+      return this.set_opacity(APP.option.draw_opacity.value);
     };
 
     UIPoint.prototype.set_color_hue = function(hue) {
@@ -710,6 +716,14 @@ td.blank {
     UIPoint.prototype.set_color = function(color) {
       this.color = color;
       return this.update_color_alpha_from_color();
+    };
+
+    UIPoint.prototype.set_alpha = function(alpha) {
+      return this.color_alpha = Color.hexrgb_and_alpha_to_rgba_str(this.color, alpha);
+    };
+
+    UIPoint.prototype.set_opacity = function(opacity) {
+      return this.set_alpha(opacity / 100);
     };
 
     UIPoint.prototype.draw_ui = function() {
@@ -1165,8 +1179,6 @@ td.blank {
   DrawPoint = (function(superClass) {
     extend(DrawPoint, superClass);
 
-    DrawPoint.ALPHA = '0.333';
-
     function DrawPoint(name) {
       DrawPoint.__super__.constructor.call(this, '0', name);
       this.info_x = APP.context.getElementById(this.info_x_id);
@@ -1177,7 +1189,7 @@ td.blank {
     DrawPoint.prototype.draw_graph = function(target) {
       var ctx;
       ctx = APP.graph_ctx;
-      if (APP.draw_point_colors) {
+      if (APP.option.draw_point_colors.value) {
         ctx.fillStyle = target.color_alpha;
       } else {
         ctx.fillStyle = this.color_alpha;
@@ -1363,6 +1375,76 @@ td.blank {
 
   })();
 
+  OtherOption = (function() {
+    function OtherOption(context, id, _default, on_change_callback) {
+      this.context = context;
+      this.id = id;
+      this["default"] = _default;
+      this.on_change_callback = on_change_callback != null ? on_change_callback : null;
+      this.on_change = bind(this.on_change, this);
+      this.el = this.context.getElementById(this.id);
+      this.set(this["default"]);
+      this.el.addEventListener('change', this.on_change);
+    }
+
+    OtherOption.prototype.on_change = function(event) {
+      this.set(this.get(event.target));
+      if (this.on_change_callback != null) {
+        this.on_change_callback(this.value);
+      }
+      return console.log(this.id, this.value);
+    };
+
+    return OtherOption;
+
+  })();
+
+  BoolOtherOption = (function(superClass) {
+    extend(BoolOtherOption, superClass);
+
+    function BoolOtherOption() {
+      return BoolOtherOption.__super__.constructor.apply(this, arguments);
+    }
+
+    BoolOtherOption.prototype.get = function(element) {
+      if (element == null) {
+        element = this.el;
+      }
+      return element.checked;
+    };
+
+    BoolOtherOption.prototype.set = function(bool_value) {
+      this.value = !!bool_value;
+      return this.el.checked = this.value;
+    };
+
+    return BoolOtherOption;
+
+  })(OtherOption);
+
+  NumberOtherOption = (function(superClass) {
+    extend(NumberOtherOption, superClass);
+
+    function NumberOtherOption() {
+      return NumberOtherOption.__super__.constructor.apply(this, arguments);
+    }
+
+    NumberOtherOption.prototype.get = function(element) {
+      if (element == null) {
+        element = this.el;
+      }
+      return element.value;
+    };
+
+    NumberOtherOption.prototype.set = function(number_value) {
+      this.value = parseInt(number_value);
+      return this.el.value = this.value;
+    };
+
+    return NumberOtherOption;
+
+  })(OtherOption);
+
   StochasticSierpinski = (function() {
     function StochasticSierpinski(context) {
       this.context = context;
@@ -1381,7 +1463,6 @@ td.blank {
       this.max_xy = bind(this.max_xy, this);
       this.random_y = bind(this.random_y, this);
       this.random_x = bind(this.random_x, this);
-      this.on_draw_point_colors = bind(this.on_draw_point_colors, this);
       this.on_move_all_random = bind(this.on_move_all_random, this);
       this.on_move_all_reg_polygon = bind(this.on_move_all_reg_polygon, this);
       this.on_load = bind(this.on_load, this);
@@ -1395,6 +1476,7 @@ td.blank {
       this.on_graph_wrapper_mutate = bind(this.on_graph_wrapper_mutate, this);
       this.on_mouseleave = bind(this.on_mouseleave, this);
       this.on_mouseenter = bind(this.on_mouseenter, this);
+      this.on_opacity_change = bind(this.on_opacity_change, this);
     }
 
     StochasticSierpinski.prototype.init = function() {
@@ -1423,8 +1505,10 @@ td.blank {
       this.point_pos_table = this.context.getElementById('point_pos_table');
       this.btn_move_all_reg_polygon = this.context.getElementById('move_all_reg_polygon');
       this.btn_move_all_random = this.context.getElementById('move_all_random');
-      this.draw_point_colors_cb = this.context.getElementById('draw_point_colors');
-      this.set_draw_point_colors(true);
+      this.option = {
+        draw_point_colors: new BoolOtherOption(this.context, 'draw_point_colors', true),
+        draw_opacity: new NumberOtherOption(this.context, 'draw_opacity', 35, this.on_opacity_change)
+      };
       this.serializebox = this.context.getElementById('serializebox');
       this.serializebox_title = this.context.getElementById('serializebox_title');
       this.serializebox_text = this.context.getElementById('serializebox_text');
@@ -1446,7 +1530,6 @@ td.blank {
       this.btn_load.addEventListener('click', this.on_load);
       this.btn_move_all_reg_polygon.addEventListener('click', this.on_move_all_reg_polygon);
       this.btn_move_all_random.addEventListener('click', this.on_move_all_random);
-      this.draw_point_colors_cb.addEventListener('change', this.on_draw_point_colors);
       this.serializebox_action.addEventListener('click', this.on_serializebox_action);
       this.serializebox_cancel.addEventListener('click', this.on_serializebox_cancel);
       this.graph_ui_canvas.addEventListener('mousedown', this.on_mousedown);
@@ -1477,6 +1560,19 @@ td.blank {
         }
       }
       return this.clear_update_and_draw();
+    };
+
+    StochasticSierpinski.prototype.on_opacity_change = function() {
+      var j, len1, o, ref, results, w;
+      o = this.option.draw_opacity.value;
+      this.cur.set_opacity(o);
+      ref = PointWidget.widgets;
+      results = [];
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        w = ref[j];
+        results.push(w.set_opacity(o));
+      }
+      return results;
     };
 
     StochasticSierpinski.prototype.clear_update_and_draw = function() {
@@ -1621,16 +1717,6 @@ td.blank {
 
     StochasticSierpinski.prototype.on_move_all_random = function() {
       return PointWidget.move_all_random();
-    };
-
-    StochasticSierpinski.prototype.set_draw_point_colors = function(bool_value) {
-      this.draw_point_colors = !!bool_value;
-      this.draw_point_colors_cb.checked = this.draw_point_colors;
-      return console.log(this.draw_point_colors, this.draw_point_colors_cb.checked, this.draw_point_colors_cb);
-    };
-
-    StochasticSierpinski.prototype.on_draw_point_colors = function(event) {
-      return this.set_draw_point_colors(event.target.checked);
     };
 
     StochasticSierpinski.prototype.random_x = function() {

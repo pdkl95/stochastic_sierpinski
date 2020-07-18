@@ -111,7 +111,7 @@ class UIPoint extends Point
     super args...
 
   update_color_alpha_from_color: () ->
-    @color_alpha = Color.hexrgb_and_alpha_to_rgba_str(@color, DrawPoint.ALPHA)
+    @set_opacity(APP.option.draw_opacity.value)
 
   set_color_hue: (hue) ->
     @set_color(Color.hsl_to_hexrgb(hue / 360, 1.0, 0.5))
@@ -119,6 +119,12 @@ class UIPoint extends Point
   set_color: (color) ->
     @color = color
     @update_color_alpha_from_color()
+
+  set_alpha: (alpha) ->
+    @color_alpha = Color.hexrgb_and_alpha_to_rgba_str(@color, alpha)
+
+  set_opacity: (opacity) ->
+    @set_alpha(opacity / 100)
 
   draw_ui: () ->
     ctx = APP.graph_ui_ctx
@@ -443,8 +449,6 @@ class PointWidget extends UIPoint
     APP.resumable_reset()
 
 class DrawPoint extends UIPoint
-  @ALPHA = '0.333'
-
   constructor: (name) ->
     super '0', name
 
@@ -455,7 +459,7 @@ class DrawPoint extends UIPoint
 
   draw_graph: (target) ->
     ctx = APP.graph_ctx
-    if APP.draw_point_colors
+    if APP.option.draw_point_colors.value
       ctx.fillStyle = target.color_alpha
     else
       ctx.fillStyle = @color_alpha
@@ -580,6 +584,32 @@ class TargetRestriction
     PointWidget.update_widget_list_metadata()
     APP.resumable_reset()
 
+class OtherOption
+  constructor: (@context, @id, @default, @on_change_callback = null) ->
+    @el = @context.getElementById(@id)
+    @set(@default)
+    @el.addEventListener('change', @on_change)
+
+  on_change: (event) =>
+    @set(@get(event.target))
+    @on_change_callback(@value) if @on_change_callback?
+
+class BoolOtherOption extends OtherOption
+  get: (element = @el) ->
+    element.checked
+
+  set: (bool_value) ->
+    @value = !!bool_value
+    @el.checked = @value
+
+class NumberOtherOption extends OtherOption
+  get: (element = @el) ->
+    element.value
+
+  set: (number_value) ->
+    @value = parseInt(number_value)
+    @el.value = @value
+
 class StochasticSierpinski
   constructor: (@context) ->
 
@@ -616,8 +646,9 @@ class StochasticSierpinski
     @btn_move_all_reg_polygon = @context.getElementById('move_all_reg_polygon')
     @btn_move_all_random      = @context.getElementById('move_all_random')
 
-    @draw_point_colors_cb = @context.getElementById('draw_point_colors')
-    @set_draw_point_colors(true)
+    @option =
+      draw_point_colors: new BoolOtherOption(@context, 'draw_point_colors', true)
+      draw_opacity: new NumberOtherOption(@context, 'draw_opacity', 35, @on_opacity_change)
 
     @serializebox        = @context.getElementById('serializebox')
     @serializebox_title  = @context.getElementById('serializebox_title')
@@ -650,8 +681,6 @@ class StochasticSierpinski
     @btn_move_all_reg_polygon.addEventListener 'click', @on_move_all_reg_polygon
     @btn_move_all_random.addEventListener 'click', @on_move_all_random
 
-    @draw_point_colors_cb.addEventListener 'change', @on_draw_point_colors
-
     @serializebox_action.addEventListener 'click', @on_serializebox_action
     @serializebox_cancel.addEventListener 'click', @on_serializebox_cancel
 
@@ -680,6 +709,12 @@ class StochasticSierpinski
         @graph_wrapper_observer.observe(@graph_wrapper, { attributes: true })
 
     @clear_update_and_draw()
+
+  on_opacity_change: =>
+    o = @option.draw_opacity.value
+    @cur.set_opacity(o)
+    for w in PointWidget.widgets
+      w.set_opacity(o)
 
   clear_update_and_draw: ->
     @update_info_elements()
@@ -757,7 +792,8 @@ class StochasticSierpinski
       points: PointWidget.widgets.map( (x) -> x.save() )
       restrictions: PointWidget.restrictions.save()
       options:
-        draw_point_colors: @draw_point_colors
+        draw_point_colors: @option.draw_point_colors.value
+        draw_opacity:      @option.draw_opacity.value
 
     JSON.stringify(opt)
 
@@ -781,7 +817,9 @@ class StochasticSierpinski
 
     if opt.options?
       if opt.options.draw_point_colors?
-        @set_draw_point_colors(opt.options.draw_point_colors)
+        @option.draw_point_colors.set(opt.options.draw_point_colors)
+      if opt.options.draw_opacity?
+        @option.draw_opacity.set(opt.options.draw_opacity)
     
   on_save: =>
     @show_serializebox('Save', @serialize(), null)
@@ -794,14 +832,6 @@ class StochasticSierpinski
 
   on_move_all_random: =>
     PointWidget.move_all_random()
-
-  set_draw_point_colors: (bool_value) ->
-    @draw_point_colors = !!bool_value
-    @draw_point_colors_cb.checked = @draw_point_colors
-    console.log(@draw_point_colors, @draw_point_colors_cb.checked, @draw_point_colors_cb)
-
-  on_draw_point_colors: (event) =>
-    @set_draw_point_colors(event.target.checked)
 
   random_x: =>
     parseInt(Math.random() * @graph_ui_canvas.width)

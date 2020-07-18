@@ -130,6 +130,11 @@ undivert(`style.css')
               <th>Draw point colors?</th>
               <td><input id="draw_point_colors" type="checkbox"></td>
             </tr>
+            <tr>
+              <th>Draw Opacity</th>
+              <td><input id="draw_opacity" type="number"
+                         min="0" max="100" step="5"></td>
+            </tr>
           </table>
         </div>
       </div>

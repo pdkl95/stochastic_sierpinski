@@ -145,8 +145,9 @@ td.blank {
   width: 3em;
 }
 
-#steps_per_frame {
-  width: 4em;
+#steps_per_frame,
+#draw_opacity {
+  width: 3.5em;
 }
 
 #point_pos_table input[type="range"] {
