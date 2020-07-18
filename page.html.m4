@@ -138,8 +138,9 @@ undivert(`style.css')
 
         <div class="imgbox buttonbox">
           <button id="button_create_png">Create PNG</button>
-          <button id="button_save">Save</button>
-          <button id="button_load">Load</button>
+          <button id="button_save_url">Save as URL</button>
+          <button id="button_save">Save as JSON</button>
+          <button id="button_load">Load from JSON</button>
         </div>
       </div>
       <div id="serializebox">

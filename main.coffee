@@ -646,6 +646,7 @@ class StochasticSierpinski
     @btn_run       = @context.getElementById('button_run')
 
     @btn_create_png = @context.getElementById('button_create_png')
+    @btn_save_url   = @context.getElementById('button_save_url')
     @btn_save       = @context.getElementById('button_save')
     @btn_load       = @context.getElementById('button_load')
 
@@ -688,6 +689,7 @@ class StochasticSierpinski
     @context.addEventListener 'keydown', @on_keydown
 
     @btn_create_png.addEventListener 'click', @on_create_png
+    @btn_save_url.addEventListener 'click', @on_save_url
     @btn_save.addEventListener 'click', @on_save
     @btn_load.addEventListener 'click', @on_load
 
@@ -852,6 +854,10 @@ class StochasticSierpinski
   on_load: =>
     @show_serializebox('Load', null, @deserialize)
 
+  on_save_url: =>
+    hash = @serialize()
+    document.location = "##{hash}"
+
   on_move_all_reg_polygon: =>
     PointWidget.move_all_reg_polygon()
 
@@ -1014,3 +1020,6 @@ class StochasticSierpinski
 document.addEventListener 'DOMContentLoaded', =>
   APP = new StochasticSierpinski(document)
   APP.init()
+
+  if document.location.hash?.length > 1
+    APP.deserialize(document.location.hash.slice(1))

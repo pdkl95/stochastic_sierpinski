@@ -504,8 +504,9 @@ td.blank {
 
         <div class="imgbox buttonbox">
           <button id="button_create_png">Create PNG</button>
-          <button id="button_save">Save</button>
-          <button id="button_load">Load</button>
+          <button id="button_save_url">Save as URL</button>
+          <button id="button_save">Save as JSON</button>
+          <button id="button_load">Load from JSON</button>
         </div>
       </div>
       <div id="serializebox">
@@ -1487,6 +1488,7 @@ td.blank {
       this.random_x = bind(this.random_x, this);
       this.on_move_all_random = bind(this.on_move_all_random, this);
       this.on_move_all_reg_polygon = bind(this.on_move_all_reg_polygon, this);
+      this.on_save_url = bind(this.on_save_url, this);
       this.on_load = bind(this.on_load, this);
       this.on_save = bind(this.on_save, this);
       this.deserialize = bind(this.deserialize, this);
@@ -1520,6 +1522,7 @@ td.blank {
       this.btn_multistep = this.context.getElementById('button_multistep');
       this.btn_run = this.context.getElementById('button_run');
       this.btn_create_png = this.context.getElementById('button_create_png');
+      this.btn_save_url = this.context.getElementById('button_save_url');
       this.btn_save = this.context.getElementById('button_save');
       this.btn_load = this.context.getElementById('button_load');
       this.total_steps_cell = this.context.getElementById('total_steps');
@@ -1549,6 +1552,7 @@ td.blank {
       this.btn_run.addEventListener('click', this.on_run);
       this.context.addEventListener('keydown', this.on_keydown);
       this.btn_create_png.addEventListener('click', this.on_create_png);
+      this.btn_save_url.addEventListener('click', this.on_save_url);
       this.btn_save.addEventListener('click', this.on_save);
       this.btn_load.addEventListener('click', this.on_load);
       this.btn_move_all_reg_polygon.addEventListener('click', this.on_move_all_reg_polygon);
@@ -1747,6 +1751,12 @@ td.blank {
 
     StochasticSierpinski.prototype.on_load = function() {
       return this.show_serializebox('Load', null, this.deserialize);
+    };
+
+    StochasticSierpinski.prototype.on_save_url = function() {
+      var hash;
+      hash = this.serialize();
+      return document.location = "#" + hash;
     };
 
     StochasticSierpinski.prototype.on_move_all_reg_polygon = function() {
@@ -1984,8 +1994,12 @@ td.blank {
 
   document.addEventListener('DOMContentLoaded', (function(_this) {
     return function() {
+      var ref;
       APP = new StochasticSierpinski(document);
-      return APP.init();
+      APP.init();
+      if (((ref = document.location.hash) != null ? ref.length : void 0) > 1) {
+        return APP.deserialize(document.location.hash.slice(1));
+      }
     };
   })(this));
 
