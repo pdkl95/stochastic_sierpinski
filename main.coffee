@@ -481,10 +481,8 @@ class TargetRestrictionOption
     @checkbox_double.addEventListener 'change', @on_change_double
 
   reset: ->
-    @value_single = false
-    @value_double = false
-    @checkbox_single.checked = false
-    @checkbox_double.checked = false
+    @set_single(false)
+    @set_double(false)
 
   set_column_cells: (state) ->
     for cell in @column_cells
@@ -498,15 +496,23 @@ class TargetRestrictionOption
     @enabled = false
     @set_column_cells('none')
 
-  on_change_single: (event) =>
-    @value_single = event.target.checked
+  set_single: (value) ->
+    @value_single = value
+    @checkbox_single.checked = @value_single
     PointWidget.update_widget_list_metadata()
     APP.resumable_reset()
 
-  on_change_double: (event) =>
-    @value_double = event.target.checked
+  set_double: (value) ->
+    @value_double = value
+    @checkbox_double.checked = @value_double
     PointWidget.update_widget_list_metadata()
     APP.resumable_reset()
+
+  on_change_single: (event) =>
+    @set_single(event.target.checked)
+
+  on_change_double: (event) =>
+    @set_double(event.target.checked)
 
 class TargetRestriction
   constructor: (@context) ->
@@ -529,6 +535,13 @@ class TargetRestriction
     @by_name = {}
     for o in @options
       @by_name[o.name] = o
+
+  find: (name) ->
+    if @by_name[name]?
+      @by_name[name]
+    else
+      console.log("no such restriction named '#{name}'")
+      null
 
   set_enabled: (n) ->
     o.disable() for o in @options
@@ -575,11 +588,11 @@ class TargetRestriction
 
     if opt.single?
       for name in opt.single
-        @by_name[name].set_single()
+        @find(name)?.set_single(true)
 
     if opt.double?
       for name in opt.double
-        @by_name[name].set_double()
+        @find(name)?.set_double(true)
 
     PointWidget.update_widget_list_metadata()
     APP.resumable_reset()
@@ -616,14 +629,9 @@ class StochasticSierpinski
   init: () ->
     @running = false
 
-    @steps_per_frame = 100
     @step_count = 0
 
     @steps_per_frame_el = @context.getElementById('steps_per_frame')
-    @steps_per_frame_el.value = if @steps_per_frame == 1
-      0
-    else
-      @steps_per_frame
 
     @graph_wrapper   = @context.getElementById('graph_wrapper')
     @graph_canvas    = @context.getElementById('graph')
@@ -632,9 +640,10 @@ class StochasticSierpinski
     @graph_ctx    = @graph_canvas.getContext('2d', alpha: true)
     @graph_ui_ctx = @graph_ui_canvas.getContext('2d', alpha: true)
 
-    @btn_reset = @context.getElementById('button_reset')
-    @btn_step  = @context.getElementById('button_step')
-    @btn_run   = @context.getElementById('button_run')
+    @btn_reset     = @context.getElementById('button_reset')
+    @btn_step      = @context.getElementById('button_step')
+    @btn_multistep = @context.getElementById('button_multistep')
+    @btn_run       = @context.getElementById('button_run')
 
     @btn_create_png = @context.getElementById('button_create_png')
     @btn_save       = @context.getElementById('button_save')
@@ -663,16 +672,20 @@ class StochasticSierpinski
 
     PointWidget.set_ngon(3)
 
+    @set_steps_per_frame(100)
+
     @num_points_el = @context.getElementById('num_points')
     @num_points_el.value = PointWidget.widgets.length;
 
     @num_points_el.addEventListener 'input', @on_num_points_input
     @steps_per_frame_el.addEventListener 'input', @on_steps_per_frame_input
 
-    @btn_reset.addEventListener 'click', @on_reset
-    @btn_step.addEventListener  'click', @on_step
-    @btn_run.addEventListener   'click', @on_run
-    @context.addEventListener('keydown', @on_run)
+    @btn_reset.addEventListener      'click', @on_reset
+    @btn_step.addEventListener       'click', @on_ste
+    @btn_multistep.addEventListener  'click', @on_multistep
+    @btn_run.addEventListener        'click', @on_run
+
+    @context.addEventListener 'keydown', @on_keydown
 
     @btn_create_png.addEventListener 'click', @on_create_png
     @btn_save.addEventListener 'click', @on_save
@@ -746,8 +759,21 @@ class StochasticSierpinski
     PointWidget.set_ngon(event.target.value)
 
   on_steps_per_frame_input: (event) =>
-    @steps_per_frame = event.target.value
-    @steps_per_frame = 1 if @steps_per_frame < 1
+    @set_steps_per_frame(event.target.value)
+
+  set_steps_per_frame: (int_value) ->
+    @steps_per_frame = parseInt(int_value)
+
+    if @steps_per_frame < 1
+      @steps_per_frame = 1
+
+    @btn_multistep.textContent = "Step #{@steps_per_frame}x"
+    if @steps_per_frame == 1
+      @steps_per_frame_el.value = 0
+      @btn_multistep.disabled = true
+    else
+      @steps_per_frame_el.value = @steps_per_frame
+      @btn_multistep.disabled = false
 
   on_create_png: =>
     dataurl = @graph_canvas.toDataURL('png')
@@ -806,7 +832,6 @@ class StochasticSierpinski
 
     if opt.points?
       @num_points_el.valueAsNumber = PointWidget.widgets.length;
-      console.log(PointWidget.widgets.length, @num_points_el.valueAsNumber)
 
       PointWidget.set_num_widgets(opt.points.length)
       for p, i in opt.points
@@ -844,7 +869,7 @@ class StochasticSierpinski
 
   update_info_elements: () ->
     @total_steps_cell.textContent = @step_count
-    @cur.update_text()
+    @cur?.update_text()
 
   event_to_canvas_loc: (event) ->
     return
@@ -902,7 +927,7 @@ class StochasticSierpinski
     was_running = @running
     @stop()
 
-    @cur.move(
+    @cur?.move(
       @graph_ui_canvas.width / 2,
       @graph_ui_canvas.height / 2)
 
@@ -917,6 +942,12 @@ class StochasticSierpinski
       @stop()
     else
       @step()
+
+  on_multistep: =>
+    if @running
+      @stop()
+    else
+      @multistep()
 
   on_run: =>
     if @running
@@ -944,29 +975,41 @@ class StochasticSierpinski
       @cur.draw_graph(target)
       @step_count += 1
 
-  step: =>
-    @single_step() for [0...@steps_per_frame]
+  step: (num_steps = 1) =>
+    @single_step() for [0...num_steps]
 
     @update_info_elements()
     @redraw_ui()
 
+  multistep: ->
+    @step(@steps_per_frame)
+
   redraw_ui: =>
     @graph_ui_ctx.clearRect(0, 0, @graph_ui_canvas.width, @graph_ui_canvas.height)
 
-    @cur.draw_ui()
+    @cur?.draw_ui()
 
     for p in PointWidget.widgets
       p.draw_ui()
 
   update: =>
     @frame_is_scheduled = false
-    @step()
+    @multistep()
     @schedule_next_frame() if @running
 
   schedule_next_frame: () ->
     unless @frame_is_scheduled
       @frame_is_scheduled = true
       window.requestAnimationFrame(@update)
+
+  on_keydown: (event) =>
+    switch event.key
+      when "Enter"         then @on_run()
+      when "Escape", "Esc" then @stop()
+      when "r", "R"        then @resumable_reset()
+      when "p", "P"        then @on_create_png()
+      when "s", "S"        then @on_save()
+      when "l", "L"        then @on_load()
 
 document.addEventListener 'DOMContentLoaded', =>
   APP = new StochasticSierpinski(document)

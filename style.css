@@ -79,10 +79,6 @@ footer {
   display: inline-block;
 }
 
-.buttonbox ~ .buttonbox {
-  margin-left: 3em;
-}
-
 .buttonbox > .title {
   display: inline-block;
   margin-left: 1em;
@@ -101,13 +97,13 @@ footer {
 
 .buttonbox.pointsbox ~ hr {
   clear: both;
-  margin-top: 1rem;
-  margin-bottom: 1rem;
-  opacity: 0.333;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  opacity: 0.18;
 }
 
 .ui.panel > hr ~ h3 {
-  margin-top: 1rem;
+  margin-top: 0.5rem;
 }
 
 .restrictbox {

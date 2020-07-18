@@ -262,10 +262,6 @@ footer {
   display: inline-block;
 }
 
-.buttonbox ~ .buttonbox {
-  margin-left: 3em;
-}
-
 .buttonbox > .title {
   display: inline-block;
   margin-left: 1em;
@@ -284,13 +280,13 @@ footer {
 
 .buttonbox.pointsbox ~ hr {
   clear: both;
-  margin-top: 1rem;
-  margin-bottom: 1rem;
-  opacity: 0.333;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  opacity: 0.18;
 }
 
 .ui.panel > hr ~ h3 {
-  margin-top: 1rem;
+  margin-top: 0.5rem;
 }
 
 .restrictbox {
@@ -431,14 +427,9 @@ td.blank {
       <div class="ui panel">
         <div class="runbox buttonbox">
           <button id="button_reset">Reset</button>
-          <button id="button_step">Step</button>
+          <button id="button_step">Step 1x</button>
+          <button id="button_multistep">Step Nx</button>
           <button id="button_run">Run</button>
-        </div>
-
-        <div class="imgbox buttonbox">
-          <button id="button_create_png">Create PNG</button>
-          <button id="button_save">Save</button>
-          <button id="button_load">Load</button>
         </div>
 
         <div class="pointsbox buttonbox">
@@ -452,6 +443,7 @@ td.blank {
         </div>
 
         <hr>
+
         <h3>Restrictions</h3>
 
         <div class="restrictbox buttonbox">
@@ -506,6 +498,14 @@ td.blank {
                          min="0" max="100" step="5"></td>
             </tr>
           </table>
+        </div>
+
+        <hr>
+
+        <div class="imgbox buttonbox">
+          <button id="button_create_png">Create PNG</button>
+          <button id="button_save">Save</button>
+          <button id="button_load">Load</button>
         </div>
       </div>
       <div id="serializebox">
@@ -1221,10 +1221,8 @@ td.blank {
     }
 
     TargetRestrictionOption.prototype.reset = function() {
-      this.value_single = false;
-      this.value_double = false;
-      this.checkbox_single.checked = false;
-      return this.checkbox_double.checked = false;
+      this.set_single(false);
+      return this.set_double(false);
     };
 
     TargetRestrictionOption.prototype.set_column_cells = function(state) {
@@ -1248,16 +1246,26 @@ td.blank {
       return this.set_column_cells('none');
     };
 
-    TargetRestrictionOption.prototype.on_change_single = function(event) {
-      this.value_single = event.target.checked;
+    TargetRestrictionOption.prototype.set_single = function(value) {
+      this.value_single = value;
+      this.checkbox_single.checked = this.value_single;
       PointWidget.update_widget_list_metadata();
       return APP.resumable_reset();
     };
 
-    TargetRestrictionOption.prototype.on_change_double = function(event) {
-      this.value_double = event.target.checked;
+    TargetRestrictionOption.prototype.set_double = function(value) {
+      this.value_double = value;
+      this.checkbox_double.checked = this.value_double;
       PointWidget.update_widget_list_metadata();
       return APP.resumable_reset();
+    };
+
+    TargetRestrictionOption.prototype.on_change_single = function(event) {
+      return this.set_single(event.target.checked);
+    };
+
+    TargetRestrictionOption.prototype.on_change_double = function(event) {
+      return this.set_double(event.target.checked);
     };
 
     return TargetRestrictionOption;
@@ -1282,6 +1290,15 @@ td.blank {
         this.by_name[o.name] = o;
       }
     }
+
+    TargetRestriction.prototype.find = function(name) {
+      if (this.by_name[name] != null) {
+        return this.by_name[name];
+      } else {
+        console.log("no such restriction named '" + name + "'");
+        return null;
+      }
+    };
 
     TargetRestriction.prototype.set_enabled = function(n) {
       var j, len1, neighbor, next, o, prev, ref, ref1;
@@ -1348,7 +1365,7 @@ td.blank {
     };
 
     TargetRestriction.prototype.load = function(opt) {
-      var j, k, len1, len2, len3, m, name, o, ref, ref1;
+      var j, k, len1, len2, len3, m, name, o, ref, ref1, ref2, ref3;
       for (j = 0, len1 = opt.length; j < len1; j++) {
         o = opt[j];
         o.reset();
@@ -1357,14 +1374,18 @@ td.blank {
         ref = opt.single;
         for (k = 0, len2 = ref.length; k < len2; k++) {
           name = ref[k];
-          this.by_name[name].set_single();
+          if ((ref1 = this.find(name)) != null) {
+            ref1.set_single(true);
+          }
         }
       }
       if (opt.double != null) {
-        ref1 = opt.double;
-        for (m = 0, len3 = ref1.length; m < len3; m++) {
-          name = ref1[m];
-          this.by_name[name].set_double();
+        ref2 = opt.double;
+        for (m = 0, len3 = ref2.length; m < len3; m++) {
+          name = ref2[m];
+          if ((ref3 = this.find(name)) != null) {
+            ref3.set_double(true);
+          }
         }
       }
       PointWidget.update_widget_list_metadata();
@@ -1390,9 +1411,8 @@ td.blank {
     OtherOption.prototype.on_change = function(event) {
       this.set(this.get(event.target));
       if (this.on_change_callback != null) {
-        this.on_change_callback(this.value);
+        return this.on_change_callback(this.value);
       }
-      return console.log(this.id, this.value);
     };
 
     return OtherOption;
@@ -1448,12 +1468,14 @@ td.blank {
   StochasticSierpinski = (function() {
     function StochasticSierpinski(context) {
       this.context = context;
+      this.on_keydown = bind(this.on_keydown, this);
       this.update = bind(this.update, this);
       this.redraw_ui = bind(this.redraw_ui, this);
       this.step = bind(this.step, this);
       this.stop = bind(this.stop, this);
       this.start = bind(this.start, this);
       this.on_run = bind(this.on_run, this);
+      this.on_multistep = bind(this.on_multistep, this);
       this.on_step = bind(this.on_step, this);
       this.on_reset = bind(this.on_reset, this);
       this.resumable_reset = bind(this.resumable_reset, this);
@@ -1482,10 +1504,8 @@ td.blank {
     StochasticSierpinski.prototype.init = function() {
       var i, j, k, r, ref, ref1, s;
       this.running = false;
-      this.steps_per_frame = 100;
       this.step_count = 0;
       this.steps_per_frame_el = this.context.getElementById('steps_per_frame');
-      this.steps_per_frame_el.value = this.steps_per_frame === 1 ? 0 : this.steps_per_frame;
       this.graph_wrapper = this.context.getElementById('graph_wrapper');
       this.graph_canvas = this.context.getElementById('graph');
       this.graph_ui_canvas = this.context.getElementById('graph_ui');
@@ -1497,6 +1517,7 @@ td.blank {
       });
       this.btn_reset = this.context.getElementById('button_reset');
       this.btn_step = this.context.getElementById('button_step');
+      this.btn_multistep = this.context.getElementById('button_multistep');
       this.btn_run = this.context.getElementById('button_run');
       this.btn_create_png = this.context.getElementById('button_create_png');
       this.btn_save = this.context.getElementById('button_save');
@@ -1517,14 +1538,16 @@ td.blank {
       PointWidget.restrictions = new TargetRestriction(this.context);
       this.cur = new DrawPoint('Cur');
       PointWidget.set_ngon(3);
+      this.set_steps_per_frame(100);
       this.num_points_el = this.context.getElementById('num_points');
       this.num_points_el.value = PointWidget.widgets.length;
       this.num_points_el.addEventListener('input', this.on_num_points_input);
       this.steps_per_frame_el.addEventListener('input', this.on_steps_per_frame_input);
       this.btn_reset.addEventListener('click', this.on_reset);
-      this.btn_step.addEventListener('click', this.on_step);
+      this.btn_step.addEventListener('click', this.on_ste);
+      this.btn_multistep.addEventListener('click', this.on_multistep);
       this.btn_run.addEventListener('click', this.on_run);
-      this.context.addEventListener('keydown', this.on_run);
+      this.context.addEventListener('keydown', this.on_keydown);
       this.btn_create_png.addEventListener('click', this.on_create_png);
       this.btn_save.addEventListener('click', this.on_save);
       this.btn_load.addEventListener('click', this.on_load);
@@ -1611,9 +1634,21 @@ td.blank {
     };
 
     StochasticSierpinski.prototype.on_steps_per_frame_input = function(event) {
-      this.steps_per_frame = event.target.value;
+      return this.set_steps_per_frame(event.target.value);
+    };
+
+    StochasticSierpinski.prototype.set_steps_per_frame = function(int_value) {
+      this.steps_per_frame = parseInt(int_value);
       if (this.steps_per_frame < 1) {
-        return this.steps_per_frame = 1;
+        this.steps_per_frame = 1;
+      }
+      this.btn_multistep.textContent = "Step " + this.steps_per_frame + "x";
+      if (this.steps_per_frame === 1) {
+        this.steps_per_frame_el.value = 0;
+        return this.btn_multistep.disabled = true;
+      } else {
+        this.steps_per_frame_el.value = this.steps_per_frame;
+        return this.btn_multistep.disabled = false;
       }
     };
 
@@ -1669,7 +1704,8 @@ td.blank {
         }),
         restrictions: PointWidget.restrictions.save(),
         options: {
-          draw_point_colors: this.draw_point_colors
+          draw_point_colors: this.option.draw_point_colors.value,
+          draw_opacity: this.option.draw_opacity.value
         }
       };
       return JSON.stringify(opt);
@@ -1685,7 +1721,6 @@ td.blank {
       }
       if (opt.points != null) {
         this.num_points_el.valueAsNumber = PointWidget.widgets.length;
-        console.log(PointWidget.widgets.length, this.num_points_el.valueAsNumber);
         PointWidget.set_num_widgets(opt.points.length);
         ref = opt.points;
         for (i = j = 0, len1 = ref.length; j < len1; i = ++j) {
@@ -1698,7 +1733,10 @@ td.blank {
       }
       if (opt.options != null) {
         if (opt.options.draw_point_colors != null) {
-          return this.set_draw_point_colors(opt.options.draw_point_colors);
+          this.option.draw_point_colors.set(opt.options.draw_point_colors);
+        }
+        if (opt.options.draw_opacity != null) {
+          return this.option.draw_opacity.set(opt.options.draw_opacity);
         }
       }
     };
@@ -1732,8 +1770,9 @@ td.blank {
     };
 
     StochasticSierpinski.prototype.update_info_elements = function() {
+      var ref;
       this.total_steps_cell.textContent = this.step_count;
-      return this.cur.update_text();
+      return (ref = this.cur) != null ? ref.update_text() : void 0;
     };
 
     StochasticSierpinski.prototype.event_to_canvas_loc = function(event) {
@@ -1806,13 +1845,15 @@ td.blank {
     };
 
     StochasticSierpinski.prototype.on_reset = function(restart_ok) {
-      var was_running;
+      var ref, was_running;
       if (restart_ok == null) {
         restart_ok = false;
       }
       was_running = this.running;
       this.stop();
-      this.cur.move(this.graph_ui_canvas.width / 2, this.graph_ui_canvas.height / 2);
+      if ((ref = this.cur) != null) {
+        ref.move(this.graph_ui_canvas.width / 2, this.graph_ui_canvas.height / 2);
+      }
       this.step_count = 0;
       this.clear_update_and_draw();
       if (restart_ok && was_running) {
@@ -1825,6 +1866,14 @@ td.blank {
         return this.stop();
       } else {
         return this.step();
+      }
+    };
+
+    StochasticSierpinski.prototype.on_multistep = function() {
+      if (this.running) {
+        return this.stop();
+      } else {
+        return this.multistep();
       }
     };
 
@@ -1861,23 +1910,32 @@ td.blank {
       }
     };
 
-    StochasticSierpinski.prototype.step = function() {
+    StochasticSierpinski.prototype.step = function(num_steps) {
       var j, ref;
-      for (j = 0, ref = this.steps_per_frame; 0 <= ref ? j < ref : j > ref; 0 <= ref ? j++ : j--) {
+      if (num_steps == null) {
+        num_steps = 1;
+      }
+      for (j = 0, ref = num_steps; 0 <= ref ? j < ref : j > ref; 0 <= ref ? j++ : j--) {
         this.single_step();
       }
       this.update_info_elements();
       return this.redraw_ui();
     };
 
+    StochasticSierpinski.prototype.multistep = function() {
+      return this.step(this.steps_per_frame);
+    };
+
     StochasticSierpinski.prototype.redraw_ui = function() {
-      var j, len1, p, ref, results;
+      var j, len1, p, ref, ref1, results;
       this.graph_ui_ctx.clearRect(0, 0, this.graph_ui_canvas.width, this.graph_ui_canvas.height);
-      this.cur.draw_ui();
-      ref = PointWidget.widgets;
+      if ((ref = this.cur) != null) {
+        ref.draw_ui();
+      }
+      ref1 = PointWidget.widgets;
       results = [];
-      for (j = 0, len1 = ref.length; j < len1; j++) {
-        p = ref[j];
+      for (j = 0, len1 = ref1.length; j < len1; j++) {
+        p = ref1[j];
         results.push(p.draw_ui());
       }
       return results;
@@ -1885,7 +1943,7 @@ td.blank {
 
     StochasticSierpinski.prototype.update = function() {
       this.frame_is_scheduled = false;
-      this.step();
+      this.multistep();
       if (this.running) {
         return this.schedule_next_frame();
       }
@@ -1895,6 +1953,28 @@ td.blank {
       if (!this.frame_is_scheduled) {
         this.frame_is_scheduled = true;
         return window.requestAnimationFrame(this.update);
+      }
+    };
+
+    StochasticSierpinski.prototype.on_keydown = function(event) {
+      switch (event.key) {
+        case "Enter":
+          return this.on_run();
+        case "Escape":
+        case "Esc":
+          return this.stop();
+        case "r":
+        case "R":
+          return this.resumable_reset();
+        case "p":
+        case "P":
+          return this.on_create_png();
+        case "s":
+        case "S":
+          return this.on_save();
+        case "l":
+        case "L":
+          return this.on_load();
       }
     };
 

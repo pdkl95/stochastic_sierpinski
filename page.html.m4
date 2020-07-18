@@ -61,14 +61,9 @@ undivert(`style.css')
       <div class="ui panel">
         <div class="runbox buttonbox">
           <button id="button_reset">Reset</button>
-          <button id="button_step">Step</button>
+          <button id="button_step">Step 1x</button>
+          <button id="button_multistep">Step Nx</button>
           <button id="button_run">Run</button>
-        </div>
-
-        <div class="imgbox buttonbox">
-          <button id="button_create_png">Create PNG</button>
-          <button id="button_save">Save</button>
-          <button id="button_load">Load</button>
         </div>
 
         <div class="pointsbox buttonbox">
@@ -82,6 +77,7 @@ undivert(`style.css')
         </div>
 
         <hr>
+
         <h3>Restrictions</h3>
 
         <div class="restrictbox buttonbox">
@@ -136,6 +132,14 @@ undivert(`style.css')
                          min="0" max="100" step="5"></td>
             </tr>
           </table>
+        </div>
+
+        <hr>
+
+        <div class="imgbox buttonbox">
+          <button id="button_create_png">Create PNG</button>
+          <button id="button_save">Save</button>
+          <button id="button_load">Load</button>
         </div>
       </div>
       <div id="serializebox">
