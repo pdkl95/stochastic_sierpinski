@@ -453,7 +453,7 @@ td.blank {
         <hr>
         <h3>Restrictions</h3>
 
-        <div class="single restrictbox buttonbox">
+        <div class="restrictbox buttonbox">
           <table id="restrict_table">
             <tr>
               <td class="blank"></td>
@@ -490,8 +490,18 @@ td.blank {
             </tr>
           </table>
         </div>
-      </div>
 
+        <h3>Other Options</h3>
+
+        <div class="optionsbox buttonbox">
+          <table>
+            <tr>
+              <th>Draw point colors?</th>
+              <td><input id="draw_point_colors" type="checkbox"></td>
+            </tr>
+          </table>
+        </div>
+      </div>
       <div id="serializebox">
         <h3 id="serializebox_title" class="panel">Title</h3>
         <textarea id="serializebox_text"></textarea>
@@ -1161,13 +1171,17 @@ td.blank {
       DrawPoint.__super__.constructor.call(this, '0', name);
       this.info_x = APP.context.getElementById(this.info_x_id);
       this.info_y = APP.context.getElementById(this.info_y_id);
-      this.color = '#000';
+      this.set_color('#000000');
     }
 
     DrawPoint.prototype.draw_graph = function(target) {
       var ctx;
       ctx = APP.graph_ctx;
-      ctx.fillStyle = target.color_alpha;
+      if (APP.draw_point_colors) {
+        ctx.fillStyle = target.color_alpha;
+      } else {
+        ctx.fillStyle = this.color_alpha;
+      }
       return ctx.fillRect(this.x, this.y, 1, 1);
     };
 
@@ -1367,6 +1381,7 @@ td.blank {
       this.max_xy = bind(this.max_xy, this);
       this.random_y = bind(this.random_y, this);
       this.random_x = bind(this.random_x, this);
+      this.on_draw_point_colors = bind(this.on_draw_point_colors, this);
       this.on_move_all_random = bind(this.on_move_all_random, this);
       this.on_move_all_reg_polygon = bind(this.on_move_all_reg_polygon, this);
       this.on_load = bind(this.on_load, this);
@@ -1408,6 +1423,8 @@ td.blank {
       this.point_pos_table = this.context.getElementById('point_pos_table');
       this.btn_move_all_reg_polygon = this.context.getElementById('move_all_reg_polygon');
       this.btn_move_all_random = this.context.getElementById('move_all_random');
+      this.draw_point_colors_cb = this.context.getElementById('draw_point_colors');
+      this.set_draw_point_colors(true);
       this.serializebox = this.context.getElementById('serializebox');
       this.serializebox_title = this.context.getElementById('serializebox_title');
       this.serializebox_text = this.context.getElementById('serializebox_text');
@@ -1429,6 +1446,7 @@ td.blank {
       this.btn_load.addEventListener('click', this.on_load);
       this.btn_move_all_reg_polygon.addEventListener('click', this.on_move_all_reg_polygon);
       this.btn_move_all_random.addEventListener('click', this.on_move_all_random);
+      this.draw_point_colors_cb.addEventListener('change', this.on_draw_point_colors);
       this.serializebox_action.addEventListener('click', this.on_serializebox_action);
       this.serializebox_cancel.addEventListener('click', this.on_serializebox_cancel);
       this.graph_ui_canvas.addEventListener('mousedown', this.on_mousedown);
@@ -1553,7 +1571,10 @@ td.blank {
         points: PointWidget.widgets.map(function(x) {
           return x.save();
         }),
-        restrictions: PointWidget.restrictions.save()
+        restrictions: PointWidget.restrictions.save(),
+        options: {
+          draw_point_colors: this.draw_point_colors
+        }
       };
       return JSON.stringify(opt);
     };
@@ -1577,7 +1598,12 @@ td.blank {
         }
       }
       if (opt.restrictions != null) {
-        return PointWidget.restrictions.load(opt.restrictions);
+        PointWidget.restrictions.load(opt.restrictions);
+      }
+      if (opt.options != null) {
+        if (opt.options.draw_point_colors != null) {
+          return this.set_draw_point_colors(opt.options.draw_point_colors);
+        }
       }
     };
 
@@ -1595,6 +1621,16 @@ td.blank {
 
     StochasticSierpinski.prototype.on_move_all_random = function() {
       return PointWidget.move_all_random();
+    };
+
+    StochasticSierpinski.prototype.set_draw_point_colors = function(bool_value) {
+      this.draw_point_colors = !!bool_value;
+      this.draw_point_colors_cb.checked = this.draw_point_colors;
+      return console.log(this.draw_point_colors, this.draw_point_colors_cb.checked, this.draw_point_colors_cb);
+    };
+
+    StochasticSierpinski.prototype.on_draw_point_colors = function(event) {
+      return this.set_draw_point_colors(event.target.checked);
     };
 
     StochasticSierpinski.prototype.random_x = function() {

@@ -84,7 +84,7 @@ undivert(`style.css')
         <hr>
         <h3>Restrictions</h3>
 
-        <div class="single restrictbox buttonbox">
+        <div class="restrictbox buttonbox">
           <table id="restrict_table">
             <tr>
               <td class="blank"></td>
@@ -121,8 +121,18 @@ undivert(`style.css')
             </tr>
           </table>
         </div>
-      </div>
 
+        <h3>Other Options</h3>
+
+        <div class="optionsbox buttonbox">
+          <table>
+            <tr>
+              <th>Draw point colors?</th>
+              <td><input id="draw_point_colors" type="checkbox"></td>
+            </tr>
+          </table>
+        </div>
+      </div>
       <div id="serializebox">
         <h3 id="serializebox_title" class="panel">Title</h3>
         <textarea id="serializebox_text"></textarea>

@@ -451,11 +451,14 @@ class DrawPoint extends UIPoint
     @info_x = APP.context.getElementById(@info_x_id)
     @info_y = APP.context.getElementById(@info_y_id)
 
-    @color = '#000'
+    @set_color('#000000')
 
   draw_graph: (target) ->
     ctx = APP.graph_ctx
-    ctx.fillStyle = target.color_alpha
+    if APP.draw_point_colors
+      ctx.fillStyle = target.color_alpha
+    else
+      ctx.fillStyle = @color_alpha
     ctx.fillRect(@x, @y, 1, 1)
 
 class TargetRestrictionOption
@@ -613,6 +616,9 @@ class StochasticSierpinski
     @btn_move_all_reg_polygon = @context.getElementById('move_all_reg_polygon')
     @btn_move_all_random      = @context.getElementById('move_all_random')
 
+    @draw_point_colors_cb = @context.getElementById('draw_point_colors')
+    @set_draw_point_colors(true)
+
     @serializebox        = @context.getElementById('serializebox')
     @serializebox_title  = @context.getElementById('serializebox_title')
     @serializebox_text   = @context.getElementById('serializebox_text')
@@ -643,6 +649,8 @@ class StochasticSierpinski
 
     @btn_move_all_reg_polygon.addEventListener 'click', @on_move_all_reg_polygon
     @btn_move_all_random.addEventListener 'click', @on_move_all_random
+
+    @draw_point_colors_cb.addEventListener 'change', @on_draw_point_colors
 
     @serializebox_action.addEventListener 'click', @on_serializebox_action
     @serializebox_cancel.addEventListener 'click', @on_serializebox_cancel
@@ -748,6 +756,8 @@ class StochasticSierpinski
         height: @graph_ui_canvas.height
       points: PointWidget.widgets.map( (x) -> x.save() )
       restrictions: PointWidget.restrictions.save()
+      options:
+        draw_point_colors: @draw_point_colors
 
     JSON.stringify(opt)
 
@@ -768,6 +778,10 @@ class StochasticSierpinski
 
     if opt.restrictions?
       PointWidget.restrictions.load(opt.restrictions)
+
+    if opt.options?
+      if opt.options.draw_point_colors?
+        @set_draw_point_colors(opt.options.draw_point_colors)
     
   on_save: =>
     @show_serializebox('Save', @serialize(), null)
@@ -780,6 +794,14 @@ class StochasticSierpinski
 
   on_move_all_random: =>
     PointWidget.move_all_random()
+
+  set_draw_point_colors: (bool_value) ->
+    @draw_point_colors = !!bool_value
+    @draw_point_colors_cb.checked = @draw_point_colors
+    console.log(@draw_point_colors, @draw_point_colors_cb.checked, @draw_point_colors_cb)
+
+  on_draw_point_colors: (event) =>
+    @set_draw_point_colors(event.target.checked)
 
   random_x: =>
     parseInt(Math.random() * @graph_ui_canvas.width)
