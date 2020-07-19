@@ -123,8 +123,15 @@ undivert(`style.css')
         <div class="optionsbox buttonbox">
           <table>
             <tr>
-              <th>Draw point colors?</th>
-              <td><input id="draw_point_colors" type="checkbox"></td>
+              <th>Draw Style</th>
+              <td>
+                <select id="draw_style" name="draw_style">
+                  <option value="mono">Monochrome (black on white)</option>
+                  <option value="color_target">Color = target</option>
+                  <option value="color_blend_prev_target">Color = blend(target, previous_target)</option>
+                  <option value="color_blend_prev_color">Color = blend(target, previous_blended_color)</option>
+                </select>
+              </td>
             </tr>
             <tr>
               <th>Draw Opacity</th>
@@ -143,6 +150,7 @@ undivert(`style.css')
           <button id="button_load">Load from JSON</button>
         </div>
       </div>
+
       <div id="serializebox">
         <h3 id="serializebox_title" class="panel">Title</h3>
         <textarea id="serializebox_text"></textarea>

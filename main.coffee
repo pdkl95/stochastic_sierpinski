@@ -65,6 +65,68 @@ class Color
     rgb = Color.hexrgb_to_rgb(hexrgb)
     "rgba(#{rgb[0]},#{rgb[1]},#{rgb[2]},#{alpha})"
 
+  @rgb_to_hsl: (rgb) ->
+    r = rgb[0] / 255
+    g = rgb[2] / 255
+    b = rgb[2] / 255
+
+    cmin = Math.min(r, g, b)
+    cmax = Math.max(r, g, b)
+    delta = cmax - cmin
+
+    h = if delta == 0
+      0
+    else if cmax == r
+      ((g - b) / delta) % 6
+    else if cmax == g
+      (b - r) / delta + 2
+    else
+      (r - g) / delta + 4
+
+    h = Math.round(h * 60)
+    h += 360 if h < 0
+
+    l = (cmax + cmin) / 2
+
+    s = if delta == 0
+      0
+    else
+      delta / (1 - Math.abs(2 * l - 1))
+
+    s = +(s * 100).toFixed(1)
+    l = +(l * 100).toFixed(1)
+
+    [h, s, l]
+
+  @blend_rgb: (args...) ->
+    total = args.reduce( (acc, cur) ->
+       acc[0] += cur[0]
+       acc[1] += cur[1]
+       acc[2] += cur[2]
+       acc )
+
+    len = args.length
+    [ total[0] // len,
+      total[1] // len,
+      total[2] // len ]
+
+  @blend_hsl: (a_hsl, b_hsl) ->
+    ah = a_hsl[0]
+    bh = b_hsl[0]
+    bh += 360 if bh < ah
+    hdelta = bh - ah
+    h = ah + (hdelta / 2)
+    h -= 360 if h >= 360
+
+    [ h,
+      (a_hsl[1] + b_hsl[1]) // 2,
+      (a_hsl[2] + b_hsl[2]) // 2 ]
+
+  @blend_hsl_from_rgb: (a_rgb, b_rgb) ->
+    a_hsl = Color.rgb_to_hsl(a_rgb)
+    b_hsl = Color.rgb_to_hsl(b_rgb)
+    @blend_hsl(a_hsl, b_hsl)
+
 class Point
   constructor: (@name, x, y, @move_perc = 0.5) ->
     x ?= APP.graph_ui_canvas.width / 2
@@ -119,6 +181,7 @@ class UIPoint extends Point
   set_color: (color) ->
     @color = color
     @update_color_alpha_from_color()
+    APP.cur?.reset_color_cache()
 
   set_alpha: (alpha) ->
     @color_alpha = Color.hexrgb_and_alpha_to_rgba_str(@color, alpha)
@@ -146,7 +209,7 @@ class PointWidget extends UIPoint
     single: []
     double: []
 
-  @prev_target: [null, null]
+  @prev_target: [null, null, null]
 
   @target_chosen_twice: ->
     @prev_target[0] == @prev_target[1]
@@ -290,6 +353,7 @@ class PointWidget extends UIPoint
     idx = (choice + prev_idx) % PointWidget.widgets.length
 
     w = PointWidget.widgets[idx]
+    @prev_target[2] = @prev_target[1]
     @prev_target[1] = @prev_target[0]
     @prev_target[0] = w
     w
@@ -449,20 +513,63 @@ class PointWidget extends UIPoint
     APP.resumable_reset()
 
 class DrawPoint extends UIPoint
-  constructor: (name) ->
+  constructor: (name, draw_style) ->
     super '0', name
 
     @info_x = APP.context.getElementById(@info_x_id)
     @info_y = APP.context.getElementById(@info_y_id)
 
     @set_color('#000000')
+    @set_draw_style(draw_style)
+
+  reset_color_cache: ->
+    @color_avg = {}
+    @prev_color_blend = Color.hexrgb_to_rgb(@color)
+
+  blend_target_colors: (a, b) ->
+    a_rgb = Color.hexrgb_to_rgb(a.color)
+    b_rgb = Color.hexrgb_to_rgb(b.color)
+    blend = Color.blend_rgb(a_rgb, b_rgb)
+    "rgba(#{blend[0]},#{blend[1]},#{blend[2]},#{@alpha})"
+
+  get_color_mono: ->
+    @color_alpha
+
+  get_color_target: (target) ->
+    target.color_alpha
+
+  get_color_blend_prev1: ->
+    b = PointWidget.prev_target[1]
+    a = PointWidget.prev_target[0]
+    return a.color_alpha unless b?
+    name = a.name + b.name
+    @color_avg[name] ?= @blend_target_colors(a, b)
+
+  get_color_blend_prev2: (target) ->
+    t = Color.hexrgb_to_rgb(target.color)
+    p = @prev_color_blend
+    @prev_color_blend = Color.blend_rgb(t, p)
+    c = "rgba(#{@prev_color_blend[0]},#{@prev_color_blend[1]},#{@prev_color_blend[2]},#{@alpha})"
+    #console.log(t, p, @prev_color_blend, c)
+    c
+
+  set_draw_style: (mode) ->
+    @get_current_color = switch mode
+      when 'mono'                    then @get_color_mono
+      when 'color_target'            then @get_color_target
+      when 'color_blend_prev_target' then @get_color_blend_prev1
+      when 'color_blend_prev_color'  then @get_color_blend_prev2
+      else
+        @get_color_mono
+
+  set_opacity: (opacity) ->
+    @opacity = opacity
+    @alpha   = opacity / 100
+    super(opacity)
 
   draw_graph: (target) ->
     ctx = APP.graph_ctx
-    if APP.option.draw_point_colors.value
-      ctx.fillStyle = target.color_alpha
-    else
-      ctx.fillStyle = @color_alpha
+    ctx.fillStyle = @get_current_color(target)
     ctx.fillRect(@x, @y, 1, 1)
 
 class TargetRestrictionOption
@@ -623,6 +730,20 @@ class NumberOtherOption extends OtherOption
     @value = parseInt(number_value)
     @el.value = @value
 
+class EnumOtherOption extends OtherOption
+  get: (element = @el) ->
+    element.value
+
+  find_option_by_value: (enum_value) ->
+    for opt in @el.options
+      return opt if opt.value == enum_value
+    return null
+
+  set: (enum_value) ->
+    opt = @find_option_by_value(enum_value)
+    @el.value = opt.value if opt?
+    @value = @el.value
+
 class StochasticSierpinski
   constructor: (@context) ->
 
@@ -657,8 +778,8 @@ class StochasticSierpinski
     @btn_move_all_random      = @context.getElementById('move_all_random')
 
     @option =
-      draw_point_colors: new BoolOtherOption(@context, 'draw_point_colors', true)
-      draw_opacity: new NumberOtherOption(@context, 'draw_opacity', 35, @on_opacity_change)
+      draw_style:   new EnumOtherOption(  @context, 'draw_style', 'color_blend_prev_color', @on_draw_style_change)
+      draw_opacity: new NumberOtherOption(@context, 'draw_opacity', 35, @on_draw_opacity_change)
 
     @serializebox        = @context.getElementById('serializebox')
     @serializebox_title  = @context.getElementById('serializebox_title')
@@ -669,7 +790,7 @@ class StochasticSierpinski
 
     PointWidget.restrictions = new TargetRestriction(@context)
 
-    @cur  = new DrawPoint('Cur')
+    @cur = new DrawPoint('Cur', @option.draw_style.value)
 
     PointWidget.set_ngon(3)
 
@@ -725,7 +846,10 @@ class StochasticSierpinski
 
     @clear_update_and_draw()
 
-  on_opacity_change: =>
+  on_draw_style_change: =>
+    @cur.set_draw_style(@option.draw_style.value)
+
+  on_draw_opacity_change: =>
     o = @option.draw_opacity.value
     @cur.set_opacity(o)
     for w in PointWidget.widgets
@@ -820,8 +944,8 @@ class StochasticSierpinski
       points: PointWidget.widgets.map( (x) -> x.save() )
       restrictions: PointWidget.restrictions.save()
       options:
-        draw_point_colors: @option.draw_point_colors.value
-        draw_opacity:      @option.draw_opacity.value
+        draw_style:   @option.draw_style.value
+        draw_opacity: @option.draw_opacity.value
 
     JSON.stringify(opt)
 
@@ -843,8 +967,8 @@ class StochasticSierpinski
       PointWidget.restrictions.load(opt.restrictions)
 
     if opt.options?
-      if opt.options.draw_point_colors?
-        @option.draw_point_colors.set(opt.options.draw_point_colors)
+      if opt.options.draw_style?
+        @option.draw_style.set(opt.options.draw_style)
       if opt.options.draw_opacity?
         @option.draw_opacity.set(opt.options.draw_opacity)
     
@@ -933,9 +1057,11 @@ class StochasticSierpinski
     was_running = @running
     @stop()
 
-    @cur?.move(
-      @graph_ui_canvas.width / 2,
-      @graph_ui_canvas.height / 2)
+    if @cur?
+      @cur.move(
+        @graph_ui_canvas.width / 2,
+        @graph_ui_canvas.height / 2)
+      @cur.reset_color_cache()
 
     @step_count = 0
 

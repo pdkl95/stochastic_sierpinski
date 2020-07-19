@@ -489,8 +489,15 @@ td.blank {
         <div class="optionsbox buttonbox">
           <table>
             <tr>
-              <th>Draw point colors?</th>
-              <td><input id="draw_point_colors" type="checkbox"></td>
+              <th>Draw Style</th>
+              <td>
+                <select id="draw_style" name="draw_style">
+                  <option value="mono">Monochrome (black on white)</option>
+                  <option value="color_target">Color = target</option>
+                  <option value="color_blend_prev_target">Color = blend(target, previous_target)</option>
+                  <option value="color_blend_prev_color">Color = blend(target, previous_blended_color)</option>
+                </select>
+              </td>
             </tr>
             <tr>
               <th>Draw Opacity</th>
@@ -509,6 +516,7 @@ td.blank {
           <button id="button_load">Load from JSON</button>
         </div>
       </div>
+
       <div id="serializebox">
         <h3 id="serializebox_title" class="panel">Title</h3>
         <textarea id="serializebox_text"></textarea>
@@ -525,7 +533,7 @@ td.blank {
 
     <script type="text/javascript">
 (function() {
-  var APP, BoolOtherOption, Color, DrawPoint, NumberOtherOption, OtherOption, Point, PointWidget, StochasticSierpinski, TargetRestriction, TargetRestrictionOption, UIPoint, base,
+  var APP, BoolOtherOption, Color, DrawPoint, EnumOtherOption, NumberOtherOption, OtherOption, Point, PointWidget, StochasticSierpinski, TargetRestriction, TargetRestrictionOption, UIPoint, base,
     slice = [].slice,
     extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
     hasProp = {}.hasOwnProperty,
@@ -624,6 +632,61 @@ td.blank {
       return "rgba(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + "," + alpha + ")";
     };
 
+    Color.rgb_to_hsl = function(rgb) {
+      var b, cmax, cmin, delta, g, h, l, r, s;
+      r = rgb[0] / 255;
+      g = rgb[2] / 255;
+      b = rgb[2] / 255;
+      cmin = Math.min(r, g, b);
+      cmax = Math.max(r, g, b);
+      delta = cmax - cmin;
+      h = delta === 0 ? 0 : cmax === r ? ((g - b) / delta) % 6 : cmax === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+      h = Math.round(h * 60);
+      if (h < 0) {
+        h += 360;
+      }
+      l = (cmax + cmin) / 2;
+      s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+      s = +(s * 100).toFixed(1);
+      l = +(l * 100).toFixed(1);
+      return [h, s, l];
+    };
+
+    Color.blend_rgb = function() {
+      var args, len, total;
+      args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+      total = args.reduce(function(acc, cur) {
+        acc[0] += cur[0];
+        acc[1] += cur[1];
+        acc[2] += cur[2];
+        return acc;
+      });
+      len = args.length;
+      return [Math.floor(total[0] / len), Math.floor(total[1] / len), Math.floor(total[2] / len)];
+    };
+
+    Color.blend_hsl = function(a_hsl, b_hsl) {
+      var ah, bh, h, hdelta;
+      ah = a_hsl[0];
+      bh = b_hsl[0];
+      if (bh < ah) {
+        bh += 360;
+      }
+      hdelta = bh - ah;
+      h = ah + (hdelta / 2);
+      if (h >= 360) {
+        h -= 360;
+      }
+      return [h, Math.floor((a_hsl[1] + b_hsl[1]) / 2), Math.floor((a_hsl[2] + b_hsl[2]) / 2)];
+    };
+
+    Color.blend_hsl_from_rgb = function(a_rgb, b_rgb) {
+      var a_hsl, b_hsl;
+      a_hsl = Color.rgb_to_hsl(a_rgb);
+      b_hsl = Color.rgb_to_hsl(b_rgb);
+      return this.blend_hsl(a_hsl, b_hsl);
+    };
+
     return Color;
 
   })();
@@ -715,8 +778,10 @@ td.blank {
     };
 
     UIPoint.prototype.set_color = function(color) {
+      var ref;
       this.color = color;
-      return this.update_color_alpha_from_color();
+      this.update_color_alpha_from_color();
+      return (ref = APP.cur) != null ? ref.reset_color_cache() : void 0;
     };
 
     UIPoint.prototype.set_alpha = function(alpha) {
@@ -758,7 +823,7 @@ td.blank {
       double: []
     };
 
-    PointWidget.prev_target = [null, null];
+    PointWidget.prev_target = [null, null, null];
 
     PointWidget.target_chosen_twice = function() {
       return this.prev_target[0] === this.prev_target[1];
@@ -966,6 +1031,7 @@ td.blank {
       prev_idx = PointWidget.widgets.indexOf(this.prev_target[0]);
       idx = (choice + prev_idx) % PointWidget.widgets.length;
       w = PointWidget.widgets[idx];
+      this.prev_target[2] = this.prev_target[1];
       this.prev_target[1] = this.prev_target[0];
       this.prev_target[0] = w;
       return w;
@@ -1180,21 +1246,82 @@ td.blank {
   DrawPoint = (function(superClass) {
     extend(DrawPoint, superClass);
 
-    function DrawPoint(name) {
+    function DrawPoint(name, draw_style) {
       DrawPoint.__super__.constructor.call(this, '0', name);
       this.info_x = APP.context.getElementById(this.info_x_id);
       this.info_y = APP.context.getElementById(this.info_y_id);
       this.set_color('#000000');
+      this.set_draw_style(draw_style);
     }
+
+    DrawPoint.prototype.reset_color_cache = function() {
+      this.color_avg = {};
+      return this.prev_color_blend = Color.hexrgb_to_rgb(this.color);
+    };
+
+    DrawPoint.prototype.blend_target_colors = function(a, b) {
+      var a_rgb, b_rgb, blend;
+      a_rgb = Color.hexrgb_to_rgb(a.color);
+      b_rgb = Color.hexrgb_to_rgb(b.color);
+      blend = Color.blend_rgb(a_rgb, b_rgb);
+      return "rgba(" + blend[0] + "," + blend[1] + "," + blend[2] + "," + this.alpha + ")";
+    };
+
+    DrawPoint.prototype.get_color_mono = function() {
+      return this.color_alpha;
+    };
+
+    DrawPoint.prototype.get_color_target = function(target) {
+      return target.color_alpha;
+    };
+
+    DrawPoint.prototype.get_color_blend_prev1 = function() {
+      var a, b, base1, name;
+      b = PointWidget.prev_target[1];
+      a = PointWidget.prev_target[0];
+      if (b == null) {
+        return a.color_alpha;
+      }
+      name = a.name + b.name;
+      return (base1 = this.color_avg)[name] != null ? base1[name] : base1[name] = this.blend_target_colors(a, b);
+    };
+
+    DrawPoint.prototype.get_color_blend_prev2 = function(target) {
+      var c, p, t;
+      t = Color.hexrgb_to_rgb(target.color);
+      p = this.prev_color_blend;
+      this.prev_color_blend = Color.blend_rgb(t, p);
+      c = "rgba(" + this.prev_color_blend[0] + "," + this.prev_color_blend[1] + "," + this.prev_color_blend[2] + "," + this.alpha + ")";
+      return c;
+    };
+
+    DrawPoint.prototype.set_draw_style = function(mode) {
+      return this.get_current_color = (function() {
+        switch (mode) {
+          case 'mono':
+            return this.get_color_mono;
+          case 'color_target':
+            return this.get_color_target;
+          case 'color_blend_prev_target':
+            return this.get_color_blend_prev1;
+          case 'color_blend_prev_color':
+            return this.get_color_blend_prev2;
+          default:
+            return this.get_color_mono;
+        }
+      }).call(this);
+    };
+
+    DrawPoint.prototype.set_opacity = function(opacity) {
+      this.opacity = opacity;
+      this.alpha = opacity / 100;
+      return DrawPoint.__super__.set_opacity.call(this, opacity);
+    };
 
     DrawPoint.prototype.draw_graph = function(target) {
       var ctx;
       ctx = APP.graph_ctx;
-      if (APP.option.draw_point_colors.value) {
-        ctx.fillStyle = target.color_alpha;
-      } else {
-        ctx.fillStyle = this.color_alpha;
-      }
+      ctx.fillStyle = this.get_current_color(target);
       return ctx.fillRect(this.x, this.y, 1, 1);
     };
 
@@ -1466,6 +1593,45 @@ td.blank {
 
   })(OtherOption);
 
+  EnumOtherOption = (function(superClass) {
+    extend(EnumOtherOption, superClass);
+
+    function EnumOtherOption() {
+      return EnumOtherOption.__super__.constructor.apply(this, arguments);
+    }
+
+    EnumOtherOption.prototype.get = function(element) {
+      if (element == null) {
+        element = this.el;
+      }
+      return element.value;
+    };
+
+    EnumOtherOption.prototype.find_option_by_value = function(enum_value) {
+      var j, len1, opt, ref;
+      ref = this.el.options;
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        opt = ref[j];
+        if (opt.value === enum_value) {
+          return opt;
+        }
+      }
+      return null;
+    };
+
+    EnumOtherOption.prototype.set = function(enum_value) {
+      var opt;
+      opt = this.find_option_by_value(enum_value);
+      if (opt != null) {
+        this.el.value = opt.value;
+      }
+      return this.value = this.el.value;
+    };
+
+    return EnumOtherOption;
+
+  })(OtherOption);
+
   StochasticSierpinski = (function() {
     function StochasticSierpinski(context) {
       this.context = context;
@@ -1500,7 +1666,8 @@ td.blank {
       this.on_graph_wrapper_mutate = bind(this.on_graph_wrapper_mutate, this);
       this.on_mouseleave = bind(this.on_mouseleave, this);
       this.on_mouseenter = bind(this.on_mouseenter, this);
-      this.on_opacity_change = bind(this.on_opacity_change, this);
+      this.on_draw_opacity_change = bind(this.on_draw_opacity_change, this);
+      this.on_draw_style_change = bind(this.on_draw_style_change, this);
     }
 
     StochasticSierpinski.prototype.init = function() {
@@ -1530,8 +1697,8 @@ td.blank {
       this.btn_move_all_reg_polygon = this.context.getElementById('move_all_reg_polygon');
       this.btn_move_all_random = this.context.getElementById('move_all_random');
       this.option = {
-        draw_point_colors: new BoolOtherOption(this.context, 'draw_point_colors', true),
-        draw_opacity: new NumberOtherOption(this.context, 'draw_opacity', 35, this.on_opacity_change)
+        draw_style: new EnumOtherOption(this.context, 'draw_style', 'color_blend_prev_color', this.on_draw_style_change),
+        draw_opacity: new NumberOtherOption(this.context, 'draw_opacity', 35, this.on_draw_opacity_change)
       };
       this.serializebox = this.context.getElementById('serializebox');
       this.serializebox_title = this.context.getElementById('serializebox_title');
@@ -1539,7 +1706,7 @@ td.blank {
       this.serializebox_action = this.context.getElementById('serializebox_action');
       this.serializebox_cancel = this.context.getElementById('serializebox_cancel');
       PointWidget.restrictions = new TargetRestriction(this.context);
-      this.cur = new DrawPoint('Cur');
+      this.cur = new DrawPoint('Cur', this.option.draw_style.value);
       PointWidget.set_ngon(3);
       this.set_steps_per_frame(100);
       this.num_points_el = this.context.getElementById('num_points');
@@ -1589,7 +1756,11 @@ td.blank {
       return this.clear_update_and_draw();
     };
 
-    StochasticSierpinski.prototype.on_opacity_change = function() {
+    StochasticSierpinski.prototype.on_draw_style_change = function() {
+      return this.cur.set_draw_style(this.option.draw_style.value);
+    };
+
+    StochasticSierpinski.prototype.on_draw_opacity_change = function() {
       var j, len1, o, ref, results, w;
       o = this.option.draw_opacity.value;
       this.cur.set_opacity(o);
@@ -1708,7 +1879,7 @@ td.blank {
         }),
         restrictions: PointWidget.restrictions.save(),
         options: {
-          draw_point_colors: this.option.draw_point_colors.value,
+          draw_style: this.option.draw_style.value,
           draw_opacity: this.option.draw_opacity.value
         }
       };
@@ -1736,8 +1907,8 @@ td.blank {
         PointWidget.restrictions.load(opt.restrictions);
       }
       if (opt.options != null) {
-        if (opt.options.draw_point_colors != null) {
-          this.option.draw_point_colors.set(opt.options.draw_point_colors);
+        if (opt.options.draw_style != null) {
+          this.option.draw_style.set(opt.options.draw_style);
         }
         if (opt.options.draw_opacity != null) {
           return this.option.draw_opacity.set(opt.options.draw_opacity);
@@ -1855,14 +2026,15 @@ td.blank {
     };
 
     StochasticSierpinski.prototype.on_reset = function(restart_ok) {
-      var ref, was_running;
+      var was_running;
       if (restart_ok == null) {
         restart_ok = false;
       }
       was_running = this.running;
       this.stop();
-      if ((ref = this.cur) != null) {
-        ref.move(this.graph_ui_canvas.width / 2, this.graph_ui_canvas.height / 2);
+      if (this.cur != null) {
+        this.cur.move(this.graph_ui_canvas.width / 2, this.graph_ui_canvas.height / 2);
+        this.cur.reset_color_cache();
       }
       this.step_count = 0;
       this.clear_update_and_draw();
