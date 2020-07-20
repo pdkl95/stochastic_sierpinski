@@ -78,8 +78,7 @@ undivert(`style.css')
 
         <hr>
 
-        <h3>Restrictions</h3>
-
+        <h3>Random Target Restrictions</h3>
         <div class="restrictbox buttonbox">
           <table id="restrict_table">
             <tr>
@@ -118,8 +117,22 @@ undivert(`style.css')
           </table>
         </div>
 
-        <h3>Other Options</h3>
+        <h3>Restricted Location Bitmap</h3>
+        <div class="locbitbox buttonbox">
+          <table>
+            <tr>
+              <th>Enabled?</th>
+              <td><input id="locbit_enabled" type="checkbox"></td>
+            </tr>
+            <tr>
+              <th>Border Padding Size</th>
+              <td><input id="locbit_padding" type="number" value="100"
+                         min="0" max="500" step="1">%</td>
+            </tr>
+          </table>
+        </div>
 
+        <h3>Other Options</h3>
         <div class="optionsbox buttonbox">
           <table>
             <tr>
@@ -127,7 +140,7 @@ undivert(`style.css')
               <td>
                 <input id="canvas_width" type="number" value="420"
                        min="64" max="4096" step="1">
-                &nbsp;x&nbsp;
+                x
                 <input id="canvas_height" type="number" value="320"
                        min="64" max="4096" step="1">
               </td>
@@ -146,7 +159,7 @@ undivert(`style.css')
             <tr>
               <th>Draw Opacity</th>
               <td><input id="draw_opacity" type="number"
-                         min="0" max="100" step="5"></td>
+                         min="0" max="100" step="5">%</td>
             </tr>
           </table>
         </div>

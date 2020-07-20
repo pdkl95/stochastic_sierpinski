@@ -329,6 +329,7 @@ td.blank {
   width: 5em;
 }
 
+#locbit_padding,
 #steps_per_frame,
 #draw_opacity {
   width: 3.5em;
@@ -449,8 +450,7 @@ td.blank {
 
         <hr>
 
-        <h3>Restrictions</h3>
-
+        <h3>Random Target Restrictions</h3>
         <div class="restrictbox buttonbox">
           <table id="restrict_table">
             <tr>
@@ -489,8 +489,22 @@ td.blank {
           </table>
         </div>
 
-        <h3>Other Options</h3>
+        <h3>Restricted Location Bitmap</h3>
+        <div class="locbitbox buttonbox">
+          <table>
+            <tr>
+              <th>Enabled?</th>
+              <td><input id="locbit_enabled" type="checkbox"></td>
+            </tr>
+            <tr>
+              <th>Border Padding Size</th>
+              <td><input id="locbit_padding" type="number" value="100"
+                         min="0" max="500" step="1">%</td>
+            </tr>
+          </table>
+        </div>
 
+        <h3>Other Options</h3>
         <div class="optionsbox buttonbox">
           <table>
             <tr>
@@ -498,7 +512,7 @@ td.blank {
               <td>
                 <input id="canvas_width" type="number" value="420"
                        min="64" max="4096" step="1">
-                &nbsp;x&nbsp;
+                x
                 <input id="canvas_height" type="number" value="320"
                        min="64" max="4096" step="1">
               </td>
@@ -517,7 +531,7 @@ td.blank {
             <tr>
               <th>Draw Opacity</th>
               <td><input id="draw_opacity" type="number"
-                         min="0" max="100" step="5"></td>
+                         min="0" max="100" step="5">%</td>
             </tr>
           </table>
         </div>
@@ -1558,6 +1572,14 @@ td.blank {
       }
     };
 
+    OtherOption.prototype.enable = function() {
+      return this.el.disabled = false;
+    };
+
+    OtherOption.prototype.disable = function() {
+      return this.el.disabled = true;
+    };
+
     return OtherOption;
 
   })();
@@ -1684,6 +1706,7 @@ td.blank {
       this.on_mouseenter = bind(this.on_mouseenter, this);
       this.on_draw_opacity_change = bind(this.on_draw_opacity_change, this);
       this.on_draw_style_change = bind(this.on_draw_style_change, this);
+      this.on_locbit_enabled_chsnge = bind(this.on_locbit_enabled_chsnge, this);
     }
 
     StochasticSierpinski.prototype.init = function() {
@@ -1713,6 +1736,8 @@ td.blank {
       this.btn_move_all_reg_polygon = this.context.getElementById('move_all_reg_polygon');
       this.btn_move_all_random = this.context.getElementById('move_all_random');
       this.option = {
+        locbit_enabled: new BoolOtherOption(this.context, 'locbit_enabled', false, this.on_locbit_enabled_chsnge),
+        locbit_padding: new NumberOtherOption(this.context, 'locbit_padding', 100),
         canvas_width: new NumberOtherOption(this.context, 'canvas_width', 420, this.on_canvas_hw_change),
         canvas_height: new NumberOtherOption(this.context, 'canvas_height', 320, this.on_canvas_hw_change),
         draw_style: new EnumOtherOption(this.context, 'draw_style', 'color_blend_prev_color', this.on_draw_style_change),
@@ -1772,6 +1797,22 @@ td.blank {
         }
       }
       return this.clear_update_and_draw();
+    };
+
+    StochasticSierpinski.prototype.on_locbit_enabled_chsnge = function() {
+      if (this.option.locbit_enabled.value) {
+        return this.enable_locbit();
+      } else {
+        return this.disable_locbit();
+      }
+    };
+
+    StochasticSierpinski.prototype.enable_locbit = function() {
+      return this.option.locbit_padding.enable();
+    };
+
+    StochasticSierpinski.prototype.disable_locbit = function() {
+      return this.option.locbit_padding.disable();
     };
 
     StochasticSierpinski.prototype.on_draw_style_change = function() {
@@ -1901,6 +1942,8 @@ td.blank {
         options: {
           canvas_width: this.option.canvas_width.value,
           canvas_height: this.option.canvas_height.value,
+          locbit_enabled: this.option.locbit_enabled.value,
+          locbit_padding: this.option.locbit_padding.value,
           draw_style: this.option.draw_style.value,
           draw_opacity: this.option.draw_opacity.value
         }
@@ -1914,6 +1957,12 @@ td.blank {
       if (opt.options != null) {
         if ((opt.options.canvas_width != null) && (opt.options.canvas_width != null)) {
           this.resize_graph(opt.options.canvas_width, opt.options.canvas_width);
+        }
+        if (opt.options.locbit_enabled != null) {
+          this.option.locbit_enabled.set(opt.options.locbit_enabled);
+        }
+        if (opt.options.locbit_padding != null) {
+          this.option.locbit_padding.set(opt.options.locbit_padding);
         }
         if (opt.options.draw_style != null) {
           this.option.draw_style.set(opt.options.draw_style);

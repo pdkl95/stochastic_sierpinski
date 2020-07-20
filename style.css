@@ -146,6 +146,7 @@ td.blank {
   width: 5em;
 }
 
+#locbit_padding,
 #steps_per_frame,
 #draw_opacity {
   width: 3.5em;

@@ -714,6 +714,12 @@ class OtherOption
     @set(@get(event.target))
     @on_change_callback(@value) if @on_change_callback?
 
+  enable: ->
+    @el.disabled = false
+
+  disable: ->
+    @el.disabled = true
+
 class BoolOtherOption extends OtherOption
   get: (element = @el) ->
     element.checked
@@ -778,10 +784,12 @@ class StochasticSierpinski
     @btn_move_all_random      = @context.getElementById('move_all_random')
 
     @option =
-      canvas_width:  new NumberOtherOption(@context, 'canvas_width',  420, @on_canvas_hw_change)
-      canvas_height: new NumberOtherOption(@context, 'canvas_height', 320, @on_canvas_hw_change)
-      draw_style:    new EnumOtherOption(  @context, 'draw_style', 'color_blend_prev_color', @on_draw_style_change)
-      draw_opacity:  new NumberOtherOption(@context, 'draw_opacity', 35, @on_draw_opacity_change)
+      locbit_enabled: new BoolOtherOption(  @context, 'locbit_enabled', false, @on_locbit_enabled_chsnge)
+      locbit_padding: new NumberOtherOption(@context, 'locbit_padding', 100)
+      canvas_width:   new NumberOtherOption(@context, 'canvas_width',  420, @on_canvas_hw_change)
+      canvas_height:  new NumberOtherOption(@context, 'canvas_height', 320, @on_canvas_hw_change)
+      draw_style:     new EnumOtherOption(  @context, 'draw_style', 'color_blend_prev_color', @on_draw_style_change)
+      draw_opacity:   new NumberOtherOption(@context, 'draw_opacity', 35, @on_draw_opacity_change)
 
     @serializebox        = @context.getElementById('serializebox')
     @serializebox_title  = @context.getElementById('serializebox_title')
@@ -847,6 +855,18 @@ class StochasticSierpinski
         @graph_wrapper_observer.observe(@graph_wrapper, { attributes: true })
 
     @clear_update_and_draw()
+
+  on_locbit_enabled_chsnge: =>
+    if @option.locbit_enabled.value
+      @enable_locbit()
+    else
+      @disable_locbit()
+
+  enable_locbit: ->
+    @option.locbit_padding.enable()
+
+  disable_locbit: ->
+    @option.locbit_padding.disable()
 
   on_draw_style_change: =>
     @cur.set_draw_style(@option.draw_style.value)
@@ -948,10 +968,12 @@ class StochasticSierpinski
       points: PointWidget.widgets.map( (x) -> x.save() )
       restrictions: PointWidget.restrictions.save()
       options:
-        canvas_width:  @option.canvas_width.value
-        canvas_height: @option.canvas_height.value
-        draw_style:    @option.draw_style.value
-        draw_opacity:  @option.draw_opacity.value
+        canvas_width:   @option.canvas_width.value
+        canvas_height:  @option.canvas_height.value
+        locbit_enabled: @option.locbit_enabled.value
+        locbit_padding: @option.locbit_padding.value
+        draw_style:     @option.draw_style.value
+        draw_opacity:   @option.draw_opacity.value
 
     JSON.stringify(opt)
 
@@ -961,6 +983,12 @@ class StochasticSierpinski
     if opt.options?
       if opt.options.canvas_width? and opt.options.canvas_width?
         @resize_graph(opt.options.canvas_width, opt.options.canvas_width)
+
+      if opt.options.locbit_enabled?
+        @option.locbit_enabled.set(opt.options.locbit_enabled)
+
+      if opt.options.locbit_padding?
+        @option.locbit_padding.set(opt.options.locbit_padding)
 
       if opt.options.draw_style?
         @option.draw_style.set(opt.options.draw_style)
