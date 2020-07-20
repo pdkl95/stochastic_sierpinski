@@ -324,6 +324,11 @@ td.blank {
   width: 3em;
 }
 
+#canvas_width,
+#canvas_height {
+  width: 5em;
+}
+
 #steps_per_frame,
 #draw_opacity {
   width: 3.5em;
@@ -488,6 +493,16 @@ td.blank {
 
         <div class="optionsbox buttonbox">
           <table>
+            <tr>
+              <th>Canvas Size</th>
+              <td>
+                <input id="canvas_width" type="number" value="420"
+                       min="64" max="4096" step="1">
+                &nbsp;x&nbsp;
+                <input id="canvas_height" type="number" value="320"
+                       min="64" max="4096" step="1">
+              </td>
+            </tr>
             <tr>
               <th>Draw Style</th>
               <td>
@@ -1663,6 +1678,7 @@ td.blank {
       this.on_create_png = bind(this.on_create_png, this);
       this.on_steps_per_frame_input = bind(this.on_steps_per_frame_input, this);
       this.on_num_points_input = bind(this.on_num_points_input, this);
+      this.on_canvas_hw_change = bind(this.on_canvas_hw_change, this);
       this.on_graph_wrapper_mutate = bind(this.on_graph_wrapper_mutate, this);
       this.on_mouseleave = bind(this.on_mouseleave, this);
       this.on_mouseenter = bind(this.on_mouseenter, this);
@@ -1697,6 +1713,8 @@ td.blank {
       this.btn_move_all_reg_polygon = this.context.getElementById('move_all_reg_polygon');
       this.btn_move_all_random = this.context.getElementById('move_all_random');
       this.option = {
+        canvas_width: new NumberOtherOption(this.context, 'canvas_width', 420, this.on_canvas_hw_change),
+        canvas_height: new NumberOtherOption(this.context, 'canvas_height', 320, this.on_canvas_hw_change),
         draw_style: new EnumOtherOption(this.context, 'draw_style', 'color_blend_prev_color', this.on_draw_style_change),
         draw_opacity: new NumberOtherOption(this.context, 'draw_opacity', 35, this.on_draw_opacity_change)
       };
@@ -1800,8 +1818,14 @@ td.blank {
       this.graph_ui_canvas.height = h;
       this.canvas_size_rule.style.width = w + "px";
       this.canvas_size_rule.style.height = h + "px";
+      this.option.canvas_width.set(w);
+      this.option.canvas_height.set(h);
       PointWidget.clamp_widgets_to_canvas();
       return this.resumable_reset();
+    };
+
+    StochasticSierpinski.prototype.on_canvas_hw_change = function() {
+      return this.resize_graph(this.option.canvas_width.value, this.option.canvas_height.value);
     };
 
     StochasticSierpinski.prototype.on_num_points_input = function(event) {
@@ -1870,15 +1894,13 @@ td.blank {
     StochasticSierpinski.prototype.serialize = function() {
       var opt;
       opt = {
-        canvas: {
-          width: this.graph_ui_canvas.width,
-          height: this.graph_ui_canvas.height
-        },
         points: PointWidget.widgets.map(function(x) {
           return x.save();
         }),
         restrictions: PointWidget.restrictions.save(),
         options: {
+          canvas_width: this.option.canvas_width.value,
+          canvas_height: this.option.canvas_height.value,
           draw_style: this.option.draw_style.value,
           draw_opacity: this.option.draw_opacity.value
         }
@@ -1889,9 +1911,15 @@ td.blank {
     StochasticSierpinski.prototype.deserialize = function(text) {
       var i, j, len1, opt, p, ref;
       opt = JSON.parse(text);
-      if (opt.canvas != null) {
-        if ((opt.canvas.width != null) && (opt.canvas.height != null)) {
-          this.resize_graph(opt.canvas.width, opt.canvas.height);
+      if (opt.options != null) {
+        if ((opt.options.canvas_width != null) && (opt.options.canvas_width != null)) {
+          this.resize_graph(opt.options.canvas_width, opt.options.canvas_width);
+        }
+        if (opt.options.draw_style != null) {
+          this.option.draw_style.set(opt.options.draw_style);
+        }
+        if (opt.options.draw_opacity != null) {
+          this.option.draw_opacity.set(opt.options.draw_opacity);
         }
       }
       if (opt.points != null) {
@@ -1904,15 +1932,7 @@ td.blank {
         }
       }
       if (opt.restrictions != null) {
-        PointWidget.restrictions.load(opt.restrictions);
-      }
-      if (opt.options != null) {
-        if (opt.options.draw_style != null) {
-          this.option.draw_style.set(opt.options.draw_style);
-        }
-        if (opt.options.draw_opacity != null) {
-          return this.option.draw_opacity.set(opt.options.draw_opacity);
-        }
+        return PointWidget.restrictions.load(opt.restrictions);
       }
     };
 
