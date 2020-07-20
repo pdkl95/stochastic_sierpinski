@@ -141,6 +141,11 @@ td.blank {
   width: 3em;
 }
 
+#canvas_width,
+#canvas_height {
+  width: 5em;
+}
+
 #steps_per_frame,
 #draw_opacity {
   width: 3.5em;

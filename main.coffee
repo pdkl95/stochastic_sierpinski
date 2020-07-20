@@ -778,8 +778,10 @@ class StochasticSierpinski
     @btn_move_all_random      = @context.getElementById('move_all_random')
 
     @option =
-      draw_style:   new EnumOtherOption(  @context, 'draw_style', 'color_blend_prev_color', @on_draw_style_change)
-      draw_opacity: new NumberOtherOption(@context, 'draw_opacity', 35, @on_draw_opacity_change)
+      canvas_width:  new NumberOtherOption(@context, 'canvas_width',  420, @on_canvas_hw_change)
+      canvas_height: new NumberOtherOption(@context, 'canvas_height', 320, @on_canvas_hw_change)
+      draw_style:    new EnumOtherOption(  @context, 'draw_style', 'color_blend_prev_color', @on_draw_style_change)
+      draw_opacity:  new NumberOtherOption(@context, 'draw_opacity', 35, @on_draw_opacity_change)
 
     @serializebox        = @context.getElementById('serializebox')
     @serializebox_title  = @context.getElementById('serializebox_title')
@@ -877,9 +879,14 @@ class StochasticSierpinski
     @graph_ui_canvas.height = h
     @canvas_size_rule.style.width  = "#{w}px"
     @canvas_size_rule.style.height = "#{h}px"
+    @option.canvas_width.set(w)
+    @option.canvas_height.set(h)
 
     PointWidget.clamp_widgets_to_canvas()
     @resumable_reset()
+
+  on_canvas_hw_change: =>
+    @resize_graph(@option.canvas_width.value, @option.canvas_height.value)
 
   on_num_points_input: (event) =>
     PointWidget.set_ngon(event.target.value)
@@ -938,23 +945,28 @@ class StochasticSierpinski
 
   serialize: ->
     opt =
-      canvas:
-        width:  @graph_ui_canvas.width
-        height: @graph_ui_canvas.height
       points: PointWidget.widgets.map( (x) -> x.save() )
       restrictions: PointWidget.restrictions.save()
       options:
-        draw_style:   @option.draw_style.value
-        draw_opacity: @option.draw_opacity.value
+        canvas_width:  @option.canvas_width.value
+        canvas_height: @option.canvas_height.value
+        draw_style:    @option.draw_style.value
+        draw_opacity:  @option.draw_opacity.value
 
     JSON.stringify(opt)
 
   deserialize: (text) =>
     opt = JSON.parse(text)
 
-    if opt.canvas?
-      if opt.canvas.width? and opt.canvas.height?
-        @resize_graph(opt.canvas.width, opt.canvas.height)
+    if opt.options?
+      if opt.options.canvas_width? and opt.options.canvas_width?
+        @resize_graph(opt.options.canvas_width, opt.options.canvas_width)
+
+      if opt.options.draw_style?
+        @option.draw_style.set(opt.options.draw_style)
+
+      if opt.options.draw_opacity?
+        @option.draw_opacity.set(opt.options.draw_opacity)
 
     if opt.points?
       @num_points_el.valueAsNumber = PointWidget.widgets.length;
@@ -965,12 +977,6 @@ class StochasticSierpinski
 
     if opt.restrictions?
       PointWidget.restrictions.load(opt.restrictions)
-
-    if opt.options?
-      if opt.options.draw_style?
-        @option.draw_style.set(opt.options.draw_style)
-      if opt.options.draw_opacity?
-        @option.draw_opacity.set(opt.options.draw_opacity)
     
   on_save: =>
     @show_serializebox('Save', @serialize(), null)

@@ -123,6 +123,16 @@ undivert(`style.css')
         <div class="optionsbox buttonbox">
           <table>
             <tr>
+              <th>Canvas Size</th>
+              <td>
+                <input id="canvas_width" type="number" value="420"
+                       min="64" max="4096" step="1">
+                &nbsp;x&nbsp;
+                <input id="canvas_height" type="number" value="320"
+                       min="64" max="4096" step="1">
+              </td>
+            </tr>
+            <tr>
               <th>Draw Style</th>
               <td>
                 <select id="draw_style" name="draw_style">
