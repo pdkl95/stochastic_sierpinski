@@ -783,6 +783,10 @@ class StochasticSierpinski
     @btn_move_all_reg_polygon = @context.getElementById('move_all_reg_polygon')
     @btn_move_all_random      = @context.getElementById('move_all_random')
 
+    @locbit_figure = @context.getElementById('locbit_figure')
+    @locbit_img    = @context.getElementById('locbit_img')
+    @locbit_file   = @context.getElementById('locbit_file')
+
     @option =
       locbit_enabled: new BoolOtherOption(  @context, 'locbit_enabled', false, @on_locbit_enabled_chsnge)
       locbit_padding: new NumberOtherOption(@context, 'locbit_padding', 100)
@@ -827,6 +831,8 @@ class StochasticSierpinski
     @btn_move_all_reg_polygon.addEventListener 'click', @on_move_all_reg_polygon
     @btn_move_all_random.addEventListener 'click', @on_move_all_random
 
+    @locbit_file.addEventListener 'change', @on_locbit_file_change
+
     @serializebox_action.addEventListener 'click', @on_serializebox_action
     @serializebox_cancel.addEventListener 'click', @on_serializebox_cancel
 
@@ -862,11 +868,23 @@ class StochasticSierpinski
     else
       @disable_locbit()
 
+  on_locbit_file_change: =>
+    return if @locbit_file.files.length < 1
+    file = @locbit_file.files[0]
+    return unless file.type.startsWith('image/')
+
+    reader = new FileReader()
+    reader.onload = (event) => @locbit_img.src = event.target.result
+    reader.readAsDataURL(file)
+    @locbit_figure.classList.remove('hidden')
+
   enable_locbit: ->
     @option.locbit_padding.enable()
+    @locbit_file.disabled = false
 
   disable_locbit: ->
     @option.locbit_padding.disable()
+    @locbit_file.disabled = true
 
   on_draw_style_change: =>
     @cur.set_draw_style(@option.draw_style.value)

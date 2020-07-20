@@ -312,6 +312,10 @@ footer {
   background-color: #e2e2e2
 }
 
+#locbit_figure {
+  float: right;
+}
+
 td.blank {
   border: none;
 }
@@ -490,6 +494,11 @@ td.blank {
         </div>
 
         <h3>Restricted Location Bitmap</h3>
+
+        <figure id="locbit_figure" class="hidden">
+          <img id="locbit_img" width="64" height="64">
+        </figure>
+
         <div class="locbitbox buttonbox">
           <table>
             <tr>
@@ -500,6 +509,10 @@ td.blank {
               <th>Border Padding Size</th>
               <td><input id="locbit_padding" type="number" value="100"
                          min="0" max="500" step="1">%</td>
+            </tr>
+            <tr>
+              <th>Load Image As Bitmap</th>
+              <td><input id="locbit_file" type="file" accept="image/*"></td>
             </tr>
           </table>
         </div>
@@ -1706,6 +1719,7 @@ td.blank {
       this.on_mouseenter = bind(this.on_mouseenter, this);
       this.on_draw_opacity_change = bind(this.on_draw_opacity_change, this);
       this.on_draw_style_change = bind(this.on_draw_style_change, this);
+      this.on_locbit_file_change = bind(this.on_locbit_file_change, this);
       this.on_locbit_enabled_chsnge = bind(this.on_locbit_enabled_chsnge, this);
     }
 
@@ -1735,6 +1749,9 @@ td.blank {
       this.point_pos_table = this.context.getElementById('point_pos_table');
       this.btn_move_all_reg_polygon = this.context.getElementById('move_all_reg_polygon');
       this.btn_move_all_random = this.context.getElementById('move_all_random');
+      this.locbit_figure = this.context.getElementById('locbit_figure');
+      this.locbit_img = this.context.getElementById('locbit_img');
+      this.locbit_file = this.context.getElementById('locbit_file');
       this.option = {
         locbit_enabled: new BoolOtherOption(this.context, 'locbit_enabled', false, this.on_locbit_enabled_chsnge),
         locbit_padding: new NumberOtherOption(this.context, 'locbit_padding', 100),
@@ -1767,6 +1784,7 @@ td.blank {
       this.btn_load.addEventListener('click', this.on_load);
       this.btn_move_all_reg_polygon.addEventListener('click', this.on_move_all_reg_polygon);
       this.btn_move_all_random.addEventListener('click', this.on_move_all_random);
+      this.locbit_file.addEventListener('change', this.on_locbit_file_change);
       this.serializebox_action.addEventListener('click', this.on_serializebox_action);
       this.serializebox_cancel.addEventListener('click', this.on_serializebox_cancel);
       this.graph_ui_canvas.addEventListener('mousedown', this.on_mousedown);
@@ -1807,12 +1825,33 @@ td.blank {
       }
     };
 
+    StochasticSierpinski.prototype.on_locbit_file_change = function() {
+      var file, reader;
+      if (this.locbit_file.files.length < 1) {
+        return;
+      }
+      file = this.locbit_file.files[0];
+      if (!file.type.startsWith('image/')) {
+        return;
+      }
+      reader = new FileReader();
+      reader.onload = (function(_this) {
+        return function(event) {
+          return _this.locbit_img.src = event.target.result;
+        };
+      })(this);
+      reader.readAsDataURL(file);
+      return this.locbit_figure.classList.remove('hidden');
+    };
+
     StochasticSierpinski.prototype.enable_locbit = function() {
-      return this.option.locbit_padding.enable();
+      this.option.locbit_padding.enable();
+      return this.locbit_file.disabled = false;
     };
 
     StochasticSierpinski.prototype.disable_locbit = function() {
-      return this.option.locbit_padding.disable();
+      this.option.locbit_padding.disable();
+      return this.locbit_file.disabled = true;
     };
 
     StochasticSierpinski.prototype.on_draw_style_change = function() {

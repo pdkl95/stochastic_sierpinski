@@ -118,6 +118,11 @@ undivert(`style.css')
         </div>
 
         <h3>Restricted Location Bitmap</h3>
+
+        <figure id="locbit_figure" class="hidden">
+          <img id="locbit_img" width="64" height="64">
+        </figure>
+
         <div class="locbitbox buttonbox">
           <table>
             <tr>
@@ -128,6 +133,10 @@ undivert(`style.css')
               <th>Border Padding Size</th>
               <td><input id="locbit_padding" type="number" value="100"
                          min="0" max="500" step="1">%</td>
+            </tr>
+            <tr>
+              <th>Load Image As Bitmap</th>
+              <td><input id="locbit_file" type="file" accept="image/*"></td>
             </tr>
           </table>
         </div>

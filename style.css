@@ -129,6 +129,10 @@ footer {
   background-color: #e2e2e2
 }
 
+#locbit_figure {
+  float: right;
+}
+
 td.blank {
   border: none;
 }
