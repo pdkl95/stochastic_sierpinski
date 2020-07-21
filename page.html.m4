@@ -131,8 +131,8 @@ undivert(`style.css')
             </tr>
             <tr>
               <th>Border Padding Size</th>
-              <td><input id="locbit_padding" type="number" value="100"
-                         min="0" max="500" step="1">%</td>
+              <td><input id="locbit_padding" type="number" value="33"
+                         min="0" max="49" step="1">%</td>
             </tr>
             <tr>
               <th>Load Image As Bitmap</th>

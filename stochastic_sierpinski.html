@@ -507,8 +507,8 @@ td.blank {
             </tr>
             <tr>
               <th>Border Padding Size</th>
-              <td><input id="locbit_padding" type="number" value="100"
-                         min="0" max="500" step="1">%</td>
+              <td><input id="locbit_padding" type="number" value="33"
+                         min="0" max="49" step="1">%</td>
             </tr>
             <tr>
               <th>Load Image As Bitmap</th>
@@ -1572,6 +1572,10 @@ td.blank {
       this.id = id;
       this["default"] = _default;
       this.on_change_callback = on_change_callback != null ? on_change_callback : null;
+      this.on_mouseleave = bind(this.on_mouseleave, this);
+      this.on_mouseenter = bind(this.on_mouseenter, this);
+      this.on_blur = bind(this.on_blur, this);
+      this.on_focus = bind(this.on_focus, this);
       this.on_change = bind(this.on_change, this);
       this.el = this.context.getElementById(this.id);
       this.set(this["default"]);
@@ -1591,6 +1595,56 @@ td.blank {
 
     OtherOption.prototype.disable = function() {
       return this.el.disabled = true;
+    };
+
+    OtherOption.prototype.interaction_callbacks = function(focus_callback, blur_callback) {
+      this.focus_callback = focus_callback;
+      this.blur_callback = blur_callback;
+      if (this.interaction_events_captured == null) {
+        this.el.addEventListener('focus', this.on_focus);
+        this.el.addEventListener('blur', this.on_blur);
+        this.el.addEventListener('mouseenter', this.on_mouseenter);
+        this.el.addEventListener('mouseleave', this.on_mouseleave);
+        this.interaction_events_captured = true;
+        this.have_focus = false;
+        return this.have_mouse = false;
+      }
+    };
+
+    OtherOption.prototype.on_focus = function() {
+      this.have_focus = true;
+      if (this.focus_callback != null) {
+        if (!this.have_mouse) {
+          return this.focus_callback();
+        }
+      }
+    };
+
+    OtherOption.prototype.on_blur = function() {
+      this.have_focus = false;
+      if (this.blur_callback != null) {
+        if (!this.have_mouse) {
+          return this.blur_callback();
+        }
+      }
+    };
+
+    OtherOption.prototype.on_mouseenter = function() {
+      this.have_mouse = true;
+      if (this.focus_callback != null) {
+        if (!this.have_focus) {
+          return this.focus_callback();
+        }
+      }
+    };
+
+    OtherOption.prototype.on_mouseleave = function() {
+      this.have_mouse = false;
+      if (this.blur_callback != null) {
+        if (!this.have_focus) {
+          return this.blur_callback();
+        }
+      }
     };
 
     return OtherOption;
@@ -1720,7 +1774,11 @@ td.blank {
       this.on_draw_opacity_change = bind(this.on_draw_opacity_change, this);
       this.on_draw_style_change = bind(this.on_draw_style_change, this);
       this.on_locbit_file_change = bind(this.on_locbit_file_change, this);
-      this.on_locbit_enabled_chsnge = bind(this.on_locbit_enabled_chsnge, this);
+      this.on_locbit_img_load = bind(this.on_locbit_img_load, this);
+      this.on_locbit_padding_blur = bind(this.on_locbit_padding_blur, this);
+      this.on_locbit_padding_focus = bind(this.on_locbit_padding_focus, this);
+      this.on_locbit_padding_change = bind(this.on_locbit_padding_change, this);
+      this.on_locbit_enabled_change = bind(this.on_locbit_enabled_change, this);
     }
 
     StochasticSierpinski.prototype.init = function() {
@@ -1753,13 +1811,16 @@ td.blank {
       this.locbit_img = this.context.getElementById('locbit_img');
       this.locbit_file = this.context.getElementById('locbit_file');
       this.option = {
-        locbit_enabled: new BoolOtherOption(this.context, 'locbit_enabled', false, this.on_locbit_enabled_chsnge),
-        locbit_padding: new NumberOtherOption(this.context, 'locbit_padding', 100),
+        locbit_enabled: new BoolOtherOption(this.context, 'locbit_enabled', false, this.on_locbit_enabled_change),
+        locbit_padding: new NumberOtherOption(this.context, 'locbit_padding', 33, this.on_locbit_padding_change),
         canvas_width: new NumberOtherOption(this.context, 'canvas_width', 420, this.on_canvas_hw_change),
         canvas_height: new NumberOtherOption(this.context, 'canvas_height', 320, this.on_canvas_hw_change),
         draw_style: new EnumOtherOption(this.context, 'draw_style', 'color_blend_prev_color', this.on_draw_style_change),
         draw_opacity: new NumberOtherOption(this.context, 'draw_opacity', 35, this.on_draw_opacity_change)
       };
+      this.locbit_img_ready = false;
+      this.on_locbit_enabled_change();
+      this.option.locbit_padding.interaction_callbacks(this.on_locbit_padding_focus, this.on_locbit_padding_blur);
       this.serializebox = this.context.getElementById('serializebox');
       this.serializebox_title = this.context.getElementById('serializebox_title');
       this.serializebox_text = this.context.getElementById('serializebox_text');
@@ -1784,6 +1845,7 @@ td.blank {
       this.btn_load.addEventListener('click', this.on_load);
       this.btn_move_all_reg_polygon.addEventListener('click', this.on_move_all_reg_polygon);
       this.btn_move_all_random.addEventListener('click', this.on_move_all_random);
+      this.locbit_img.addEventListener('load', this.on_locbit_img_load);
       this.locbit_file.addEventListener('change', this.on_locbit_file_change);
       this.serializebox_action.addEventListener('click', this.on_serializebox_action);
       this.serializebox_cancel.addEventListener('click', this.on_serializebox_cancel);
@@ -1817,12 +1879,57 @@ td.blank {
       return this.clear_update_and_draw();
     };
 
-    StochasticSierpinski.prototype.on_locbit_enabled_chsnge = function() {
+    StochasticSierpinski.prototype.on_locbit_enabled_change = function() {
       if (this.option.locbit_enabled.value) {
         return this.enable_locbit();
       } else {
         return this.disable_locbit();
       }
+    };
+
+    StochasticSierpinski.prototype.on_locbit_padding_change = function() {
+      if (this.show_locbit_overlay) {
+        return this.redraw_ui();
+      }
+    };
+
+    StochasticSierpinski.prototype.on_locbit_padding_focus = function() {
+      this.show_locbit_overlay = true;
+      return this.redraw_ui();
+    };
+
+    StochasticSierpinski.prototype.on_locbit_padding_blur = function() {
+      this.show_locbit_overlay = false;
+      return this.redraw_ui();
+    };
+
+    StochasticSierpinski.prototype.render_locbit_overlay = function() {
+      var ch, cw, img_region, imgheight, imgwidth, oldalpha, padheight, padperc, padwidth;
+      cw = this.graph_ui_canvas.width;
+      ch = this.graph_ui_canvas.height;
+      padperc = this.option.locbit_padding.value / 100;
+      padwidth = padperc * cw;
+      padheight = padperc * ch;
+      imgwidth = cw - (2 * padwidth);
+      imgheight = ch - (2 * padheight);
+      this.graph_ui_ctx.save();
+      img_region = new Path2D();
+      img_region.rect(padwidth, padheight, imgwidth, imgheight);
+      img_region.rect(0, 0, cw, ch);
+      this.graph_ui_ctx.clip(img_region, 'evenodd');
+      this.graph_ui_ctx.fillStyle = 'rgba(255, 65, 2, 0.3)';
+      this.graph_ui_ctx.fillRect(0, 0, cw, ch);
+      this.graph_ui_ctx.restore();
+      if (this.locbit_img_ready) {
+        oldalpha = this.graph_ui_ctx.globalAlpha;
+        this.graph_ui_ctx.globalAlpha = 0.5;
+        this.graph_ui_ctx.drawImage(this.locbit_img, padwidth, padheight, imgwidth, imgheight);
+        return this.graph_ui_ctx.globalAlpha = oldalpha;
+      }
+    };
+
+    StochasticSierpinski.prototype.on_locbit_img_load = function() {
+      return this.locbit_img_ready = true;
     };
 
     StochasticSierpinski.prototype.on_locbit_file_change = function() {
@@ -1834,6 +1941,7 @@ td.blank {
       if (!file.type.startsWith('image/')) {
         return;
       }
+      this.locbit_img_ready = false;
       reader = new FileReader();
       reader.onload = (function(_this) {
         return function(event) {
@@ -2217,18 +2325,19 @@ td.blank {
     };
 
     StochasticSierpinski.prototype.redraw_ui = function() {
-      var j, len1, p, ref, ref1, results;
+      var j, len1, p, ref, ref1;
       this.graph_ui_ctx.clearRect(0, 0, this.graph_ui_canvas.width, this.graph_ui_canvas.height);
       if ((ref = this.cur) != null) {
         ref.draw_ui();
       }
       ref1 = PointWidget.widgets;
-      results = [];
       for (j = 0, len1 = ref1.length; j < len1; j++) {
         p = ref1[j];
-        results.push(p.draw_ui());
+        p.draw_ui();
       }
-      return results;
+      if (this.show_locbit_overlay) {
+        return this.render_locbit_overlay();
+      }
     };
 
     StochasticSierpinski.prototype.update = function() {

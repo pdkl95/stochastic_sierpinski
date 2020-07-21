@@ -720,6 +720,36 @@ class OtherOption
   disable: ->
     @el.disabled = true
 
+  interaction_callbacks: (@focus_callback, @blur_callback) ->
+    unless @interaction_events_captured?
+      @el.addEventListener('focus',      @on_focus)
+      @el.addEventListener('blur',       @on_blur)
+      @el.addEventListener('mouseenter', @on_mouseenter)
+      @el.addEventListener('mouseleave', @on_mouseleave)
+      @interaction_events_captured = true
+      @have_focus = false
+      @have_mouse = false
+
+  on_focus: =>
+    @have_focus = true
+    if @focus_callback?
+      @focus_callback() unless @have_mouse
+
+  on_blur: =>
+    @have_focus = false
+    if @blur_callback?
+      @blur_callback() unless @have_mouse
+
+  on_mouseenter: =>
+    @have_mouse = true
+    if @focus_callback?
+      @focus_callback() unless @have_focus
+
+  on_mouseleave: =>
+    @have_mouse = false
+    if @blur_callback?
+      @blur_callback() unless @have_focus
+
 class BoolOtherOption extends OtherOption
   get: (element = @el) ->
     element.checked
@@ -788,12 +818,16 @@ class StochasticSierpinski
     @locbit_file   = @context.getElementById('locbit_file')
 
     @option =
-      locbit_enabled: new BoolOtherOption(  @context, 'locbit_enabled', false, @on_locbit_enabled_chsnge)
-      locbit_padding: new NumberOtherOption(@context, 'locbit_padding', 100)
+      locbit_enabled: new BoolOtherOption(  @context, 'locbit_enabled', false, @on_locbit_enabled_change)
+      locbit_padding: new NumberOtherOption(@context, 'locbit_padding', 33, @on_locbit_padding_change)
       canvas_width:   new NumberOtherOption(@context, 'canvas_width',  420, @on_canvas_hw_change)
       canvas_height:  new NumberOtherOption(@context, 'canvas_height', 320, @on_canvas_hw_change)
       draw_style:     new EnumOtherOption(  @context, 'draw_style', 'color_blend_prev_color', @on_draw_style_change)
       draw_opacity:   new NumberOtherOption(@context, 'draw_opacity', 35, @on_draw_opacity_change)
+
+    @locbit_img_ready = false
+    @on_locbit_enabled_change()
+    @option.locbit_padding.interaction_callbacks(@on_locbit_padding_focus, @on_locbit_padding_blur)
 
     @serializebox        = @context.getElementById('serializebox')
     @serializebox_title  = @context.getElementById('serializebox_title')
@@ -831,6 +865,7 @@ class StochasticSierpinski
     @btn_move_all_reg_polygon.addEventListener 'click', @on_move_all_reg_polygon
     @btn_move_all_random.addEventListener 'click', @on_move_all_random
 
+    @locbit_img.addEventListener 'load', @on_locbit_img_load
     @locbit_file.addEventListener 'change', @on_locbit_file_change
 
     @serializebox_action.addEventListener 'click', @on_serializebox_action
@@ -862,17 +897,57 @@ class StochasticSierpinski
 
     @clear_update_and_draw()
 
-  on_locbit_enabled_chsnge: =>
+  on_locbit_enabled_change: =>
     if @option.locbit_enabled.value
       @enable_locbit()
     else
       @disable_locbit()
+
+  on_locbit_padding_change: =>
+    @redraw_ui() if @show_locbit_overlay
+
+  on_locbit_padding_focus: =>
+    @show_locbit_overlay = true
+    @redraw_ui()
+
+  on_locbit_padding_blur: =>
+    @show_locbit_overlay = false
+    @redraw_ui()
+
+  render_locbit_overlay: ->
+    cw = @graph_ui_canvas.width
+    ch = @graph_ui_canvas.height
+
+    padperc = @option.locbit_padding.value / 100
+    padwidth  = padperc * cw
+    padheight = padperc * ch
+    imgwidth  = cw - (2 * padwidth)
+    imgheight = ch - (2 * padheight)
+
+    @graph_ui_ctx.save()
+    img_region = new Path2D()
+    img_region.rect(padwidth, padheight, imgwidth, imgheight)
+    img_region.rect(0, 0, cw, ch)
+    @graph_ui_ctx.clip(img_region, 'evenodd')
+    @graph_ui_ctx.fillStyle = 'rgba(255, 65, 2, 0.3)'
+    @graph_ui_ctx.fillRect(0, 0, cw, ch)
+    @graph_ui_ctx.restore()
+
+    if @locbit_img_ready
+      oldalpha = @graph_ui_ctx.globalAlpha
+      @graph_ui_ctx.globalAlpha = 0.5
+      @graph_ui_ctx.drawImage(@locbit_img, padwidth, padheight, imgwidth, imgheight)
+      @graph_ui_ctx.globalAlpha = oldalpha
+
+  on_locbit_img_load: =>
+    @locbit_img_ready = true
 
   on_locbit_file_change: =>
     return if @locbit_file.files.length < 1
     file = @locbit_file.files[0]
     return unless file.type.startsWith('image/')
 
+    @locbit_img_ready = false
     reader = new FileReader()
     reader.onload = (event) => @locbit_img.src = event.target.result
     reader.readAsDataURL(file)
@@ -1175,6 +1250,9 @@ class StochasticSierpinski
 
     for p in PointWidget.widgets
       p.draw_ui()
+
+
+    @render_locbit_overlay() if @show_locbit_overlay
 
   update: =>
     @frame_is_scheduled = false
