@@ -8,6 +8,11 @@ Try it live on GitHub:
 
 [https://pdkl95.github.io/stochastic_sierpinski/](https://pdkl95.github.io/stochastic_sierpinski/)
 
+## Examples
+
+* [classic square fractal](https://pdkl95.github.io/stochastic_sierpinski/#{%22points%22:[{%22name%22:%22A%22,%22x%22:419.5,%22y%22:1.5,%22move_perc%22:0.5,%22color%22:%22#ff0000%22},{%22name%22:%22B%22,%22x%22:419.5,%22y%22:419.5,%22move_perc%22:0.5,%22color%22:%22#80ff00%22},{%22name%22:%22C%22,%22x%22:1.5,%22y%22:419.5,%22move_perc%22:0.5,%22color%22:%22#00ffff%22},{%22name%22:%22D%22,%22x%22:1.5,%22y%22:1.5,%22move_perc%22:0.5,%22color%22:%22#7f00ff%22}],%22restrictions%22:{%22single%22:[%22prev3%22,%22next3%22,%22opposite%22],%22double%22:[]},%22options%22:{%22canvas_width%22:420,%22canvas_height%22:420,%22draw_style%22:%22color_blend_prev_color%22,%22draw_opacity%22:35}})
+
+* [flowery septagon](https://pdkl95.github.io/stochastic_sierpinski/#{%22points%22:[{%22name%22:%22A%22,%22x%22:211.5,%22y%22:10.5,%22move_perc%22:0.5,%22color%22:%22#ff0000%22},{%22name%22:%22B%22,%22x%22:366.5,%22y%22:85.5,%22move_perc%22:0.5,%22color%22:%22#ffdb00%22},{%22name%22:%22C%22,%22x%22:405.5,%22y%22:254.5,%22move_perc%22:0.5,%22color%22:%22#49ff00%22},{%22name%22:%22D%22,%22x%22:296.5,%22y%22:390.5,%22move_perc%22:0.5,%22color%22:%22#00ff92%22},{%22name%22:%22E%22,%22x%22:124.5,%22y%22:390.5,%22move_perc%22:0.5,%22color%22:%22#0092ff%22},{%22name%22:%22F%22,%22x%22:15.5,%22y%22:254.5,%22move_perc%22:0.5,%22color%22:%22#4900ff%22},{%22name%22:%22G%22,%22x%22:54.5,%22y%22:85.5,%22move_perc%22:0.5,%22color%22:%22#ff00db%22}],%22restrictions%22:{%22single%22:[%22prev1%22,%22prev3%22,%22next1%22,%22next3%22],%22double%22:[%22self%22]},%22options%22:{%22canvas_width%22:421,%22canvas_height%22:421,%22draw_style%22:%22color_blend_prev_color%22,%22draw_opacity%22:25}})
 
 ## License
 
