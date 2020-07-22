@@ -197,12 +197,6 @@ class UIPoint extends Point
 class PointWidget extends UIPoint
   @widgets = []
 
-  @MIN_POINTS = 3
-  @MAX_POINTS = 8
-
-  @NEARBY_RADIUS = 8
-  @REG_POLYGON_MARGIN = 10
-
   @restrictions: null
 
   @restricted:
@@ -259,73 +253,6 @@ class PointWidget extends UIPoint
     @restricted.double = @filtered_choices('double')
     @prev_target[0] = @prev_target[1] = @widgets[0]
 
-  @add_widget: () ->
-    if PointWidget.widgets.length < @MAX_POINTS
-      PointWidget.create()
-      APP.resumable_reset()
-
-  @remove_widget: () ->
-    len = PointWidget.widgets.length
-    if len > @MIN_POINTS
-      PointWidget.widgets[len - 1].destroy()
-
-  @recolor_periodic_hue: (step, start = 0.0) ->
-    hue = start
-    for w in PointWidget.widgets
-      w.set_color_hue(hue)
-      hue += step
-
-  @recolor_equidistant_hue: () ->
-    PointWidget.recolor_periodic_hue(360.0 / PointWidget.widgets.length)
-
-  @set_ngon: (n, recolor = true) ->
-    PointWidget.set_num_widgets(n)
-    PointWidget.move_all_reg_polygon()
-    PointWidget.recolor_equidistant_hue() if recolor
-
-  @set_num_widgets: (n) ->
-    return unless n >= @MIN_POINTS and n <= @MAX_POINTS
-
-    PointWidget.add_widget() while n > PointWidget.widgets.length
-    PointWidget.remove_widget() while PointWidget.widgets.length > n
-
-  @move_all_reg_polygon: () ->
-    len = PointWidget.widgets.length
-
-    [maxx, maxy] = APP.max_xy()
-    minside = Math.min(maxx, maxy)
-    cx = maxx / 2
-    cy = maxy / 2
-    r = Math.min(cx, cy) - @REG_POLYGON_MARGIN
-    theta = (Math.PI * 2) / len
-
-    rotate = -Math.PI/2
-
-    switch len
-      when 3
-        side = minside - (2 * @REG_POLYGON_MARGIN)
-        height = side * (Math.sqrt(3) / 2)
-        tri_adj = (minside - height) / 2
-        cy += tri_adj * Math.sqrt(2)
-        r *= 1.2
-
-      when 4
-        rotate += Math.PI/4
-        r *= Math.sqrt(2)
-
-    for w, i in PointWidget.widgets
-      x = parseInt(r * Math.cos(rotate + theta * i))
-      y = parseInt(r * Math.sin(rotate + theta * i))
-      w.move(cx + x, cy + y)
-
-    APP.resumable_reset()
-
-  @move_all_random: () ->
-    for w in PointWidget.widgets
-      w.move(APP.random_x(), APP.random_y())
-
-    APP.resumable_reset()
-
   @clamp_widgets_to_canvas: () ->
     [width, height] = APP.max_xy()
 
@@ -334,17 +261,6 @@ class PointWidget extends UIPoint
       w.y = 0 if w.y < 0
       w.x = width  - 1 if w.x >= width
       w.y = height - 1 if w.y >= height
-
-  @nearby_widgets: (loc) ->
-    @widgets.filter (w) =>
-      w.distance(loc) < @NEARBY_RADIUS
-
-  @first_nearby_widget: (loc) ->
-    nearlist = PointWidget.nearby_widgets(loc)
-    if nearlist?
-      nearlist[0]
-    else
-      null
 
   @random_widget: ->
     choices = @current_restricted_choices()
@@ -357,12 +273,6 @@ class PointWidget extends UIPoint
     @prev_target[1] = @prev_target[0]
     @prev_target[0] = w
     w
-
-  @unhighlight_all: () ->
-    changed = false
-    for w in @widgets
-      changed = true if w.unhighlight()
-    return changed
 
   @is_name_used: (name) ->
     for w in PointWidget.widgets
@@ -745,6 +655,12 @@ class EnumOtherOption extends OtherOption
     @value = @el.value
 
 class StochasticSierpinski
+  MIN_POINTS: 3
+  MAX_POINTS: 8
+
+  REG_POLYGON_MARGIN: 1
+  NEARBY_RADIUS: 8
+
   constructor: (@context) ->
 
   init: () ->
@@ -774,6 +690,8 @@ class StochasticSierpinski
     @total_steps_cell = @context.getElementById('total_steps')
     @point_pos_table  = @context.getElementById('point_pos_table')
 
+    @num_points_el = @context.getElementById('num_points')
+
     @btn_move_all_reg_polygon = @context.getElementById('move_all_reg_polygon')
     @btn_move_all_random      = @context.getElementById('move_all_random')
 
@@ -794,18 +712,15 @@ class StochasticSierpinski
 
     @cur = new DrawPoint('Cur', @option.draw_style.value)
 
-    PointWidget.set_ngon(3)
+    @set_ngon(3)
 
     @set_steps_per_frame(100)
-
-    @num_points_el = @context.getElementById('num_points')
-    @num_points_el.value = PointWidget.widgets.length;
 
     @num_points_el.addEventListener 'input', @on_num_points_input
     @steps_per_frame_el.addEventListener 'input', @on_steps_per_frame_input
 
     @btn_reset.addEventListener      'click', @on_reset
-    @btn_step.addEventListener       'click', @on_ste
+    @btn_step.addEventListener       'click', @on_step
     @btn_multistep.addEventListener  'click', @on_multistep
     @btn_run.addEventListener        'click', @on_run
 
@@ -888,8 +803,40 @@ class StochasticSierpinski
   on_canvas_hw_change: =>
     @resize_graph(@option.canvas_width.value, @option.canvas_height.value)
 
+  add_point: () ->
+    if PointWidget.widgets.length < APP.MAX_POINTS
+      PointWidget.create()
+      @resumable_reset()
+
+  remove_point: () ->
+    len = PointWidget.widgets.length
+    if len > APP.MIN_POINTS
+      PointWidget.widgets[len - 1].destroy()
+
+  set_num_points: (n) ->
+    return unless n >= @MIN_POINTS and n <= @MAX_POINTS
+
+    @add_point() while n > PointWidget.widgets.length
+    @remove_point() while PointWidget.widgets.length > n
+
+    @num_points_el.value = PointWidget.widgets.length;
+
+  recolor_periodic_hue: (step, start = 0.0) ->
+    hue = start
+    for w in PointWidget.widgets
+      w.set_color_hue(hue)
+      hue += step
+
+  recolor_equidistant_hue: () ->
+    @recolor_periodic_hue(360.0 / PointWidget.widgets.length)
+
+  set_ngon: (n, recolor = true) ->
+    @set_num_points(n)
+    @on_move_all_reg_polygon()
+    @recolor_equidistant_hue() if recolor
+
   on_num_points_input: (event) =>
-    PointWidget.set_ngon(event.target.value)
+    @set_ngon(event.target.value)
 
   on_steps_per_frame_input: (event) =>
     @set_steps_per_frame(event.target.value)
@@ -969,9 +916,7 @@ class StochasticSierpinski
         @option.draw_opacity.set(opt.options.draw_opacity)
 
     if opt.points?
-      @num_points_el.valueAsNumber = PointWidget.widgets.length;
-
-      PointWidget.set_num_widgets(opt.points.length)
+      @set_num_points(opt.points.length)
       for p, i in opt.points
         PointWidget.widgets[i].load(p)
 
@@ -989,10 +934,41 @@ class StochasticSierpinski
     document.location = "##{hash}"
 
   on_move_all_reg_polygon: =>
-    PointWidget.move_all_reg_polygon()
+    len = PointWidget.widgets.length
 
-  on_move_all_random: =>
-    PointWidget.move_all_random()
+    [maxx, maxy] = @max_xy()
+    minside = Math.min(maxx, maxy)
+    cx = maxx / 2
+    cy = maxy / 2
+    r = Math.min(cx, cy) - @REG_POLYGON_MARGIN
+    theta = (Math.PI * 2) / len
+
+    rotate = -Math.PI/2
+
+    switch len
+      when 3
+        side = minside - (2 * @REG_POLYGON_MARGIN)
+        height = side * (Math.sqrt(3) / 2)
+        tri_adj = (minside - height) / 2
+        cy += tri_adj * Math.sqrt(2)
+        r *= 1.2
+
+      when 4
+        rotate += Math.PI/4
+        r *= Math.sqrt(2)
+
+    for w, i in PointWidget.widgets
+      x = parseInt(r * Math.cos(rotate + theta * i))
+      y = parseInt(r * Math.sin(rotate + theta * i))
+      w.move(cx + x, cy + y)
+
+    @resumable_reset()
+
+  on_move_all_random: () =>
+    for w in PointWidget.widgets
+      w.move(@random_x(), @random_y())
+
+    @resumable_reset()
 
   random_x: =>
     parseInt(Math.random() * @graph_ui_canvas.width)
@@ -1017,10 +993,27 @@ class StochasticSierpinski
       (0 <= loc.x <= @graph_ui_canvas.width) and
       (0 <= loc.y <= @graph_ui_canvas.height))
 
+  nearby_widgets: (loc) ->
+    PointWidget.widgets.filter (w) =>
+      w.distance(loc) < @NEARBY_RADIUS
+
+  first_nearby_widget: (loc) ->
+    nearlist = @nearby_widgets(loc)
+    if nearlist?
+      nearlist[0]
+    else
+      null
+
+  unhighlight_all: () ->
+    changed = false
+    for w in PointWidget.widgets
+      changed = true if w.unhighlight()
+    return changed
+
   on_mousedown: (event) =>
-    PointWidget.unhighlight_all()
+    @unhighlight_all()
     loc = @event_to_canvas_loc(event)
-    w = PointWidget.first_nearby_widget(loc)
+    w = @first_nearby_widget(loc)
     if w?
       @dnd_target = w
       w.highlight()
@@ -1043,9 +1036,9 @@ class StochasticSierpinski
         @redraw_ui()
         @resumable_reset()
     else
-      redraw = PointWidget.unhighlight_all()
+      redraw = @unhighlight_all()
 
-      w = PointWidget.first_nearby_widget(loc)
+      w = @first_nearby_widget(loc)
       if w?
         redraw = true if w.highlight()
 
