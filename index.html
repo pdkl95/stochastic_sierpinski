@@ -823,14 +823,6 @@ td.blank {
 
     PointWidget.widgets = [];
 
-    PointWidget.MIN_POINTS = 3;
-
-    PointWidget.MAX_POINTS = 8;
-
-    PointWidget.NEARBY_RADIUS = 8;
-
-    PointWidget.REG_POLYGON_MARGIN = 10;
-
     PointWidget.restrictions = null;
 
     PointWidget.restricted = {
@@ -893,109 +885,6 @@ td.blank {
       return this.prev_target[0] = this.prev_target[1] = this.widgets[0];
     };
 
-    PointWidget.add_widget = function() {
-      if (PointWidget.widgets.length < this.MAX_POINTS) {
-        PointWidget.create();
-        return APP.resumable_reset();
-      }
-    };
-
-    PointWidget.remove_widget = function() {
-      var len;
-      len = PointWidget.widgets.length;
-      if (len > this.MIN_POINTS) {
-        return PointWidget.widgets[len - 1].destroy();
-      }
-    };
-
-    PointWidget.recolor_periodic_hue = function(step, start) {
-      var hue, j, len1, ref, results, w;
-      if (start == null) {
-        start = 0.0;
-      }
-      hue = start;
-      ref = PointWidget.widgets;
-      results = [];
-      for (j = 0, len1 = ref.length; j < len1; j++) {
-        w = ref[j];
-        w.set_color_hue(hue);
-        results.push(hue += step);
-      }
-      return results;
-    };
-
-    PointWidget.recolor_equidistant_hue = function() {
-      return PointWidget.recolor_periodic_hue(360.0 / PointWidget.widgets.length);
-    };
-
-    PointWidget.set_ngon = function(n, recolor) {
-      if (recolor == null) {
-        recolor = true;
-      }
-      PointWidget.set_num_widgets(n);
-      PointWidget.move_all_reg_polygon();
-      if (recolor) {
-        return PointWidget.recolor_equidistant_hue();
-      }
-    };
-
-    PointWidget.set_num_widgets = function(n) {
-      var results;
-      if (!(n >= this.MIN_POINTS && n <= this.MAX_POINTS)) {
-        return;
-      }
-      while (n > PointWidget.widgets.length) {
-        PointWidget.add_widget();
-      }
-      results = [];
-      while (PointWidget.widgets.length > n) {
-        results.push(PointWidget.remove_widget());
-      }
-      return results;
-    };
-
-    PointWidget.move_all_reg_polygon = function() {
-      var cx, cy, height, i, j, len, len1, maxx, maxy, minside, r, ref, ref1, rotate, side, theta, tri_adj, w, x, y;
-      len = PointWidget.widgets.length;
-      ref = APP.max_xy(), maxx = ref[0], maxy = ref[1];
-      minside = Math.min(maxx, maxy);
-      cx = maxx / 2;
-      cy = maxy / 2;
-      r = Math.min(cx, cy) - this.REG_POLYGON_MARGIN;
-      theta = (Math.PI * 2) / len;
-      rotate = -Math.PI / 2;
-      switch (len) {
-        case 3:
-          side = minside - (2 * this.REG_POLYGON_MARGIN);
-          height = side * (Math.sqrt(3) / 2);
-          tri_adj = (minside - height) / 2;
-          cy += tri_adj * Math.sqrt(2);
-          r *= 1.2;
-          break;
-        case 4:
-          rotate += Math.PI / 4;
-          r *= Math.sqrt(2);
-      }
-      ref1 = PointWidget.widgets;
-      for (i = j = 0, len1 = ref1.length; j < len1; i = ++j) {
-        w = ref1[i];
-        x = parseInt(r * Math.cos(rotate + theta * i));
-        y = parseInt(r * Math.sin(rotate + theta * i));
-        w.move(cx + x, cy + y);
-      }
-      return APP.resumable_reset();
-    };
-
-    PointWidget.move_all_random = function() {
-      var j, len1, ref, w;
-      ref = PointWidget.widgets;
-      for (j = 0, len1 = ref.length; j < len1; j++) {
-        w = ref[j];
-        w.move(APP.random_x(), APP.random_y());
-      }
-      return APP.resumable_reset();
-    };
-
     PointWidget.clamp_widgets_to_canvas = function() {
       var height, j, len1, ref, ref1, results, w, width;
       ref = APP.max_xy(), width = ref[0], height = ref[1];
@@ -1021,24 +910,6 @@ td.blank {
       return results;
     };
 
-    PointWidget.nearby_widgets = function(loc) {
-      return this.widgets.filter((function(_this) {
-        return function(w) {
-          return w.distance(loc) < _this.NEARBY_RADIUS;
-        };
-      })(this));
-    };
-
-    PointWidget.first_nearby_widget = function(loc) {
-      var nearlist;
-      nearlist = PointWidget.nearby_widgets(loc);
-      if (nearlist != null) {
-        return nearlist[0];
-      } else {
-        return null;
-      }
-    };
-
     PointWidget.random_widget = function() {
       var choice, choices, idx, prev_idx, w;
       choices = this.current_restricted_choices();
@@ -1050,19 +921,6 @@ td.blank {
       this.prev_target[1] = this.prev_target[0];
       this.prev_target[0] = w;
       return w;
-    };
-
-    PointWidget.unhighlight_all = function() {
-      var changed, j, len1, ref, w;
-      changed = false;
-      ref = this.widgets;
-      for (j = 0, len1 = ref.length; j < len1; j++) {
-        w = ref[j];
-        if (w.unhighlight()) {
-          changed = true;
-        }
-      }
-      return changed;
     };
 
     PointWidget.is_name_used = function(name) {
@@ -1648,6 +1506,14 @@ td.blank {
   })(OtherOption);
 
   StochasticSierpinski = (function() {
+    StochasticSierpinski.prototype.MIN_POINTS = 3;
+
+    StochasticSierpinski.prototype.MAX_POINTS = 8;
+
+    StochasticSierpinski.prototype.REG_POLYGON_MARGIN = 1;
+
+    StochasticSierpinski.prototype.NEARBY_RADIUS = 8;
+
     function StochasticSierpinski(context) {
       this.context = context;
       this.on_keydown = bind(this.on_keydown, this);
@@ -1710,6 +1576,7 @@ td.blank {
       this.btn_load = this.context.getElementById('button_load');
       this.total_steps_cell = this.context.getElementById('total_steps');
       this.point_pos_table = this.context.getElementById('point_pos_table');
+      this.num_points_el = this.context.getElementById('num_points');
       this.btn_move_all_reg_polygon = this.context.getElementById('move_all_reg_polygon');
       this.btn_move_all_random = this.context.getElementById('move_all_random');
       this.option = {
@@ -1725,14 +1592,12 @@ td.blank {
       this.serializebox_cancel = this.context.getElementById('serializebox_cancel');
       PointWidget.restrictions = new TargetRestriction(this.context);
       this.cur = new DrawPoint('Cur', this.option.draw_style.value);
-      PointWidget.set_ngon(3);
+      this.set_ngon(3);
       this.set_steps_per_frame(100);
-      this.num_points_el = this.context.getElementById('num_points');
-      this.num_points_el.value = PointWidget.widgets.length;
       this.num_points_el.addEventListener('input', this.on_num_points_input);
       this.steps_per_frame_el.addEventListener('input', this.on_steps_per_frame_input);
       this.btn_reset.addEventListener('click', this.on_reset);
-      this.btn_step.addEventListener('click', this.on_ste);
+      this.btn_step.addEventListener('click', this.on_step);
       this.btn_multistep.addEventListener('click', this.on_multistep);
       this.btn_run.addEventListener('click', this.on_run);
       this.context.addEventListener('keydown', this.on_keydown);
@@ -1828,8 +1693,67 @@ td.blank {
       return this.resize_graph(this.option.canvas_width.value, this.option.canvas_height.value);
     };
 
+    StochasticSierpinski.prototype.add_point = function() {
+      if (PointWidget.widgets.length < APP.MAX_POINTS) {
+        PointWidget.create();
+        return this.resumable_reset();
+      }
+    };
+
+    StochasticSierpinski.prototype.remove_point = function() {
+      var len;
+      len = PointWidget.widgets.length;
+      if (len > APP.MIN_POINTS) {
+        return PointWidget.widgets[len - 1].destroy();
+      }
+    };
+
+    StochasticSierpinski.prototype.set_num_points = function(n) {
+      if (!(n >= this.MIN_POINTS && n <= this.MAX_POINTS)) {
+        return;
+      }
+      while (n > PointWidget.widgets.length) {
+        this.add_point();
+      }
+      while (PointWidget.widgets.length > n) {
+        this.remove_point();
+      }
+      return this.num_points_el.value = PointWidget.widgets.length;
+    };
+
+    StochasticSierpinski.prototype.recolor_periodic_hue = function(step, start) {
+      var hue, j, len1, ref, results, w;
+      if (start == null) {
+        start = 0.0;
+      }
+      hue = start;
+      ref = PointWidget.widgets;
+      results = [];
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        w = ref[j];
+        w.set_color_hue(hue);
+        results.push(hue += step);
+      }
+      return results;
+    };
+
+    StochasticSierpinski.prototype.recolor_equidistant_hue = function() {
+      return this.recolor_periodic_hue(360.0 / PointWidget.widgets.length);
+    };
+
+    StochasticSierpinski.prototype.set_ngon = function(n, recolor) {
+      if (recolor == null) {
+        recolor = true;
+      }
+      this.set_num_points(n);
+      this.on_move_all_reg_polygon();
+      if (recolor) {
+        return this.recolor_equidistant_hue();
+      }
+    };
+
     StochasticSierpinski.prototype.on_num_points_input = function(event) {
-      return PointWidget.set_ngon(event.target.value);
+      return this.set_ngon(event.target.value);
     };
 
     StochasticSierpinski.prototype.on_steps_per_frame_input = function(event) {
@@ -1923,8 +1847,7 @@ td.blank {
         }
       }
       if (opt.points != null) {
-        this.num_points_el.valueAsNumber = PointWidget.widgets.length;
-        PointWidget.set_num_widgets(opt.points.length);
+        this.set_num_points(opt.points.length);
         ref = opt.points;
         for (i = j = 0, len1 = ref.length; j < len1; i = ++j) {
           p = ref[i];
@@ -1951,11 +1874,45 @@ td.blank {
     };
 
     StochasticSierpinski.prototype.on_move_all_reg_polygon = function() {
-      return PointWidget.move_all_reg_polygon();
+      var cx, cy, height, i, j, len, len1, maxx, maxy, minside, r, ref, ref1, rotate, side, theta, tri_adj, w, x, y;
+      len = PointWidget.widgets.length;
+      ref = this.max_xy(), maxx = ref[0], maxy = ref[1];
+      minside = Math.min(maxx, maxy);
+      cx = maxx / 2;
+      cy = maxy / 2;
+      r = Math.min(cx, cy) - this.REG_POLYGON_MARGIN;
+      theta = (Math.PI * 2) / len;
+      rotate = -Math.PI / 2;
+      switch (len) {
+        case 3:
+          side = minside - (2 * this.REG_POLYGON_MARGIN);
+          height = side * (Math.sqrt(3) / 2);
+          tri_adj = (minside - height) / 2;
+          cy += tri_adj * Math.sqrt(2);
+          r *= 1.2;
+          break;
+        case 4:
+          rotate += Math.PI / 4;
+          r *= Math.sqrt(2);
+      }
+      ref1 = PointWidget.widgets;
+      for (i = j = 0, len1 = ref1.length; j < len1; i = ++j) {
+        w = ref1[i];
+        x = parseInt(r * Math.cos(rotate + theta * i));
+        y = parseInt(r * Math.sin(rotate + theta * i));
+        w.move(cx + x, cy + y);
+      }
+      return this.resumable_reset();
     };
 
     StochasticSierpinski.prototype.on_move_all_random = function() {
-      return PointWidget.move_all_random();
+      var j, len1, ref, w;
+      ref = PointWidget.widgets;
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        w = ref[j];
+        w.move(this.random_x(), this.random_y());
+      }
+      return this.resumable_reset();
     };
 
     StochasticSierpinski.prototype.random_x = function() {
@@ -1988,11 +1945,42 @@ td.blank {
       return ((0 <= (ref = loc.x) && ref <= this.graph_ui_canvas.width)) && ((0 <= (ref1 = loc.y) && ref1 <= this.graph_ui_canvas.height));
     };
 
+    StochasticSierpinski.prototype.nearby_widgets = function(loc) {
+      return PointWidget.widgets.filter((function(_this) {
+        return function(w) {
+          return w.distance(loc) < _this.NEARBY_RADIUS;
+        };
+      })(this));
+    };
+
+    StochasticSierpinski.prototype.first_nearby_widget = function(loc) {
+      var nearlist;
+      nearlist = this.nearby_widgets(loc);
+      if (nearlist != null) {
+        return nearlist[0];
+      } else {
+        return null;
+      }
+    };
+
+    StochasticSierpinski.prototype.unhighlight_all = function() {
+      var changed, j, len1, ref, w;
+      changed = false;
+      ref = PointWidget.widgets;
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        w = ref[j];
+        if (w.unhighlight()) {
+          changed = true;
+        }
+      }
+      return changed;
+    };
+
     StochasticSierpinski.prototype.on_mousedown = function(event) {
       var loc, w;
-      PointWidget.unhighlight_all();
+      this.unhighlight_all();
       loc = this.event_to_canvas_loc(event);
-      w = PointWidget.first_nearby_widget(loc);
+      w = this.first_nearby_widget(loc);
       if (w != null) {
         this.dnd_target = w;
         return w.highlight();
@@ -2022,8 +2010,8 @@ td.blank {
           return this.resumable_reset();
         }
       } else {
-        redraw = PointWidget.unhighlight_all();
-        w = PointWidget.first_nearby_widget(loc);
+        redraw = this.unhighlight_all();
+        w = this.first_nearby_widget(loc);
         if (w != null) {
           if (w.highlight()) {
             redraw = true;
