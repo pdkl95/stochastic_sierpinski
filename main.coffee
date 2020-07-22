@@ -127,6 +127,26 @@ class Color
     b_hsl = Color.rgb_to_hsl(b_rgb)
     @blend_hsl(a_hsl, b_hsl)
 
+  @srgb_to_linear: (x) ->
+    x /= 255.0
+    if x <= 0
+      0
+    else if x >= 1
+      1
+    else if x < 0.04045
+      x / 12.92
+    else
+      Math.pow((x + 0.055) / 1.055, 2.4)
+
+  @linear_rgb_to_luminance: (rl, gl, bl) ->
+    (0.2126 * rl) + (0.7152 * gl) + (0.0722 * bl)
+
+  @srgb_to_luminance: (r, g, b) ->
+      rl = Color.srgb_to_linear(r)
+      gl = Color.srgb_to_linear(g)
+      bl = Color.srgb_to_linear(b)
+      Color.linear_rgb_to_luminance(rl, gl, bl)
+
 class Point
   constructor: (@name, x, y, @move_perc = 0.5) ->
     x ?= APP.graph_ui_canvas.width / 2
@@ -705,7 +725,8 @@ class TargetRestriction
     APP.resumable_reset()
 
 class OtherOption
-  constructor: (@context, @id, @default, @on_change_callback = null) ->
+  constructor: (@id, @default, @on_change_callback = null) ->
+    @context = APP.context
     @el = @context.getElementById(@id)
     @set(@default)
     @el.addEventListener('change', @on_change)
@@ -813,17 +834,20 @@ class StochasticSierpinski
     @btn_move_all_reg_polygon = @context.getElementById('move_all_reg_polygon')
     @btn_move_all_random      = @context.getElementById('move_all_random')
 
-    @locbit_figure = @context.getElementById('locbit_figure')
-    @locbit_img    = @context.getElementById('locbit_img')
-    @locbit_file   = @context.getElementById('locbit_file')
+    @locbit_img_box = @context.getElementById('locbit_img_box')
+    @locbit_file    = @context.getElementById('locbit_file')
+    @locbit_img     = @context.getElementById('locbit_img')
+    @locbit_bitmap  = @context.getElementById('locbit_bitmap')
+    @locbit_bitmap_ctx = @locbit_bitmap.getContext('2d', alpha: false)
 
     @option =
-      locbit_enabled: new BoolOtherOption(  @context, 'locbit_enabled', false, @on_locbit_enabled_change)
-      locbit_padding: new NumberOtherOption(@context, 'locbit_padding', 33, @on_locbit_padding_change)
-      canvas_width:   new NumberOtherOption(@context, 'canvas_width',  420, @on_canvas_hw_change)
-      canvas_height:  new NumberOtherOption(@context, 'canvas_height', 320, @on_canvas_hw_change)
-      draw_style:     new EnumOtherOption(  @context, 'draw_style', 'color_blend_prev_color', @on_draw_style_change)
-      draw_opacity:   new NumberOtherOption(@context, 'draw_opacity', 35, @on_draw_opacity_change)
+      locbit_enabled:   new BoolOtherOption(  'locbit_enabled', false, @on_locbit_enabled_change)
+      locbit_padding:   new NumberOtherOption('locbit_padding', 33, @on_locbit_padding_change)
+      locbit_threshold: new NumberOtherOption('locbit_threshold', 1, @on_locbit_threshold_change)
+      canvas_width:     new NumberOtherOption('canvas_width', 420, @on_canvas_hw_change)
+      canvas_height:    new NumberOtherOption('canvas_height', 320, @on_canvas_hw_change)
+      draw_style:       new EnumOtherOption(  'draw_style', 'color_blend_prev_color', @on_draw_style_change)
+      draw_opacity:     new NumberOtherOption('draw_opacity', 35, @on_draw_opacity_change)
 
     @locbit_img_ready = false
     @on_locbit_enabled_change()
@@ -903,6 +927,12 @@ class StochasticSierpinski
     else
       @disable_locbit()
 
+  on_locbit_threshold_change: =>
+    if @locbit_img_ready
+      @locbit_convert_img_to_bitmap()
+      if @option.locbit_enabled.value
+        @resumable_reset()
+
   on_locbit_padding_change: =>
     @redraw_ui() if @show_locbit_overlay
 
@@ -936,11 +966,55 @@ class StochasticSierpinski
     if @locbit_img_ready
       oldalpha = @graph_ui_ctx.globalAlpha
       @graph_ui_ctx.globalAlpha = 0.5
-      @graph_ui_ctx.drawImage(@locbit_img, padwidth, padheight, imgwidth, imgheight)
+      @graph_ui_ctx.drawImage(@locbit_bitmap, padwidth, padheight, imgwidth, imgheight)
       @graph_ui_ctx.globalAlpha = oldalpha
+
+  collides_with_bitmap: (x, y) ->
+    cw = @graph_ui_canvas.width
+    ch = @graph_ui_canvas.height
+
+    padperc = @option.locbit_padding.value / 100
+    padwidth  = padperc * cw
+    return false if x < padwidth
+    padheight = padperc * ch
+    return false if y < padheight
+    padwidth2  = 2 * padwidth
+    return false if x >= padwidth2
+    padheight2 = 2 * padheight
+    return false if y >= padheight2
+
+    imgwidth  = cw - padwidth2
+    imgheight = ch - padwidth2
+    imgstartx = (cw / 2) - (imgwidth / 2)
+    imgstarty = (ch / 2) - (imgheight / 2)
+    testx = Math.floor(((x - imgstartx) / imgwidth ) * imgwidth )
+    testy = Math.floor(((y - imgstarty) / imgheight) * imgheight)
+    pixel = @locbit_bitmap_ctx.getImageData(testx, testy, 1, 1)
+
+    return (pixel.data[0]) < 128
+
+  locbit_convert_img_to_bitmap: ->
+    w = @locbit_img.width
+    h = @locbit_img.height
+    @locbit_bitmap.width  = w
+    @locbit_bitmap.height = h
+    @locbit_bitmap_ctx.drawImage(@locbit_img, 0, 0, w, h)
+
+    image_data = @locbit_bitmap_ctx.getImageData(0, 0, w, h)
+
+    d = image_data.data
+    threshold = @option.locbit_threshold.value / 255.0
+
+    for i in [0...(d.length)] by 4
+      y = Color.srgb_to_luminance(d[i], d[i + 1], d[i + 2])
+      x = if y < threshold then 0 else 1
+      d[i + 2] = d[i + 1] = d[i] = Math.floor(x * 255)
+
+    @locbit_bitmap_ctx.putImageData(image_data, 0, 0)
 
   on_locbit_img_load: =>
     @locbit_img_ready = true
+    @locbit_convert_img_to_bitmap()
 
   on_locbit_file_change: =>
     return if @locbit_file.files.length < 1
@@ -951,14 +1025,16 @@ class StochasticSierpinski
     reader = new FileReader()
     reader.onload = (event) => @locbit_img.src = event.target.result
     reader.readAsDataURL(file)
-    @locbit_figure.classList.remove('hidden')
+    @locbit_img_box.classList.remove('hidden')
 
   enable_locbit: ->
     @option.locbit_padding.enable()
+    @option.locbit_threshold.enable()
     @locbit_file.disabled = false
 
   disable_locbit: ->
     @option.locbit_padding.disable()
+    @option.locbit_threshold.disable()
     @locbit_file.disabled = true
 
   on_draw_style_change: =>
@@ -1230,6 +1306,11 @@ class StochasticSierpinski
   single_step: ->
     target = PointWidget.random_widget()
     if target?
+      if @option.locbit_enabled.value and @locbit_img_ready
+        newx = @cur.x + ((target.x - @cur.x) * target.move_perc)
+        newy = @cur.y + ((target.y - @cur.y) * target.move_perc)
+        return if @collides_with_bitmap(newx, newy)
+
       @cur.move_towards_no_text_update target
       @cur.draw_graph(target)
       @step_count += 1

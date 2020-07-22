@@ -312,7 +312,7 @@ footer {
   background-color: #e2e2e2
 }
 
-#locbit_figure {
+#locbit_img_box {
   float: right;
 }
 
@@ -495,9 +495,16 @@ td.blank {
 
         <h3>Restricted Location Bitmap</h3>
 
-        <figure id="locbit_figure" class="hidden">
-          <img id="locbit_img" width="64" height="64">
-        </figure>
+        <div id="locbit_img_box" class="hidden">
+          <figure>
+            <img id="locbit_img" width="64" height="64">
+            <figcaption>Original</figcaption>
+          </figure>
+          <figure>
+            <canvas id="locbit_bitmap" width="64" height="64"></canvas>
+            <figcaption>Bitmap</figcaption>
+          </figure>
+        </div>
 
         <div class="locbitbox buttonbox">
           <table>
@@ -509,6 +516,11 @@ td.blank {
               <th>Border Padding Size</th>
               <td><input id="locbit_padding" type="number" value="33"
                          min="0" max="49" step="1">%</td>
+            </tr>
+            <tr>
+              <th>Bitmap Threshold</th>
+              <td><input id="locbit_threshold" type="range" value="1"
+                         min="1" max="254" step="1">%</td>
             </tr>
             <tr>
               <th>Load Image As Bitmap</th>
@@ -727,6 +739,31 @@ td.blank {
       a_hsl = Color.rgb_to_hsl(a_rgb);
       b_hsl = Color.rgb_to_hsl(b_rgb);
       return this.blend_hsl(a_hsl, b_hsl);
+    };
+
+    Color.srgb_to_linear = function(x) {
+      x /= 255.0;
+      if (x <= 0) {
+        return 0;
+      } else if (x >= 1) {
+        return 1;
+      } else if (x < 0.04045) {
+        return x / 12.92;
+      } else {
+        return Math.pow((x + 0.055) / 1.055, 2.4);
+      }
+    };
+
+    Color.linear_rgb_to_luminance = function(rl, gl, bl) {
+      return (0.2126 * rl) + (0.7152 * gl) + (0.0722 * bl);
+    };
+
+    Color.srgb_to_luminance = function(r, g, b) {
+      var bl, gl, rl;
+      rl = Color.srgb_to_linear(r);
+      gl = Color.srgb_to_linear(g);
+      bl = Color.srgb_to_linear(b);
+      return Color.linear_rgb_to_luminance(rl, gl, bl);
     };
 
     return Color;
@@ -1567,8 +1604,7 @@ td.blank {
   })();
 
   OtherOption = (function() {
-    function OtherOption(context, id, _default, on_change_callback) {
-      this.context = context;
+    function OtherOption(id, _default, on_change_callback) {
       this.id = id;
       this["default"] = _default;
       this.on_change_callback = on_change_callback != null ? on_change_callback : null;
@@ -1577,6 +1613,7 @@ td.blank {
       this.on_blur = bind(this.on_blur, this);
       this.on_focus = bind(this.on_focus, this);
       this.on_change = bind(this.on_change, this);
+      this.context = APP.context;
       this.el = this.context.getElementById(this.id);
       this.set(this["default"]);
       this.el.addEventListener('change', this.on_change);
@@ -1778,6 +1815,7 @@ td.blank {
       this.on_locbit_padding_blur = bind(this.on_locbit_padding_blur, this);
       this.on_locbit_padding_focus = bind(this.on_locbit_padding_focus, this);
       this.on_locbit_padding_change = bind(this.on_locbit_padding_change, this);
+      this.on_locbit_threshold_change = bind(this.on_locbit_threshold_change, this);
       this.on_locbit_enabled_change = bind(this.on_locbit_enabled_change, this);
     }
 
@@ -1807,16 +1845,21 @@ td.blank {
       this.point_pos_table = this.context.getElementById('point_pos_table');
       this.btn_move_all_reg_polygon = this.context.getElementById('move_all_reg_polygon');
       this.btn_move_all_random = this.context.getElementById('move_all_random');
-      this.locbit_figure = this.context.getElementById('locbit_figure');
-      this.locbit_img = this.context.getElementById('locbit_img');
+      this.locbit_img_box = this.context.getElementById('locbit_img_box');
       this.locbit_file = this.context.getElementById('locbit_file');
+      this.locbit_img = this.context.getElementById('locbit_img');
+      this.locbit_bitmap = this.context.getElementById('locbit_bitmap');
+      this.locbit_bitmap_ctx = this.locbit_bitmap.getContext('2d', {
+        alpha: false
+      });
       this.option = {
-        locbit_enabled: new BoolOtherOption(this.context, 'locbit_enabled', false, this.on_locbit_enabled_change),
-        locbit_padding: new NumberOtherOption(this.context, 'locbit_padding', 33, this.on_locbit_padding_change),
-        canvas_width: new NumberOtherOption(this.context, 'canvas_width', 420, this.on_canvas_hw_change),
-        canvas_height: new NumberOtherOption(this.context, 'canvas_height', 320, this.on_canvas_hw_change),
-        draw_style: new EnumOtherOption(this.context, 'draw_style', 'color_blend_prev_color', this.on_draw_style_change),
-        draw_opacity: new NumberOtherOption(this.context, 'draw_opacity', 35, this.on_draw_opacity_change)
+        locbit_enabled: new BoolOtherOption('locbit_enabled', false, this.on_locbit_enabled_change),
+        locbit_padding: new NumberOtherOption('locbit_padding', 33, this.on_locbit_padding_change),
+        locbit_threshold: new NumberOtherOption('locbit_threshold', 1, this.on_locbit_threshold_change),
+        canvas_width: new NumberOtherOption('canvas_width', 420, this.on_canvas_hw_change),
+        canvas_height: new NumberOtherOption('canvas_height', 320, this.on_canvas_hw_change),
+        draw_style: new EnumOtherOption('draw_style', 'color_blend_prev_color', this.on_draw_style_change),
+        draw_opacity: new NumberOtherOption('draw_opacity', 35, this.on_draw_opacity_change)
       };
       this.locbit_img_ready = false;
       this.on_locbit_enabled_change();
@@ -1887,6 +1930,15 @@ td.blank {
       }
     };
 
+    StochasticSierpinski.prototype.on_locbit_threshold_change = function() {
+      if (this.locbit_img_ready) {
+        this.locbit_convert_img_to_bitmap();
+        if (this.option.locbit_enabled.value) {
+          return this.resumable_reset();
+        }
+      }
+    };
+
     StochasticSierpinski.prototype.on_locbit_padding_change = function() {
       if (this.show_locbit_overlay) {
         return this.redraw_ui();
@@ -1923,13 +1975,63 @@ td.blank {
       if (this.locbit_img_ready) {
         oldalpha = this.graph_ui_ctx.globalAlpha;
         this.graph_ui_ctx.globalAlpha = 0.5;
-        this.graph_ui_ctx.drawImage(this.locbit_img, padwidth, padheight, imgwidth, imgheight);
+        this.graph_ui_ctx.drawImage(this.locbit_bitmap, padwidth, padheight, imgwidth, imgheight);
         return this.graph_ui_ctx.globalAlpha = oldalpha;
       }
     };
 
+    StochasticSierpinski.prototype.collides_with_bitmap = function(x, y) {
+      var ch, cw, imgheight, imgstartx, imgstarty, imgwidth, padheight, padheight2, padperc, padwidth, padwidth2, pixel, testx, testy;
+      cw = this.graph_ui_canvas.width;
+      ch = this.graph_ui_canvas.height;
+      padperc = this.option.locbit_padding.value / 100;
+      padwidth = padperc * cw;
+      if (x < padwidth) {
+        return false;
+      }
+      padheight = padperc * ch;
+      if (y < padheight) {
+        return false;
+      }
+      padwidth2 = 2 * padwidth;
+      if (x >= padwidth2) {
+        return false;
+      }
+      padheight2 = 2 * padheight;
+      if (y >= padheight2) {
+        return false;
+      }
+      imgwidth = cw - padwidth2;
+      imgheight = ch - padwidth2;
+      imgstartx = (cw / 2) - (imgwidth / 2);
+      imgstarty = (ch / 2) - (imgheight / 2);
+      testx = Math.floor(((x - imgstartx) / imgwidth) * imgwidth);
+      testy = Math.floor(((y - imgstarty) / imgheight) * imgheight);
+      pixel = this.locbit_bitmap_ctx.getImageData(testx, testy, 1, 1);
+      return pixel.data[0] < 128;
+    };
+
+    StochasticSierpinski.prototype.locbit_convert_img_to_bitmap = function() {
+      var d, h, i, image_data, j, ref, threshold, w, x, y;
+      w = this.locbit_img.width;
+      h = this.locbit_img.height;
+      this.locbit_bitmap.width = w;
+      this.locbit_bitmap.height = h;
+      this.locbit_bitmap_ctx.drawImage(this.locbit_img, 0, 0, w, h);
+      image_data = this.locbit_bitmap_ctx.getImageData(0, 0, w, h);
+      d = image_data.data;
+      threshold = this.option.locbit_threshold.value / 255.0;
+      for (i = j = 0, ref = d.length; j < ref; i = j += 4) {
+        y = Color.srgb_to_luminance(d[i], d[i + 1], d[i + 2]);
+        x = y < threshold ? 0 : 1;
+        d[i + 2] = d[i + 1] = d[i] = Math.floor(x * 255);
+      }
+      return this.locbit_bitmap_ctx.putImageData(image_data, 0, 0);
+    };
+
     StochasticSierpinski.prototype.on_locbit_img_load = function() {
-      return this.locbit_img_ready = true;
+      this.locbit_img_ready = true;
+      return this.locbit_convert_img_to_bitmap();
     };
 
     StochasticSierpinski.prototype.on_locbit_file_change = function() {
@@ -1949,16 +2051,18 @@ td.blank {
         };
       })(this);
       reader.readAsDataURL(file);
-      return this.locbit_figure.classList.remove('hidden');
+      return this.locbit_img_box.classList.remove('hidden');
     };
 
     StochasticSierpinski.prototype.enable_locbit = function() {
       this.option.locbit_padding.enable();
+      this.option.locbit_threshold.enable();
       return this.locbit_file.disabled = false;
     };
 
     StochasticSierpinski.prototype.disable_locbit = function() {
       this.option.locbit_padding.disable();
+      this.option.locbit_threshold.disable();
       return this.locbit_file.disabled = true;
     };
 
@@ -2299,9 +2403,16 @@ td.blank {
     };
 
     StochasticSierpinski.prototype.single_step = function() {
-      var target;
+      var newx, newy, target;
       target = PointWidget.random_widget();
       if (target != null) {
+        if (this.option.locbit_enabled.value && this.locbit_img_ready) {
+          newx = this.cur.x + ((target.x - this.cur.x) * target.move_perc);
+          newy = this.cur.y + ((target.y - this.cur.y) * target.move_perc);
+          if (this.collides_with_bitmap(newx, newy)) {
+            return;
+          }
+        }
         this.cur.move_towards_no_text_update(target);
         this.cur.draw_graph(target);
         return this.step_count += 1;
