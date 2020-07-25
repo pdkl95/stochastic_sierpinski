@@ -421,7 +421,7 @@ class PointWidget extends UIPoint
       name:      @name
       x:         @x
       y:         @y
-      move_perc: @move_perc
+      move_perc: @option.move_perc.get()
       color:     @color
 
   load: (opt) ->
@@ -432,6 +432,8 @@ class PointWidget extends UIPoint
       @move(opt.x, opt.y)
 
     if opt.move_perc?
+      if 0.0 < opt.move_perc < 1.0
+        opt.move_perc *= 100
       @set_move_perc(opt.move_perc)
 
     if opt.color?
