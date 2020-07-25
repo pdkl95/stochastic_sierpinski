@@ -1123,12 +1123,13 @@ td.blank {
         name: this.name,
         x: this.x,
         y: this.y,
-        move_perc: this.move_perc,
+        move_perc: this.option.move_perc.get(),
         color: this.color
       };
     };
 
     PointWidget.prototype.load = function(opt) {
+      var ref;
       if (opt.name != null) {
         this.set_name(opt.name);
       }
@@ -1136,6 +1137,9 @@ td.blank {
         this.move(opt.x, opt.y);
       }
       if (opt.move_perc != null) {
+        if ((0.0 < (ref = opt.move_perc) && ref < 1.0)) {
+          opt.move_perc *= 100;
+        }
         this.set_move_perc(opt.move_perc);
       }
       if (opt.color != null) {
