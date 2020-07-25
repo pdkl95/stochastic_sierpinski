@@ -26,7 +26,7 @@ h1 {
 
 .canvas_size {
   width: 420px;
-  height: 320px;
+  height: 420px;
 }
 
 .canvas_wrapper {
@@ -151,8 +151,16 @@ td.blank {
   width: 3.5em;
 }
 
+#point_pos_table input[type="color"] {
+  width: 3em;
+}
+
+#point_pos_table input[type="number"] {
+  width: 4em;
+}
+
 #point_pos_table input[type="range"] {
-  width: 10em;
+  width: 8em;
 }
 
 #point_pos_table td:nth-child(3),

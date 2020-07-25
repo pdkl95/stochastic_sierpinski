@@ -209,7 +209,7 @@ h1 {
 
 .canvas_size {
   width: 420px;
-  height: 320px;
+  height: 420px;
 }
 
 .canvas_wrapper {
@@ -334,8 +334,16 @@ td.blank {
   width: 3.5em;
 }
 
+#point_pos_table input[type="color"] {
+  width: 3em;
+}
+
+#point_pos_table input[type="number"] {
+  width: 4em;
+}
+
 #point_pos_table input[type="range"] {
-  width: 10em;
+  width: 8em;
 }
 
 #point_pos_table td:nth-child(3),
@@ -389,10 +397,10 @@ td.blank {
     <div id="content">
       <div class="graph panel">
         <div id="graph_wrapper" class="canvas_wrapper canvas_size">
-          <canvas id="graph" class="graph_canvas canvas_size" width="420" height="320">
+          <canvas id="graph" class="graph_canvas canvas_size" width="420" height="420">
             This requires a browser that supports the &lt;canvas&gt; tag.
           </canvas>
-          <canvas id="graph_ui" class="graph_canvas canvas_size" width="420" height="320">
+          <canvas id="graph_ui" class="graph_canvas canvas_size" width="420" height="420">
             This requires a browser that supports the &lt;canvas&gt; tag.
           </canvas>
         </div>
@@ -548,11 +556,11 @@ td.blank {
 
     <script type="text/javascript">
 (function() {
-  var APP, BoolOtherOption, Color, DrawPoint, EnumOtherOption, NumberOtherOption, OtherOption, Point, PointWidget, StochasticSierpinski, TargetRestriction, TargetRestrictionOption, UIPoint, base,
+  var APP, BoolUIOption, Color, DrawPoint, EnumUIOption, NumberUIOption, Point, PointWidget, StochasticSierpinski, TargetRestriction, TargetRestrictionOption, UIOption, UIPoint, base,
     slice = [].slice,
+    bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
-    hasProp = {}.hasOwnProperty,
-    bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+    hasProp = {}.hasOwnProperty;
 
   APP = null;
 
@@ -710,6 +718,8 @@ td.blank {
     function Point(name1, x, y, move_perc) {
       this.name = name1;
       this.move_perc = move_perc != null ? move_perc : 0.5;
+      this.set_y = bind(this.set_y, this);
+      this.set_x = bind(this.set_x, this);
       if (x == null) {
         x = APP.graph_ui_canvas.width / 2;
       }
@@ -719,8 +729,11 @@ td.blank {
       this.el_id = this.name.toLowerCase();
       this.info_x_id = 'point_' + this.el_id + '_x';
       this.info_y_id = 'point_' + this.el_id + '_y';
+      this.build();
       this.move(x, y);
     }
+
+    Point.prototype.build = function() {};
 
     Point.prototype.update_text = function() {
       if (this.info_x) {
@@ -729,6 +742,16 @@ td.blank {
       if (this.info_y) {
         return this.info_y.textContent = this.iy;
       }
+    };
+
+    Point.prototype.set_x = function(x) {
+      this.x = x;
+      return this.ix = Math.foor(this.x);
+    };
+
+    Point.prototype.set_y = function(y) {
+      this.y = y;
+      return this.iy = Math.foor(this.y);
     };
 
     Point.prototype.move_no_text_update = function(x, y) {
@@ -948,7 +971,6 @@ td.blank {
     };
 
     PointWidget.create = function(opt) {
-      var w;
       if (opt == null) {
         opt = {};
       }
@@ -967,47 +989,57 @@ td.blank {
       if (opt.y == null) {
         opt.y = APP.random_y();
       }
-      return w = new PointWidget(opt.hue, opt.name, opt.x, opt.y, opt.move_perc);
+      return new PointWidget(opt.hue, opt.name, opt.x, opt.y, opt.move_perc);
     };
 
     function PointWidget() {
       var args;
       args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
       this.on_move_per_range_input = bind(this.on_move_per_range_input, this);
+      this.on_move_perc_option_change = bind(this.on_move_perc_option_change, this);
       this.on_color_change = bind(this.on_color_change, this);
       PointWidget.__super__.constructor.apply(this, args);
-      this.build();
       PointWidget.widgets.push(this);
       PointWidget.update_widget_list_metadata();
     }
 
     PointWidget.prototype.build = function() {
-      var color_selector, move_perc_adj_cell;
+      var color_selector_cell, move_perc_adj_cell;
       this.draw_highlight = false;
       this.row = APP.point_pos_table.insertRow(-1);
       this.namecell = this.row.insertCell(0);
       this.set_name(this.name);
-      this.color_selector_el = document.createElement('input');
-      this.color_selector_el.type = 'color';
+      this.color_selector_el = APP.create_input_element('color');
       this.color_selector_el.value = this.color;
       this.color_selector_el.addEventListener('change', this.on_color_change);
-      color_selector = this.row.insertCell(1);
-      color_selector.appendChild(this.color_selector_el);
-      this.info_x = this.row.insertCell(2);
-      this.info_x.textContent = this.x;
-      this.info_y = this.row.insertCell(3);
-      this.info_y.textContent = this.y;
+      color_selector_cell = this.row.insertCell(1);
+      color_selector_cell.appendChild(this.color_selector_el);
+      this.info_x_cell = this.row.insertCell(2);
+      this.info_y_cell = this.row.insertCell(3);
       this.move_perc_cell = this.row.insertCell(4);
-      this.move_perc_cell.textContent = this.move_perc.toFixed(2);
-      this.move_per_range_el = document.createElement('input');
-      this.move_per_range_el.type = 'range';
-      this.move_per_range_el.min = 0;
-      this.move_per_range_el.max = 1;
-      this.move_per_range_el.step = 0.05;
-      this.move_per_range_el.value = this.move_perc;
-      this.move_per_range_el.addEventListener('input', this.on_move_per_range_input);
+      this.option = {
+        x: NumberUIOption.create(this.info_x_cell, this.info_x_id + "_option", this.x, this.set_x),
+        y: NumberUIOption.create(this.info_y_cell, this.info_y_id + "_option", this.y, this.set_y),
+        move_perc: NumberUIOption.create(this.move_perc_cell, "point_" + this.el_id + "_move_perc_option", this.move_perc * 100, {
+          on_change: this.on_move_perc_option_change,
+          min: 0,
+          max: 100,
+          step: 1
+        })
+      };
+      this.move_perc_range_el = APP.create_input_element('range');
+      this.move_perc_range_el.min = 0;
+      this.move_perc_range_el.max = 100;
+      this.move_perc_range_el.step = 5;
+      this.move_perc_range_el.value = this.move_perc * 100;
+      this.move_perc_range_el.addEventListener('input', this.on_move_per_range_input);
       move_perc_adj_cell = this.row.insertCell(5);
-      return move_perc_adj_cell.appendChild(this.move_per_range_el);
+      return move_perc_adj_cell.appendChild(this.move_perc_range_el);
+    };
+
+    PointWidget.prototype.update_text = function() {
+      this.option.x.set(this.ix);
+      return this.option.y.set(this.iy);
     };
 
     PointWidget.prototype.set_name = function(name) {
@@ -1027,16 +1059,29 @@ td.blank {
       return APP.resumable_reset();
     };
 
+    PointWidget.prototype.on_move_perc_option_change = function(value) {
+      this.set_move_perc(value);
+      return APP.resumable_reset();
+    };
+
     PointWidget.prototype.on_move_per_range_input = function(event) {
       this.set_move_perc(event.target.value);
       return APP.resumable_reset();
     };
 
-    PointWidget.prototype.set_move_perc = function(newvalue) {
-      this.move_perc = parseFloat(newvalue);
-      if (this.move_perc_cell) {
-        return this.move_perc_cell.textContent = this.move_perc.toFixed(2);
+    PointWidget.prototype.set_move_perc_range = function(newvalue) {
+      var rounded, step;
+      if (this.move_perc_range_el != null) {
+        step = this.move_perc_range_el.step;
+        rounded = Math.round(newvalue / step) * step;
+        return this.move_perc_range_el.value = rounded;
       }
+    };
+
+    PointWidget.prototype.set_move_perc = function(newvalue) {
+      this.move_perc = newvalue / 100.0;
+      this.option.move_perc.set(this.move_perc * 100);
+      return this.set_move_perc_range(this.option.move_perc.get());
     };
 
     PointWidget.prototype.highlight = function() {
@@ -1100,14 +1145,19 @@ td.blank {
     };
 
     PointWidget.prototype.destroy = function() {
-      var idx;
+      var idx, opt, opt_name, ref;
       idx = PointWidget.widgets.indexOf(this);
       if (idx > -1) {
         PointWidget.widgets.splice(idx, 1);
         PointWidget.update_widget_list_metadata();
       }
+      ref = this.option;
+      for (opt_name in ref) {
+        opt = ref[opt_name];
+        opt.destroy();
+      }
       this.color_selector_el.remove();
-      this.move_per_range_el.remove();
+      this.move_perc_range_el.remove();
       this.row.remove();
       return APP.resumable_reset();
     };
@@ -1121,11 +1171,14 @@ td.blank {
 
     function DrawPoint(name, draw_style) {
       DrawPoint.__super__.constructor.call(this, '0', name);
-      this.info_x = APP.context.getElementById(this.info_x_id);
-      this.info_y = APP.context.getElementById(this.info_y_id);
       this.set_color('#000000');
       this.set_draw_style(draw_style);
     }
+
+    DrawPoint.prototype.build = function() {
+      this.info_x_cell = APP.context.getElementById(this.info_x_id);
+      return this.info_y_cell = APP.context.getElementById(this.info_y_id);
+    };
 
     DrawPoint.prototype.reset_color_cache = function() {
       this.color_avg = {};
@@ -1397,90 +1450,135 @@ td.blank {
 
   })();
 
-  OtherOption = (function() {
-    function OtherOption(context, id, _default, on_change_callback) {
-      this.context = context;
-      this.id = id;
+  UIOption = (function() {
+    function UIOption(id1, _default, option) {
+      this.id = id1;
       this["default"] = _default;
-      this.on_change_callback = on_change_callback != null ? on_change_callback : null;
+      this.option = option != null ? option : null;
       this.on_change = bind(this.on_change, this);
-      this.el = this.context.getElementById(this.id);
+      if (this.id instanceof Element) {
+        this.el = this.id;
+        this.id = this.el.id;
+      } else {
+        this.el = APP.context.getElementById(this.id);
+      }
+      if (this.option instanceof Function) {
+        this.on_change_callback = this.option;
+        this.option = null;
+      } else {
+        if (this.option.on_change != null) {
+          this.on_change_callback = this.option.on_change;
+        } else {
+          this.on_change_callback = null;
+        }
+      }
       this.set(this["default"]);
       this.el.addEventListener('change', this.on_change);
     }
 
-    OtherOption.prototype.on_change = function(event) {
+    UIOption.prototype.on_change = function(event) {
       this.set(this.get(event.target));
       if (this.on_change_callback != null) {
         return this.on_change_callback(this.value);
       }
     };
 
-    return OtherOption;
+    UIOption.prototype.destroy = function() {
+      if (this.el != null) {
+        this.el.remove();
+      }
+      return this.el = null;
+    };
+
+    return UIOption;
 
   })();
 
-  BoolOtherOption = (function(superClass) {
-    extend(BoolOtherOption, superClass);
+  BoolUIOption = (function(superClass) {
+    extend(BoolUIOption, superClass);
 
-    function BoolOtherOption() {
-      return BoolOtherOption.__super__.constructor.apply(this, arguments);
+    function BoolUIOption() {
+      return BoolUIOption.__super__.constructor.apply(this, arguments);
     }
 
-    BoolOtherOption.prototype.get = function(element) {
+    BoolUIOption.prototype.get = function(element) {
       if (element == null) {
         element = this.el;
       }
       return element.checked;
     };
 
-    BoolOtherOption.prototype.set = function(bool_value) {
+    BoolUIOption.prototype.set = function(bool_value) {
       this.value = !!bool_value;
       return this.el.checked = this.value;
     };
 
-    return BoolOtherOption;
+    return BoolUIOption;
 
-  })(OtherOption);
+  })(UIOption);
 
-  NumberOtherOption = (function(superClass) {
-    extend(NumberOtherOption, superClass);
+  NumberUIOption = (function(superClass) {
+    extend(NumberUIOption, superClass);
 
-    function NumberOtherOption() {
-      return NumberOtherOption.__super__.constructor.apply(this, arguments);
+    function NumberUIOption() {
+      return NumberUIOption.__super__.constructor.apply(this, arguments);
     }
 
-    NumberOtherOption.prototype.get = function(element) {
+    NumberUIOption.create = function() {
+      var id1, opt, parent, rest;
+      parent = arguments[0], id1 = arguments[1], rest = 3 <= arguments.length ? slice.call(arguments, 2) : [];
+      this.id = id1;
+      opt = (function(func, args, ctor) {
+        ctor.prototype = func.prototype;
+        var child = new ctor, result = func.apply(child, args);
+        return Object(result) === result ? result : child;
+      })(NumberUIOption, [APP.create_input_element('number', this.id)].concat(slice.call(rest)), function(){});
+      if (this.option != null) {
+        if (this.option.min != null) {
+          this.el.min = this.option.min;
+        }
+        if (this.option.max != null) {
+          this.el.max = this.option.max;
+        }
+        if (this.option.step != null) {
+          this.el.step = this.option.step;
+        }
+      }
+      parent.appendChild(opt.el);
+      return opt;
+    };
+
+    NumberUIOption.prototype.get = function(element) {
       if (element == null) {
         element = this.el;
       }
       return element.value;
     };
 
-    NumberOtherOption.prototype.set = function(number_value) {
+    NumberUIOption.prototype.set = function(number_value) {
       this.value = parseInt(number_value);
       return this.el.value = this.value;
     };
 
-    return NumberOtherOption;
+    return NumberUIOption;
 
-  })(OtherOption);
+  })(UIOption);
 
-  EnumOtherOption = (function(superClass) {
-    extend(EnumOtherOption, superClass);
+  EnumUIOption = (function(superClass) {
+    extend(EnumUIOption, superClass);
 
-    function EnumOtherOption() {
-      return EnumOtherOption.__super__.constructor.apply(this, arguments);
+    function EnumUIOption() {
+      return EnumUIOption.__super__.constructor.apply(this, arguments);
     }
 
-    EnumOtherOption.prototype.get = function(element) {
+    EnumUIOption.prototype.get = function(element) {
       if (element == null) {
         element = this.el;
       }
       return element.value;
     };
 
-    EnumOtherOption.prototype.find_option_by_value = function(enum_value) {
+    EnumUIOption.prototype.find_option_by_value = function(enum_value) {
       var j, len1, opt, ref;
       ref = this.el.options;
       for (j = 0, len1 = ref.length; j < len1; j++) {
@@ -1492,7 +1590,7 @@ td.blank {
       return null;
     };
 
-    EnumOtherOption.prototype.set = function(enum_value) {
+    EnumUIOption.prototype.set = function(enum_value) {
       var opt;
       opt = this.find_option_by_value(enum_value);
       if (opt != null) {
@@ -1501,16 +1599,16 @@ td.blank {
       return this.value = this.el.value;
     };
 
-    return EnumOtherOption;
+    return EnumUIOption;
 
-  })(OtherOption);
+  })(UIOption);
 
   StochasticSierpinski = (function() {
     StochasticSierpinski.prototype.MIN_POINTS = 3;
 
     StochasticSierpinski.prototype.MAX_POINTS = 8;
 
-    StochasticSierpinski.prototype.REG_POLYGON_MARGIN = 1;
+    StochasticSierpinski.prototype.REG_POLYGON_MARGIN = 10;
 
     StochasticSierpinski.prototype.NEARBY_RADIUS = 8;
 
@@ -1580,10 +1678,10 @@ td.blank {
       this.btn_move_all_reg_polygon = this.context.getElementById('move_all_reg_polygon');
       this.btn_move_all_random = this.context.getElementById('move_all_random');
       this.option = {
-        canvas_width: new NumberOtherOption(this.context, 'canvas_width', 420, this.on_canvas_hw_change),
-        canvas_height: new NumberOtherOption(this.context, 'canvas_height', 320, this.on_canvas_hw_change),
-        draw_style: new EnumOtherOption(this.context, 'draw_style', 'color_blend_prev_color', this.on_draw_style_change),
-        draw_opacity: new NumberOtherOption(this.context, 'draw_opacity', 35, this.on_draw_opacity_change)
+        canvas_width: new NumberUIOption('canvas_width', 420, this.on_canvas_hw_change),
+        canvas_height: new NumberUIOption('canvas_height', 320, this.on_canvas_hw_change),
+        draw_style: new EnumUIOption('draw_style', 'color_blend_prev_color', this.on_draw_style_change),
+        draw_opacity: new NumberUIOption('draw_opacity', 35, this.on_draw_opacity_change)
       };
       this.serializebox = this.context.getElementById('serializebox');
       this.serializebox_title = this.context.getElementById('serializebox_title');
@@ -1637,6 +1735,28 @@ td.blank {
         }
       }
       return this.clear_update_and_draw();
+    };
+
+    StochasticSierpinski.prototype.create_element = function(name, id) {
+      var el;
+      if (id == null) {
+        id = null;
+      }
+      el = this.context.createElement(name);
+      if (id != null) {
+        el.id = id;
+      }
+      return el;
+    };
+
+    StochasticSierpinski.prototype.create_input_element = function(type, id) {
+      var el;
+      if (id == null) {
+        id = null;
+      }
+      el = this.create_element('input', id);
+      el.type = type;
+      return el;
     };
 
     StochasticSierpinski.prototype.on_draw_style_change = function() {
@@ -1874,13 +1994,14 @@ td.blank {
     };
 
     StochasticSierpinski.prototype.on_move_all_reg_polygon = function() {
-      var cx, cy, height, i, j, len, len1, maxx, maxy, minside, r, ref, ref1, rotate, side, theta, tri_adj, w, x, y;
+      var cx, cy, height, i, j, len, len1, maxx, maxy, mincxy, minside, r, ref, ref1, rotate, side, theta, tri_adj, w, x, y;
       len = PointWidget.widgets.length;
       ref = this.max_xy(), maxx = ref[0], maxy = ref[1];
       minside = Math.min(maxx, maxy);
       cx = maxx / 2;
       cy = maxy / 2;
-      r = Math.min(cx, cy) - this.REG_POLYGON_MARGIN;
+      mincxy = Math.min(cx, cy);
+      r = mincxy - this.REG_POLYGON_MARGIN;
       theta = (Math.PI * 2) / len;
       rotate = -Math.PI / 2;
       switch (len) {
@@ -1888,12 +2009,14 @@ td.blank {
           side = minside - (2 * this.REG_POLYGON_MARGIN);
           height = side * (Math.sqrt(3) / 2);
           tri_adj = (minside - height) / 2;
-          cy += tri_adj * Math.sqrt(2);
-          r *= 1.2;
+          cy += tri_adj * 1.5;
+          r *= 1.12;
           break;
         case 4:
           rotate += Math.PI / 4;
-          r *= Math.sqrt(2);
+          console.log('r', r);
+          r = Math.sqrt((r * r) * 2);
+          console.log('hyp', r);
       }
       ref1 = PointWidget.widgets;
       for (i = j = 0, len1 = ref1.length; j < len1; i = ++j) {

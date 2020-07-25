@@ -136,11 +136,23 @@ class Point
     @info_x_id = 'point_' + @el_id + '_x'
     @info_y_id = 'point_' + @el_id + '_y'
 
+    @build()
+
     @move x, y
+
+  build: ->
 
   update_text: () ->
     @info_x.textContent = @ix if @info_x
     @info_y.textContent = @iy if @info_y
+
+  set_x: (x) =>
+    @x = x
+    @ix = Math.foor(@x)
+
+  set_y: (y) =>
+    @y = y
+    @iy = Math.foor(@y)
 
   move_no_text_update: (x, y) ->
     @x = x
@@ -295,11 +307,10 @@ class PointWidget extends UIPoint
     opt.x ?= APP.random_x()
     opt.y ?= APP.random_y()
 
-    w = new PointWidget(opt.hue, opt.name, opt.x, opt.y, opt.move_perc)
+    new PointWidget(opt.hue, opt.name, opt.x, opt.y, opt.move_perc)
 
   constructor: (args...) ->
     super args...
-    @build()
     PointWidget.widgets.push(this)
     PointWidget.update_widget_list_metadata()
 
@@ -311,33 +322,41 @@ class PointWidget extends UIPoint
     @namecell = @row.insertCell(0)
     @set_name(@name)
 
-    @color_selector_el = document.createElement('input')
-    @color_selector_el.type = 'color'
+    @color_selector_el = APP.create_input_element('color')
     @color_selector_el.value = @color
     @color_selector_el.addEventListener('change', @on_color_change)
 
-    color_selector = @row.insertCell(1)
-    color_selector.appendChild(@color_selector_el)
+    color_selector_cell = @row.insertCell(1)
+    color_selector_cell.appendChild(@color_selector_el)
 
-    @info_x = @row.insertCell(2)
-    @info_x.textContent = @x
-
-    @info_y = @row.insertCell(3)
-    @info_y.textContent = @y
-
+    @info_x_cell = @row.insertCell(2)
+    @info_y_cell = @row.insertCell(3)
     @move_perc_cell = @row.insertCell(4)
-    @move_perc_cell.textContent = @move_perc.toFixed(2)
 
-    @move_per_range_el = document.createElement('input')
-    @move_per_range_el.type = 'range'
-    @move_per_range_el.min = 0
-    @move_per_range_el.max = 1
-    @move_per_range_el.step = 0.05
-    @move_per_range_el.value = @move_perc
-    @move_per_range_el.addEventListener('input', @on_move_per_range_input)
+    @option =
+      x: NumberUIOption.create(@info_x_cell, "#{@info_x_id}_option", @x, @set_x)
+      y: NumberUIOption.create(@info_y_cell, "#{@info_y_id}_option", @y, @set_y)
+      move_perc: NumberUIOption.create(@move_perc_cell, "point_#{@el_id}_move_perc_option",
+        @move_perc * 100, {
+          on_change: @on_move_perc_option_change
+          min: 0
+          max: 100
+          step: 1
+        })
+
+    @move_perc_range_el = APP.create_input_element('range')
+    @move_perc_range_el.min = 0
+    @move_perc_range_el.max = 100
+    @move_perc_range_el.step = 5
+    @move_perc_range_el.value = @move_perc * 100
+    @move_perc_range_el.addEventListener('input', @on_move_per_range_input)
 
     move_perc_adj_cell = @row.insertCell(5)
-    move_perc_adj_cell.appendChild(@move_per_range_el)
+    move_perc_adj_cell.appendChild(@move_perc_range_el)
+
+  update_text: ->
+    @option.x.set(@ix)
+    @option.y.set(@iy)
 
   set_name: (name) ->
     @name = name
@@ -351,13 +370,24 @@ class PointWidget extends UIPoint
     @set_color(event.target.value)
     APP.resumable_reset()
 
+  on_move_perc_option_change: (value) =>
+    @set_move_perc(value)
+    APP.resumable_reset()
+
   on_move_per_range_input: (event) =>
     @set_move_perc(event.target.value)
     APP.resumable_reset()
 
+  set_move_perc_range: (newvalue) ->
+    if @move_perc_range_el?
+      step = @move_perc_range_el.step
+      rounded = Math.round(newvalue / step) * step
+      @move_perc_range_el.value = rounded
+
   set_move_perc: (newvalue) ->
-    @move_perc = parseFloat(newvalue)
-    @move_perc_cell.textContent = @move_perc.toFixed(2) if @move_perc_cell
+    @move_perc = newvalue / 100.0
+    @option.move_perc.set(@move_perc * 100)
+    @set_move_perc_range(@option.move_perc.get())
 
   highlight: () ->
     @row.classList.add('highlight')
@@ -416,8 +446,11 @@ class PointWidget extends UIPoint
       PointWidget.widgets.splice(idx, 1)
       PointWidget.update_widget_list_metadata()
 
+    for opt_name, opt of @option
+      opt.destroy()
+
     @color_selector_el.remove()
-    @move_per_range_el.remove()
+    @move_perc_range_el.remove()
     @row.remove()
 
     APP.resumable_reset()
@@ -426,11 +459,12 @@ class DrawPoint extends UIPoint
   constructor: (name, draw_style) ->
     super '0', name
 
-    @info_x = APP.context.getElementById(@info_x_id)
-    @info_y = APP.context.getElementById(@info_y_id)
-
     @set_color('#000000')
     @set_draw_style(draw_style)
+
+  build: ->
+    @info_x_cell = APP.context.getElementById(@info_x_id)
+    @info_y_cell = APP.context.getElementById(@info_y_id)
 
   reset_color_cache: ->
     @color_avg = {}
@@ -614,9 +648,23 @@ class TargetRestriction
     PointWidget.update_widget_list_metadata()
     APP.resumable_reset()
 
-class OtherOption
-  constructor: (@context, @id, @default, @on_change_callback = null) ->
-    @el = @context.getElementById(@id)
+class UIOption
+  constructor: (@id, @default, @option = null) ->
+    if @id instanceof Element
+      @el = @id
+      @id = @el.id
+    else
+      @el = APP.context.getElementById(@id)
+
+    if @option instanceof Function
+      @on_change_callback = @option
+      @option = null
+    else
+      if @option.on_change?
+        @on_change_callback = @option.on_change
+      else
+        @on_change_callback = null
+
     @set(@default)
     @el.addEventListener('change', @on_change)
 
@@ -624,7 +672,11 @@ class OtherOption
     @set(@get(event.target))
     @on_change_callback(@value) if @on_change_callback?
 
-class BoolOtherOption extends OtherOption
+  destroy: ->
+    @el.remove() if @el?
+    @el = null
+
+class BoolUIOption extends UIOption
   get: (element = @el) ->
     element.checked
 
@@ -632,7 +684,16 @@ class BoolOtherOption extends OtherOption
     @value = !!bool_value
     @el.checked = @value
 
-class NumberOtherOption extends OtherOption
+class NumberUIOption extends UIOption
+  @create: (parent, @id, rest...) ->
+    opt = new NumberUIOption(APP.create_input_element('number', @id), rest...)
+    if @option?
+      @el.min  = @option.min  if @option.min?
+      @el.max  = @option.max  if @option.max?
+      @el.step = @option.step if @option.step?
+    parent.appendChild(opt.el)
+    opt
+
   get: (element = @el) ->
     element.value
 
@@ -640,7 +701,7 @@ class NumberOtherOption extends OtherOption
     @value = parseInt(number_value)
     @el.value = @value
 
-class EnumOtherOption extends OtherOption
+class EnumUIOption extends UIOption
   get: (element = @el) ->
     element.value
 
@@ -658,7 +719,7 @@ class StochasticSierpinski
   MIN_POINTS: 3
   MAX_POINTS: 8
 
-  REG_POLYGON_MARGIN: 1
+  REG_POLYGON_MARGIN: 10
   NEARBY_RADIUS: 8
 
   constructor: (@context) ->
@@ -696,17 +757,16 @@ class StochasticSierpinski
     @btn_move_all_random      = @context.getElementById('move_all_random')
 
     @option =
-      canvas_width:  new NumberOtherOption(@context, 'canvas_width',  420, @on_canvas_hw_change)
-      canvas_height: new NumberOtherOption(@context, 'canvas_height', 320, @on_canvas_hw_change)
-      draw_style:    new EnumOtherOption(  @context, 'draw_style', 'color_blend_prev_color', @on_draw_style_change)
-      draw_opacity:  new NumberOtherOption(@context, 'draw_opacity', 35, @on_draw_opacity_change)
+      canvas_width:  new NumberUIOption('canvas_width',  420, @on_canvas_hw_change)
+      canvas_height: new NumberUIOption('canvas_height', 320, @on_canvas_hw_change)
+      draw_style:    new EnumUIOption(  'draw_style', 'color_blend_prev_color', @on_draw_style_change)
+      draw_opacity:  new NumberUIOption('draw_opacity', 35, @on_draw_opacity_change)
 
     @serializebox        = @context.getElementById('serializebox')
     @serializebox_title  = @context.getElementById('serializebox_title')
     @serializebox_text   = @context.getElementById('serializebox_text')
     @serializebox_action = @context.getElementById('serializebox_action')
     @serializebox_cancel = @context.getElementById('serializebox_cancel')
-
 
     PointWidget.restrictions = new TargetRestriction(@context)
 
@@ -762,6 +822,16 @@ class StochasticSierpinski
         @graph_wrapper_observer.observe(@graph_wrapper, { attributes: true })
 
     @clear_update_and_draw()
+
+  create_element: (name, id = null) ->
+    el = @context.createElement(name)
+    el.id = id if id?
+    el
+
+  create_input_element: (type, id = null) ->
+    el = @create_element('input', id)
+    el.type = type
+    el
 
   on_draw_style_change: =>
     @cur.set_draw_style(@option.draw_style.value)
@@ -940,7 +1010,8 @@ class StochasticSierpinski
     minside = Math.min(maxx, maxy)
     cx = maxx / 2
     cy = maxy / 2
-    r = Math.min(cx, cy) - @REG_POLYGON_MARGIN
+    mincxy = Math.min(cx, cy)
+    r = mincxy - @REG_POLYGON_MARGIN
     theta = (Math.PI * 2) / len
 
     rotate = -Math.PI/2
@@ -950,12 +1021,14 @@ class StochasticSierpinski
         side = minside - (2 * @REG_POLYGON_MARGIN)
         height = side * (Math.sqrt(3) / 2)
         tri_adj = (minside - height) / 2
-        cy += tri_adj * Math.sqrt(2)
-        r *= 1.2
+        cy += tri_adj * 1.5
+        r *= 1.12
 
       when 4
         rotate += Math.PI/4
-        r *= Math.sqrt(2)
+        console.log('r', r)
+        r = Math.sqrt((r * r) * 2)
+        console.log('hyp', r)
 
     for w, i in PointWidget.widgets
       x = parseInt(r * Math.cos(rotate + theta * i))

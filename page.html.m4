@@ -18,10 +18,10 @@ undivert(`style.css')
     <div id="content">
       <div class="graph panel">
         <div id="graph_wrapper" class="canvas_wrapper canvas_size">
-          <canvas id="graph" class="graph_canvas canvas_size" width="420" height="320">
+          <canvas id="graph" class="graph_canvas canvas_size" width="420" height="420">
             This requires a browser that supports the &lt;canvas&gt; tag.
           </canvas>
-          <canvas id="graph_ui" class="graph_canvas canvas_size" width="420" height="320">
+          <canvas id="graph_ui" class="graph_canvas canvas_size" width="420" height="420">
             This requires a browser that supports the &lt;canvas&gt; tag.
           </canvas>
         </div>
