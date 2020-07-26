@@ -143,8 +143,8 @@ class Point
   build: ->
 
   update_text: () ->
-    @info_x.textContent = @ix if @info_x
-    @info_y.textContent = @iy if @info_y
+    @info_x_cell.textContent = @ix if @info_x_cell
+    @info_y_cell.textContent = @iy if @info_y_cell
 
   set_x: (x) =>
     @x = x
@@ -1028,9 +1028,7 @@ class StochasticSierpinski
 
       when 4
         rotate += Math.PI/4
-        console.log('r', r)
         r = Math.sqrt((r * r) * 2)
-        console.log('hyp', r)
 
     for w, i in PointWidget.widgets
       x = parseInt(r * Math.cos(rotate + theta * i))

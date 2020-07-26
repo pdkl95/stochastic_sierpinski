@@ -736,11 +736,11 @@ td.blank {
     Point.prototype.build = function() {};
 
     Point.prototype.update_text = function() {
-      if (this.info_x) {
-        this.info_x.textContent = this.ix;
+      if (this.info_x_cell) {
+        this.info_x_cell.textContent = this.ix;
       }
-      if (this.info_y) {
-        return this.info_y.textContent = this.iy;
+      if (this.info_y_cell) {
+        return this.info_y_cell.textContent = this.iy;
       }
     };
 
@@ -2018,9 +2018,7 @@ td.blank {
           break;
         case 4:
           rotate += Math.PI / 4;
-          console.log('r', r);
           r = Math.sqrt((r * r) * 2);
-          console.log('hyp', r);
       }
       ref1 = PointWidget.widgets;
       for (i = j = 0, len1 = ref1.length; j < len1; i = ++j) {
