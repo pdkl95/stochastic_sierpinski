@@ -34,6 +34,7 @@ undivert(`style.css')
               All points move %
               <button id="set_all_points">Set</button>
             </th>
+            <th class="move_mode"></th>
           </tr>
           <tr>
             <td>
@@ -43,6 +44,7 @@ undivert(`style.css')
               <input type="range" id="all_points_move_perc_range"
                      min="0" max="100" step="5" value="50">
             </td>
+            <td class="move_mode"></td>
           </tr>
         </table>
         <table id="misc_info_table">
@@ -63,7 +65,7 @@ undivert(`style.css')
             <th>X</th>
             <th>Y</th>
             <th>Move %</th>
-            <th></th>
+            <th colspan=2 class="right">Rel?</th>
           </tr>
         </table>
       </div>

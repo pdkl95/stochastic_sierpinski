@@ -136,6 +136,8 @@ class Point
     @info_x_id = 'point_' + @el_id + '_x'
     @info_y_id = 'point_' + @el_id + '_y'
 
+    @move_perc_mode = true
+
     @build()
 
     @move x, y
@@ -148,11 +150,11 @@ class Point
 
   set_x: (x) =>
     @x = x
-    @ix = Math.foor(@x)
+    @ix = Math.floor(@x)
 
   set_y: (y) =>
     @y = y
-    @iy = Math.foor(@y)
+    @iy = Math.floor(@y)
 
   move_no_text_update: (x, y) ->
     @x = x
@@ -164,15 +166,23 @@ class Point
     @move_no_text_update(x, y)
     @update_text()
 
-  move_towards: (other, perc = other.move_perc) ->
+  move_perc_towards: (other, perc = other.move_perc) ->
     dx = other.x - (@x)
     dy = other.y - (@y)
-    @move @x + dx * perc, @y + dy * perc
+    @move(@x + dx * perc, @y + dy * perc)
 
-  move_towards_no_text_update: (other, perc = other.move_perc) ->
+  move_perc_towards_no_text_update: (other, perc = other.move_perc) ->
     dx = other.x - (@x)
     dy = other.y - (@y)
-    @move_no_text_update @x + dx * perc, @y + dy * perc
+    @move_no_text_update(@x + dx * perc, @y + dy * perc)
+
+  move_absolute_towards_no_text_update: (other, dist = other.move_perc * APP.move_absolute_magnitude) ->
+    dx = other.x - (@x)
+    dy = other.y - (@y)
+    mag = Math.sqrt(dx*dx + dy*dy)
+    norm_x = dx / mag
+    norm_y = dy / mag
+    @move_no_text_update(@x + norm_x * dist, @y + norm_y * dist)
 
   distance: (other) ->
     dx = @x - other.x
@@ -229,8 +239,13 @@ class UIPoint extends Point
 
   set_move_perc: (newvalue) ->
     @move_perc = newvalue / 100.0
-    @option.move_perc.set(@move_perc * 100)
-    @set_move_perc_range(@option.move_perc.get())
+    newvalue = @move_perc * 100
+    @option.move_perc.set(newvalue)
+    @set_move_perc_range(newvalue)
+
+  set_move_perc_mode: (newvalue) ->
+    @move_perc_mode = newvalue
+    @option.move_perc_mode.set(@move_perc_mode)
 
 class PointWidget extends UIPoint
   @is_name_used: (name) ->
@@ -296,6 +311,14 @@ class PointWidget extends UIPoint
     move_perc_adj_cell = @row.insertCell(5)
     move_perc_adj_cell.appendChild(@move_perc_range_el)
 
+    move_mode_cell = @row.insertCell(6)
+    move_mode_cell.classList.add('move_mode')
+    @option.move_perc_mode = BoolUIOption.create(move_mode_cell, "point_#{name}_move_mode", @move_perc_mode, @on_move_perc_mode_change)
+
+  on_move_perc_mode_change: (value) =>
+    @move_perc_mode = value
+    APP.resumable_reset()
+
   update_text: ->
     @option.x.set(@ix)
     @option.y.set(@iy)
@@ -345,6 +368,7 @@ class PointWidget extends UIPoint
       x:         @x
       y:         @y
       move_perc: @option.move_perc.get()
+      move_mode: if @move_perc_mode then 'percent' else 'absolute'
       color:     @color
 
   load: (opt) ->
@@ -358,6 +382,11 @@ class PointWidget extends UIPoint
       if 0.0 < opt.move_perc < 1.0
         opt.move_perc *= 100
       @set_move_perc(opt.move_perc)
+
+    if opt.move_mode?
+      switch opt.move_mode
+        when 'percent'  then @set_move_perc_mode(true)
+        when 'absolute' then @set_move_perc_mode(false)
 
     if opt.color?
       @set_color(opt.color)
@@ -380,13 +409,13 @@ class DrawPoint extends UIPoint
     single_origin: []
     double_origin: []
 
-  constructor: (name, draw_style) ->
+  constructor: (name) ->
     super '0', name
 
     @restrictions = new TargetRestriction(APP.context)
 
     @set_color('#000000')
-    @set_draw_style(draw_style)
+    @set_draw_style(@option.draw_style.get())
 
   build: ->
     @info_x_cell = APP.context.getElementById(@info_x_id)
@@ -398,6 +427,7 @@ class DrawPoint extends UIPoint
 
     @option =
       move_perc: new NumberUIOption('all_points_move_perc_option',  @move_perc * 100, @on_move_perc_option_change)
+      draw_style: new EnumUIOption('draw_style', 'color_blend_prev_color', @set_draw_style)
 
     @btn_set_all_points.addEventListener('click', @on_set_all_points)
 
@@ -436,8 +466,9 @@ class DrawPoint extends UIPoint
     #console.log(t, p, @prev_color_blend, c)
     c
 
-  set_draw_style: (mode) ->
-    @get_current_color = switch mode
+  set_draw_style: (mode) =>
+    @option.draw_style.set(mode)
+    @get_current_color = switch @option.draw_style.get()
       when 'mono'                    then @get_color_mono
       when 'color_target'            then @get_color_target
       when 'color_blend_prev_target' then @get_color_blend_prev1
@@ -519,7 +550,10 @@ class DrawPoint extends UIPoint
   single_step: ->
     target = @random_point()
     if target?
-      @move_towards_no_text_update(target)
+      if target.move_perc_mode
+        @move_perc_towards_no_text_update(target)
+      else
+        @move_absolute_towards_no_text_update(target)
       @draw_graph(target)
       return true
     else
@@ -662,14 +696,15 @@ class UIOption
     else
       @el = APP.context.getElementById(@id)
 
-    if @option instanceof Function
-      @on_change_callback = @option
-      @option = null
-    else
-      if @option.on_change?
-        @on_change_callback = @option.on_change
+    if @option?
+      if @option instanceof Function
+        @on_change_callback = @option
+        @option = null
       else
-        @on_change_callback = null
+        if @option.on_change?
+          @on_change_callback = @option.on_change
+        else
+          @on_change_callback = null
 
     @set(@default)
     @el.addEventListener('change', @on_change)
@@ -683,6 +718,11 @@ class UIOption
     @el = null
 
 class BoolUIOption extends UIOption
+  @create: (parent, @id, rest...) ->
+    opt = new BoolUIOption(APP.create_input_element('checkbox', @id), rest...)
+    parent.appendChild(opt.el)
+    opt
+
   get: (element = @el) ->
     element.checked
 
@@ -728,6 +768,7 @@ class StochasticSierpinski
   NEARBY_RADIUS: 8
 
   points: []
+  move_absolute_magnitude: 100
 
   constructor: (@context) ->
 
@@ -766,7 +807,6 @@ class StochasticSierpinski
     @option =
       canvas_width:  new NumberUIOption('canvas_width',  420, @on_canvas_hw_change)
       canvas_height: new NumberUIOption('canvas_height', 320, @on_canvas_hw_change)
-      draw_style:    new EnumUIOption(  'draw_style', 'color_blend_prev_color', @on_draw_style_change)
       draw_opacity:  new NumberUIOption('draw_opacity', 35, @on_draw_opacity_change)
 
     @serializebox        = @context.getElementById('serializebox')
@@ -775,7 +815,7 @@ class StochasticSierpinski
     @serializebox_action = @context.getElementById('serializebox_action')
     @serializebox_cancel = @context.getElementById('serializebox_cancel')
 
-    @cur = new DrawPoint('Cur', @option.draw_style.value)
+    @cur = new DrawPoint('Cur')
 
     @set_ngon(3)
 
@@ -837,9 +877,6 @@ class StochasticSierpinski
     el = @create_element('input', id)
     el.type = type
     el
-
-  on_draw_style_change: =>
-    @cur.set_draw_style(@option.draw_style.value)
 
   on_draw_opacity_change: =>
     o = @option.draw_opacity.value
@@ -1001,9 +1038,10 @@ class StochasticSierpinski
       options:
         canvas_width:  @option.canvas_width.value
         canvas_height: @option.canvas_height.value
-        draw_style:    @option.draw_style.value
         draw_opacity:  @option.draw_opacity.value
+        draw_style:    @cur.option.draw_style.get()
         all_points_move_perc: @cur.option.move_perc.get()
+        move_absolute_magnitude: @move_absolute_magnitude
 
     JSON.stringify(opt)
 
@@ -1014,14 +1052,17 @@ class StochasticSierpinski
       if opt.options.canvas_width? and opt.options.canvas_width?
         @resize_graph(opt.options.canvas_width, opt.options.canvas_width)
 
-      if opt.options.draw_style?
-        @option.draw_style.set(opt.options.draw_style)
-
       if opt.options.draw_opacity?
         @option.draw_opacity.set(opt.options.draw_opacity)
 
+      if opt.options.draw_style?
+        @cur.set_draw_style(opt.options.draw_style)
+
       if opt.options.all_points_move_perc?
         @cur.set_move_perc(opt.options.all_points_move_perc)
+
+      if opt.options.move_absolute_magnitude?
+        @move_absolute_magnitude = opt.options.move_absolute_magnitude
 
     if opt.points?
       @set_num_points(opt.points.length)
