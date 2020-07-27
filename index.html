@@ -338,7 +338,9 @@ td.blank {
 }
 
 #canvas_width,
-#canvas_height {
+#canvas_height,
+#move_range_min,
+#move_range_max {
   width: 5em;
 }
 
@@ -577,6 +579,17 @@ td.move_mode {
               <th>Draw Opacity</th>
               <td><input id="draw_opacity" type="number"
                          min="0" max="100" step="5"></td>
+            </tr>
+            <tr>
+              <th>Move % Range</th>
+              <td>
+                <label for="move_range_min">MIN:</label>
+                <input id="move_range_min" name="move_range_min"
+                       type="number" value="0" step="1">
+                <label for="move_range_max">MAX:</label>
+                <input id="move_range_max" name="move_range_max"
+                       type="number" value="100" step="1">
+              </td>
             </tr>
           </table>
         </div>
@@ -905,11 +918,36 @@ td.move_mode {
     };
 
     UIPoint.prototype.move_perc_range_el_init = function() {
-      this.move_perc_range_el.min = 0;
-      this.move_perc_range_el.max = 100;
-      this.move_perc_range_el.step = 5;
+      this.set_move_range(0, 100);
       this.move_perc_range_el.value = this.move_perc * 100;
       return this.move_perc_range_el.addEventListener('input', this.on_move_per_range_input);
+    };
+
+    UIPoint.prototype.set_move_range = function(min, max, step) {
+      var value;
+      if (min == null) {
+        min = 0;
+      }
+      if (max == null) {
+        max = 100;
+      }
+      if (step == null) {
+        step = 5;
+      }
+      this.move_perc_range_el.min = min;
+      this.move_perc_range_el.max = max;
+      this.move_perc_range_el.step = step;
+      if ((this.option != null) && (this.option.move_proc != null)) {
+        value = this.option.move_proc.get();
+        if (value < min) {
+          value = min;
+        }
+        if (value > max) {
+          value = max;
+        }
+        this.option.move_proc.set_range(min, max);
+        return this.option.move_proc.set(value);
+      }
     };
 
     UIPoint.prototype.on_move_perc_option_change = function(value) {
@@ -1024,12 +1062,7 @@ td.move_mode {
       this.option = {
         x: NumberUIOption.create(this.info_x_cell, this.info_x_id + "_option", this.x, this.on_x_change),
         y: NumberUIOption.create(this.info_y_cell, this.info_y_id + "_option", this.y, this.on_y_change),
-        move_perc: NumberUIOption.create(this.move_perc_cell, "point_" + this.el_id + "_move_perc_option", this.move_perc * 100, {
-          on_change: this.on_move_perc_option_change,
-          min: 0,
-          max: 100,
-          step: 1
-        })
+        move_perc: NumberUIOption.create(this.move_perc_cell, "point_" + this.el_id + "_move_perc_option", this.move_perc * 100, this.on_move_perc_option_change)
       };
       this.move_perc_range_el = APP.create_input_element('range');
       this.move_perc_range_el_init();
@@ -1557,28 +1590,16 @@ td.move_mode {
   })();
 
   UIOption = (function() {
-    function UIOption(id1, _default, option) {
+    function UIOption(id1, _default, on_change_callback) {
       this.id = id1;
       this["default"] = _default;
-      this.option = option != null ? option : null;
+      this.on_change_callback = on_change_callback;
       this.on_change = bind(this.on_change, this);
       if (this.id instanceof Element) {
         this.el = this.id;
         this.id = this.el.id;
       } else {
         this.el = APP.context.getElementById(this.id);
-      }
-      if (this.option != null) {
-        if (this.option instanceof Function) {
-          this.on_change_callback = this.option;
-          this.option = null;
-        } else {
-          if (this.option.on_change != null) {
-            this.on_change_callback = this.option.on_change;
-          } else {
-            this.on_change_callback = null;
-          }
-        }
       }
       this.set(this["default"]);
       this.el.addEventListener('change', this.on_change);
@@ -1654,17 +1675,6 @@ td.move_mode {
         var child = new ctor, result = func.apply(child, args);
         return Object(result) === result ? result : child;
       })(NumberUIOption, [APP.create_input_element('number', this.id)].concat(slice.call(rest)), function(){});
-      if (this.option != null) {
-        if (this.option.min != null) {
-          this.el.min = this.option.min;
-        }
-        if (this.option.max != null) {
-          this.el.max = this.option.max;
-        }
-        if (this.option.step != null) {
-          this.el.step = this.option.step;
-        }
-      }
       parent.appendChild(opt.el);
       return opt;
     };
@@ -1679,6 +1689,15 @@ td.move_mode {
     NumberUIOption.prototype.set = function(number_value) {
       this.value = parseInt(number_value);
       return this.el.value = this.value;
+    };
+
+    NumberUIOption.prototype.set_range = function(min, max, step) {
+      if (step == null) {
+        step = 1;
+      }
+      this.el.min = min;
+      this.el.max = max;
+      return this.el.step = step;
     };
 
     return NumberUIOption;
@@ -1772,6 +1791,7 @@ td.move_mode {
       this.on_mouseleave = bind(this.on_mouseleave, this);
       this.on_mouseenter = bind(this.on_mouseenter, this);
       this.on_draw_opacity_change = bind(this.on_draw_opacity_change, this);
+      this.on_move_range_change = bind(this.on_move_range_change, this);
     }
 
     StochasticSierpinski.prototype.init = function() {
@@ -1804,7 +1824,9 @@ td.move_mode {
       this.option = {
         canvas_width: new NumberUIOption('canvas_width', 420, this.on_canvas_hw_change),
         canvas_height: new NumberUIOption('canvas_height', 420, this.on_canvas_hw_change),
-        draw_opacity: new NumberUIOption('draw_opacity', 35, this.on_draw_opacity_change)
+        draw_opacity: new NumberUIOption('draw_opacity', 35, this.on_draw_opacity_change),
+        move_range_min: new NumberUIOption('move_range_min', 0, this.on_move_range_change),
+        move_range_max: new NumberUIOption('move_range_max', 100, this.on_move_range_change)
       };
       this.serializebox = this.context.getElementById('serializebox');
       this.serializebox_title = this.context.getElementById('serializebox_title');
@@ -1879,6 +1901,19 @@ td.move_mode {
       el = this.create_element('input', id);
       el.type = type;
       return el;
+    };
+
+    StochasticSierpinski.prototype.on_move_range_change = function() {
+      var j, len1, max, min, p, ref;
+      min = this.option.move_range_min.get();
+      max = this.option.move_range_max.get();
+      this.cur.set_move_range(min, max);
+      ref = this.points;
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        p = ref[j];
+        p.set_move_range(min, max);
+      }
+      return this.resumable_reset();
     };
 
     StochasticSierpinski.prototype.on_draw_opacity_change = function() {
@@ -2124,7 +2159,9 @@ td.move_mode {
           draw_opacity: this.option.draw_opacity.value,
           draw_style: this.cur.option.draw_style.get(),
           all_points_move_perc: this.cur.option.move_perc.get(),
-          move_absolute_magnitude: this.move_absolute_magnitude
+          move_absolute_magnitude: this.move_absolute_magnitude,
+          move_range_min: this.option.move_range_min.get(),
+          move_range_max: this.option.move_range_max.get()
         }
       };
       return JSON.stringify(opt);
@@ -2142,6 +2179,15 @@ td.move_mode {
         }
         if (opt.options.draw_style != null) {
           this.cur.set_draw_style(opt.options.draw_style);
+        }
+        if (opt.options.move_range_min != null) {
+          this.option.move_range_min.set(opt.options.move_range_min);
+        }
+        if (opt.options.move_range_max != null) {
+          this.option.move_range_max.set(opt.options.move_range_max);
+        }
+        if ((opt.options.move_range_min != null) || (opt.options.move_range_max != null)) {
+          this.on_move_range_change();
         }
         if (opt.options.all_points_move_perc != null) {
           this.cur.set_move_perc(opt.options.all_points_move_perc);
