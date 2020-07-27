@@ -155,7 +155,9 @@ td.blank {
 }
 
 #canvas_width,
-#canvas_height {
+#canvas_height,
+#move_range_min,
+#move_range_max {
   width: 5em;
 }
 

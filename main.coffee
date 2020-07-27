@@ -217,11 +217,20 @@ class UIPoint extends Point
     ctx.strokeRect(@x - 2, @y - 2, 5, 5)
 
   move_perc_range_el_init: ->
-    @move_perc_range_el.min = 0
-    @move_perc_range_el.max = 100
-    @move_perc_range_el.step = 5
+    @set_move_range(0, 100)
     @move_perc_range_el.value = @move_perc * 100
     @move_perc_range_el.addEventListener('input', @on_move_per_range_input)
+
+  set_move_range: (min = 0, max = 100, step = 5) ->
+    @move_perc_range_el.min = min
+    @move_perc_range_el.max = max
+    @move_perc_range_el.step = step
+    if @option? and @option.move_proc?
+      value = @option.move_proc.get()
+      value = min if value < min
+      value = max if value > max
+      @option.move_proc.set_range(min, max)
+      @option.move_proc.set(value)
 
   on_move_perc_option_change: (value) =>
     @set_move_perc(value)
@@ -298,12 +307,7 @@ class PointWidget extends UIPoint
       x: NumberUIOption.create(@info_x_cell, "#{@info_x_id}_option", @x, @on_x_change)
       y: NumberUIOption.create(@info_y_cell, "#{@info_y_id}_option", @y, @on_y_change)
       move_perc: NumberUIOption.create(@move_perc_cell, "point_#{@el_id}_move_perc_option",
-        @move_perc * 100, {
-          on_change: @on_move_perc_option_change
-          min: 0
-          max: 100
-          step: 1
-        })
+        @move_perc * 100, @on_move_perc_option_change)
 
     @move_perc_range_el = APP.create_input_element('range')
     @move_perc_range_el_init()
@@ -697,22 +701,12 @@ class TargetRestriction
     APP.update_metadata_and_reset()
 
 class UIOption
-  constructor: (@id, @default, @option = null) ->
+  constructor: (@id, @default, @on_change_callback) ->
     if @id instanceof Element
       @el = @id
       @id = @el.id
     else
       @el = APP.context.getElementById(@id)
-
-    if @option?
-      if @option instanceof Function
-        @on_change_callback = @option
-        @option = null
-      else
-        if @option.on_change?
-          @on_change_callback = @option.on_change
-        else
-          @on_change_callback = null
 
     @set(@default)
     @el.addEventListener('change', @on_change)
@@ -741,10 +735,6 @@ class BoolUIOption extends UIOption
 class NumberUIOption extends UIOption
   @create: (parent, @id, rest...) ->
     opt = new NumberUIOption(APP.create_input_element('number', @id), rest...)
-    if @option?
-      @el.min  = @option.min  if @option.min?
-      @el.max  = @option.max  if @option.max?
-      @el.step = @option.step if @option.step?
     parent.appendChild(opt.el)
     opt
 
@@ -754,6 +744,11 @@ class NumberUIOption extends UIOption
   set: (number_value) ->
     @value = parseInt(number_value)
     @el.value = @value
+
+  set_range: (min, max, step = 1) ->
+    @el.min = min
+    @el.max = max
+    @el.step = step
 
 class EnumUIOption extends UIOption
   get: (element = @el) ->
@@ -813,9 +808,11 @@ class StochasticSierpinski
     @btn_move_all_random      = @context.getElementById('move_all_random')
 
     @option =
-      canvas_width:  new NumberUIOption('canvas_width',  420, @on_canvas_hw_change)
-      canvas_height: new NumberUIOption('canvas_height', 420, @on_canvas_hw_change)
-      draw_opacity:  new NumberUIOption('draw_opacity', 35, @on_draw_opacity_change)
+      canvas_width:   new NumberUIOption('canvas_width',   420, @on_canvas_hw_change)
+      canvas_height:  new NumberUIOption('canvas_height',  420, @on_canvas_hw_change)
+      draw_opacity:   new NumberUIOption('draw_opacity',    35, @on_draw_opacity_change)
+      move_range_min: new NumberUIOption('move_range_min',   0, @on_move_range_change)
+      move_range_max: new NumberUIOption('move_range_max', 100, @on_move_range_change)
 
     @serializebox        = @context.getElementById('serializebox')
     @serializebox_title  = @context.getElementById('serializebox_title')
@@ -885,6 +882,14 @@ class StochasticSierpinski
     el = @create_element('input', id)
     el.type = type
     el
+
+  on_move_range_change: =>
+    min = @option.move_range_min.get()
+    max = @option.move_range_max.get()
+    @cur.set_move_range(min, max)
+    for p in @points
+      p.set_move_range(min, max)
+    @resumable_reset()
 
   on_draw_opacity_change: =>
     o = @option.draw_opacity.value
@@ -1050,6 +1055,8 @@ class StochasticSierpinski
         draw_style:    @cur.option.draw_style.get()
         all_points_move_perc: @cur.option.move_perc.get()
         move_absolute_magnitude: @move_absolute_magnitude
+        move_range_min: @option.move_range_min.get()
+        move_range_max: @option.move_range_max.get()
 
     JSON.stringify(opt)
 
@@ -1065,6 +1072,15 @@ class StochasticSierpinski
 
       if opt.options.draw_style?
         @cur.set_draw_style(opt.options.draw_style)
+
+      if opt.options.move_range_min?
+        @option.move_range_min.set(opt.options.move_range_min)
+
+      if opt.options.move_range_max?
+        @option.move_range_max.set(opt.options.move_range_max)
+
+      if opt.options.move_range_min? or opt.options.move_range_max?
+        @on_move_range_change()
 
       if opt.options.all_points_move_perc?
         @cur.set_move_perc(opt.options.all_points_move_perc)

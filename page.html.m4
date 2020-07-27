@@ -167,6 +167,17 @@ undivert(`style.css')
               <td><input id="draw_opacity" type="number"
                          min="0" max="100" step="5"></td>
             </tr>
+            <tr>
+              <th>Move % Range</th>
+              <td>
+                <label for="move_range_min">MIN:</label>
+                <input id="move_range_min" name="move_range_min"
+                       type="number" value="0" step="1">
+                <label for="move_range_max">MAX:</label>
+                <input id="move_range_max" name="move_range_max"
+                       type="number" value="100" step="1">
+              </td>
+            </tr>
           </table>
         </div>
 
