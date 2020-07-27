@@ -207,87 +207,8 @@ class UIPoint extends Point
     ctx.strokeRect(@x - 2, @y - 2, 5, 5)
 
 class PointWidget extends UIPoint
-  @widgets = []
-
-  @restrictions: null
-
-  @restricted:
-    single: []
-    double: []
-
-  @prev_target: [null, null, null]
-
-  @target_chosen_twice: ->
-    @prev_target[0] == @prev_target[1]
-
-  @current_restricted_choices: ->
-    if @restrictions.using_double() and @target_chosen_twice()
-      @restricted.double
-    else
-      @restricted.single
-
-  @filtered_choices: (type) ->
-    value_getter = "value_#{type}"
-
-    len  = @widgets.length
-    last = len - 1
-
-    choices = []
-
-    unless @restrictions.option.self[value_getter]
-      choices.push(0)
-    len -= 1
-
-    if len % 2 == 1
-      len -= 1
-      unless @restrictions.option.opposite[value_getter]
-        choices.push(parseInt(last / 2) + 1)
-
-    neighbor = 1
-    while len >= 2
-      [p, n] = @restrictions.neighbor(neighbor)
-
-      unless p[value_getter]
-        choices.push(p.offset + @widgets.length)
-
-      unless n[value_getter]
-        choices.push(n.offset)
-
-      len -= 2
-      neighbor += 1
-
-    choices
-
-  @update_widget_list_metadata: () ->
-    return if @widgets.length < 3
-    @restrictions.set_enabled(@widgets.length)
-    @restricted.single = @filtered_choices('single')
-    @restricted.double = @filtered_choices('double')
-    @prev_target[0] = @prev_target[1] = @widgets[0]
-
-  @clamp_widgets_to_canvas: () ->
-    [width, height] = APP.max_xy()
-
-    for w in PointWidget.widgets
-      w.x = 0 if w.x < 0
-      w.y = 0 if w.y < 0
-      w.x = width  - 1 if w.x >= width
-      w.y = height - 1 if w.y >= height
-
-  @random_widget: ->
-    choices = @current_restricted_choices()
-    choice = choices[ parseInt(Math.random() * choices.length) ]
-    prev_idx = PointWidget.widgets.indexOf(@prev_target[0])
-    idx = (choice + prev_idx) % PointWidget.widgets.length
-
-    w = PointWidget.widgets[idx]
-    @prev_target[2] = @prev_target[1]
-    @prev_target[1] = @prev_target[0]
-    @prev_target[0] = w
-    w
-
   @is_name_used: (name) ->
-    for w in PointWidget.widgets
+    for w in APP.points
       return true if w.name == name
     return false
 
@@ -311,8 +232,7 @@ class PointWidget extends UIPoint
 
   constructor: (args...) ->
     super args...
-    PointWidget.widgets.push(this)
-    PointWidget.update_widget_list_metadata()
+    APP.attach_point(this)
 
   build: ->
     @draw_highlight = false
@@ -442,11 +362,7 @@ class PointWidget extends UIPoint
     APP.resumable_reset()
 
   destroy: () ->
-    idx = PointWidget.widgets.indexOf(this)
-
-    if idx > -1
-      PointWidget.widgets.splice(idx, 1)
-      PointWidget.update_widget_list_metadata()
+    APP.detach_point(this)
 
     for opt_name, opt of @option
       opt.destroy()
@@ -455,11 +371,16 @@ class PointWidget extends UIPoint
     @move_perc_range_el.remove()
     @row.remove()
 
-    APP.resumable_reset()
-
 class DrawPoint extends UIPoint
+  prev_target: [null, null, null]
+  restricted:
+    single_origin: []
+    double_origin: []
+
   constructor: (name, draw_style) ->
     super '0', name
+
+    @restrictions = new TargetRestriction(APP.context)
 
     @set_color('#000000')
     @set_draw_style(draw_style)
@@ -513,10 +434,80 @@ class DrawPoint extends UIPoint
     @alpha   = opacity / 100
     super(opacity)
 
+  target_chosen_twice: ->
+    @prev_target[0] == @prev_target[1]
+
+  current_restricted_choices: ->
+    if @restrictions.using_double() and @target_chosen_twice()
+      @restricted.double_origin
+    else
+      @restricted.single_origin
+
+  filtered_choices: (type) ->
+    value_getter = "value_#{type}"
+
+    len  = num_points = APP.points.length
+    last = len - 1
+
+    choices = []
+
+    unless @restrictions.option.self[value_getter]
+      choices.push(0)
+    len -= 1
+
+    if len % 2 == 1
+      len -= 1
+      unless @restrictions.option.opposite[value_getter]
+        choices.push(parseInt(last / 2) + 1)
+
+    neighbor = 1
+    while len >= 2
+      [p, n] = @restrictions.neighbor(neighbor)
+
+      unless p[value_getter]
+        choices.push(p.offset + num_points)
+
+      unless n[value_getter]
+        choices.push(n.offset)
+
+      len -= 2
+      neighbor += 1
+
+    choices
+
+  update_point_list_metadata: ->
+    return if APP.points.length < 3
+    @restrictions.set_enabled(APP.points.length)
+    @restricted.single_origin = @filtered_choices('single')
+    @restricted.double_origin = @filtered_choices('double')
+    @prev_target[0] = @prev_target[1] = APP.points[0]
+
+  random_point: ->
+    choices = @current_restricted_choices()
+    choice = choices[ parseInt(Math.random() * choices.length) ]
+    prev_idx = APP.points.indexOf(@prev_target[0])
+    idx = (choice + prev_idx) % APP.points.length
+
+    p = APP.points[idx]
+    @prev_target[2] = @prev_target[1]
+    @prev_target[1] = @prev_target[0]
+    @prev_target[0] = p
+    p
+
   draw_graph: (target) ->
     ctx = APP.graph_ctx
     ctx.fillStyle = @get_current_color(target)
     ctx.fillRect(@x, @y, 1, 1)
+    return null
+
+  single_step: ->
+    target = @random_point()
+    if target?
+      @move_towards_no_text_update(target)
+      @draw_graph(target)
+      return true
+    else
+      return false
 
 class TargetRestrictionOption
   constructor: (@context, @offset, @name) ->
@@ -552,14 +543,12 @@ class TargetRestrictionOption
   set_single: (value) ->
     @value_single = value
     @checkbox_single.checked = @value_single
-    PointWidget.update_widget_list_metadata()
-    APP.resumable_reset()
+    APP.update_metadata_and_reset()
 
   set_double: (value) ->
     @value_double = value
     @checkbox_double.checked = @value_double
-    PointWidget.update_widget_list_metadata()
-    APP.resumable_reset()
+    APP.update_metadata_and_reset()
 
   on_change_single: (event) =>
     @set_single(event.target.checked)
@@ -647,8 +636,7 @@ class TargetRestriction
       for name in opt.double
         @find(name)?.set_double(true)
 
-    PointWidget.update_widget_list_metadata()
-    APP.resumable_reset()
+    APP.update_metadata_and_reset()
 
 class UIOption
   constructor: (@id, @default, @option = null) ->
@@ -720,9 +708,10 @@ class EnumUIOption extends UIOption
 class StochasticSierpinski
   MIN_POINTS: 3
   MAX_POINTS: 8
-
   REG_POLYGON_MARGIN: 10
   NEARBY_RADIUS: 8
+
+  points: []
 
   constructor: (@context) ->
 
@@ -769,8 +758,6 @@ class StochasticSierpinski
     @serializebox_text   = @context.getElementById('serializebox_text')
     @serializebox_action = @context.getElementById('serializebox_action')
     @serializebox_cancel = @context.getElementById('serializebox_cancel')
-
-    PointWidget.restrictions = new TargetRestriction(@context)
 
     @cur = new DrawPoint('Cur', @option.draw_style.value)
 
@@ -841,8 +828,8 @@ class StochasticSierpinski
   on_draw_opacity_change: =>
     o = @option.draw_opacity.value
     @cur.set_opacity(o)
-    for w in PointWidget.widgets
-      w.set_opacity(o)
+    for p in @points
+      p.set_opacity(o)
 
   clear_update_and_draw: ->
     @update_info_elements()
@@ -859,6 +846,15 @@ class StochasticSierpinski
     if @graph_wrapper.offsetWidth != @graph_ui_canvas.width or @graph_wrapper.offsetHeight != @graph_ui_canvas.height
       @resize_graph(@graph_wrapper.offsetWidth, @graph_wrapper.offsetHeight)
 
+  clamp_points_to_canvas: ->
+    [width, height] = APP.max_xy()
+
+    for p in APP.points
+      p.x = 0 if p.x < 0
+      p.y = 0 if p.y < 0
+      p.x = width  - 1 if p.x >= width
+      p.y = height - 1 if p.y >= height
+
   resize_graph: (w, h) ->
     @graph_canvas.width  = w
     @graph_canvas.height = h
@@ -869,38 +865,54 @@ class StochasticSierpinski
     @option.canvas_width.set(w)
     @option.canvas_height.set(h)
 
-    PointWidget.clamp_widgets_to_canvas()
+    @clamp_points_to_canvas()
     @resumable_reset()
 
   on_canvas_hw_change: =>
     @resize_graph(@option.canvas_width.value, @option.canvas_height.value)
 
+  attach_point: (point) ->
+    @points.push(point)
+    @cur.update_point_list_metadata()
+
+  detach_point: (point) ->
+    idx = @points.indexOf(point)
+
+    if idx > -1
+      @points.splice(idx, 1)
+      @cur.update_point_list_metadata()
+
+    APP.resumable_reset()
+
   add_point: () ->
-    if PointWidget.widgets.length < APP.MAX_POINTS
+    if @points.length < APP.MAX_POINTS
       PointWidget.create()
       @resumable_reset()
 
   remove_point: () ->
-    len = PointWidget.widgets.length
+    len = @points.length
     if len > APP.MIN_POINTS
-      PointWidget.widgets[len - 1].destroy()
+      @points[len - 1].destroy()
 
   set_num_points: (n) ->
     return unless n >= @MIN_POINTS and n <= @MAX_POINTS
 
-    @add_point() while n > PointWidget.widgets.length
-    @remove_point() while PointWidget.widgets.length > n
+    diff = n - @points.length
+    @add_point() for [0...diff] if diff > 0
 
-    @num_points_el.value = PointWidget.widgets.length;
+    diff = @points.length - n
+    @remove_point() for [0...diff] if diff > 0
+
+    @num_points_el.value = @points.length;
 
   recolor_periodic_hue: (step, start = 0.0) ->
     hue = start
-    for w in PointWidget.widgets
-      w.set_color_hue(hue)
+    for p in @points
+      p.set_color_hue(hue)
       hue += step
 
   recolor_equidistant_hue: () ->
-    @recolor_periodic_hue(360.0 / PointWidget.widgets.length)
+    @recolor_periodic_hue(360.0 / @points.length)
 
   set_ngon: (n, recolor = true) ->
     @set_num_points(n)
@@ -964,8 +976,8 @@ class StochasticSierpinski
 
   serialize: ->
     opt =
-      points: PointWidget.widgets.map( (x) -> x.save() )
-      restrictions: PointWidget.restrictions.save()
+      points: @points.map( (x) -> x.save() )
+      restrictions: @cur.restrictions.save()
       options:
         canvas_width:  @option.canvas_width.value
         canvas_height: @option.canvas_height.value
@@ -990,10 +1002,10 @@ class StochasticSierpinski
     if opt.points?
       @set_num_points(opt.points.length)
       for p, i in opt.points
-        PointWidget.widgets[i].load(p)
+        @points[i].load(p)
 
     if opt.restrictions?
-      PointWidget.restrictions.load(opt.restrictions)
+      @cur.restrictions.load(opt.restrictions)
     
   on_save: =>
     @show_serializebox('Save', @serialize(), null)
@@ -1006,7 +1018,7 @@ class StochasticSierpinski
     document.location = "##{hash}"
 
   on_move_all_reg_polygon: =>
-    len = PointWidget.widgets.length
+    len = @points.length
 
     [maxx, maxy] = @max_xy()
     minside = Math.min(maxx, maxy)
@@ -1030,16 +1042,16 @@ class StochasticSierpinski
         rotate += Math.PI/4
         r = Math.sqrt((r * r) * 2)
 
-    for w, i in PointWidget.widgets
+    for p, i in @points
       x = parseInt(r * Math.cos(rotate + theta * i))
       y = parseInt(r * Math.sin(rotate + theta * i))
-      w.move(cx + x, cy + y)
+      p.move(cx + x, cy + y)
 
     @resumable_reset()
 
   on_move_all_random: () =>
-    for w in PointWidget.widgets
-      w.move(@random_x(), @random_y())
+    for p in @points
+      p.move(@random_x(), @random_y())
 
     @resumable_reset()
 
@@ -1066,12 +1078,12 @@ class StochasticSierpinski
       (0 <= loc.x <= @graph_ui_canvas.width) and
       (0 <= loc.y <= @graph_ui_canvas.height))
 
-  nearby_widgets: (loc) ->
-    PointWidget.widgets.filter (w) =>
-      w.distance(loc) < @NEARBY_RADIUS
+  nearby_points: (loc) ->
+    @points.filter (p) =>
+      p.distance(loc) < @NEARBY_RADIUS
 
-  first_nearby_widget: (loc) ->
-    nearlist = @nearby_widgets(loc)
+  first_nearby_point: (loc) ->
+    nearlist = @nearby_points(loc)
     if nearlist?
       nearlist[0]
     else
@@ -1079,17 +1091,17 @@ class StochasticSierpinski
 
   unhighlight_all: () ->
     changed = false
-    for w in PointWidget.widgets
-      changed = true if w.unhighlight()
+    for p in @points
+      changed = true if p.unhighlight()
     return changed
 
   on_mousedown: (event) =>
     @unhighlight_all()
     loc = @event_to_canvas_loc(event)
-    w = @first_nearby_widget(loc)
-    if w?
+    p = @first_nearby_point(loc)
+    if p?
       @dnd_target = w
-      w.highlight()
+      p.highlight()
 
   on_mouseup: (event) =>
     if @dnd_target?
@@ -1111,13 +1123,17 @@ class StochasticSierpinski
     else
       redraw = @unhighlight_all()
 
-      w = @first_nearby_widget(loc)
-      if w?
-        redraw = true if w.highlight()
+      p = @first_nearby_point(loc)
+      if p?
+        redraw = true if p.highlight()
 
       @redraw_ui() if redraw
 
   resumable_reset: () =>
+    @on_reset(true)
+
+  update_metadata_and_reset: ->
+    @cur?.update_point_list_metadata()
     @on_reset(true)
 
   clear_graph_canvas: () ->
@@ -1173,38 +1189,43 @@ class StochasticSierpinski
     @btn_run.classList.add('paused')
 
   single_step: ->
-    target = PointWidget.random_widget()
-    if target?
-      @cur.move_towards_no_text_update target
-      @cur.draw_graph(target)
+    if @cur.single_step()
       @step_count += 1
+    return null
 
   step: (num_steps = 1) =>
     @single_step() for [0...num_steps]
 
     @update_info_elements()
     @redraw_ui()
+    return null
 
   multistep: ->
     @step(@steps_per_frame)
+    return null
 
   redraw_ui: =>
     @graph_ui_ctx.clearRect(0, 0, @graph_ui_canvas.width, @graph_ui_canvas.height)
 
     @cur?.draw_ui()
 
-    for p in PointWidget.widgets
+    for p in @points
       p.draw_ui()
+
+    return null
 
   update: =>
     @frame_is_scheduled = false
     @multistep()
     @schedule_next_frame() if @running
+    return null
 
   schedule_next_frame: () ->
     unless @frame_is_scheduled
       @frame_is_scheduled = true
       window.requestAnimationFrame(@update)
+
+    return null
 
   on_keydown: (event) =>
     switch event.key
