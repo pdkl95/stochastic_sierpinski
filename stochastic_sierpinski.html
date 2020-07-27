@@ -1001,6 +1001,8 @@ td.move_mode {
       args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
       this.on_color_change = bind(this.on_color_change, this);
       this.on_move_perc_mode_change = bind(this.on_move_perc_mode_change, this);
+      this.on_y_change = bind(this.on_y_change, this);
+      this.on_x_change = bind(this.on_x_change, this);
       PointWidget.__super__.constructor.apply(this, args);
       APP.attach_point(this);
     }
@@ -1020,8 +1022,8 @@ td.move_mode {
       this.info_y_cell = this.row.insertCell(3);
       this.move_perc_cell = this.row.insertCell(4);
       this.option = {
-        x: NumberUIOption.create(this.info_x_cell, this.info_x_id + "_option", this.x, this.set_x),
-        y: NumberUIOption.create(this.info_y_cell, this.info_y_id + "_option", this.y, this.set_y),
+        x: NumberUIOption.create(this.info_x_cell, this.info_x_id + "_option", this.x, this.on_x_change),
+        y: NumberUIOption.create(this.info_y_cell, this.info_y_id + "_option", this.y, this.on_y_change),
         move_perc: NumberUIOption.create(this.move_perc_cell, "point_" + this.el_id + "_move_perc_option", this.move_perc * 100, {
           on_change: this.on_move_perc_option_change,
           min: 0,
@@ -1036,6 +1038,16 @@ td.move_mode {
       move_mode_cell = this.row.insertCell(6);
       move_mode_cell.classList.add('move_mode');
       return this.option.move_perc_mode = BoolUIOption.create(move_mode_cell, "point_" + name + "_move_mode", this.move_perc_mode, this.on_move_perc_mode_change);
+    };
+
+    PointWidget.prototype.on_x_change = function(value) {
+      this.set_x(value);
+      return APP.resumable_reset();
+    };
+
+    PointWidget.prototype.on_y_change = function(value) {
+      this.set_y(value);
+      return APP.resumable_reset();
     };
 
     PointWidget.prototype.on_move_perc_mode_change = function(value) {
@@ -1791,7 +1803,7 @@ td.move_mode {
       this.btn_move_all_random = this.context.getElementById('move_all_random');
       this.option = {
         canvas_width: new NumberUIOption('canvas_width', 420, this.on_canvas_hw_change),
-        canvas_height: new NumberUIOption('canvas_height', 320, this.on_canvas_hw_change),
+        canvas_height: new NumberUIOption('canvas_height', 420, this.on_canvas_hw_change),
         draw_opacity: new NumberUIOption('draw_opacity', 35, this.on_draw_opacity_change)
       };
       this.serializebox = this.context.getElementById('serializebox');
@@ -2275,7 +2287,7 @@ td.move_mode {
       loc = this.event_to_canvas_loc(event);
       p = this.first_nearby_point(loc);
       if (p != null) {
-        this.dnd_target = w;
+        this.dnd_target = p;
         return p.highlight();
       }
     };

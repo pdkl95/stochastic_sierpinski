@@ -295,8 +295,8 @@ class PointWidget extends UIPoint
     @move_perc_cell = @row.insertCell(4)
 
     @option =
-      x: NumberUIOption.create(@info_x_cell, "#{@info_x_id}_option", @x, @set_x)
-      y: NumberUIOption.create(@info_y_cell, "#{@info_y_id}_option", @y, @set_y)
+      x: NumberUIOption.create(@info_x_cell, "#{@info_x_id}_option", @x, @on_x_change)
+      y: NumberUIOption.create(@info_y_cell, "#{@info_y_id}_option", @y, @on_y_change)
       move_perc: NumberUIOption.create(@move_perc_cell, "point_#{@el_id}_move_perc_option",
         @move_perc * 100, {
           on_change: @on_move_perc_option_change
@@ -314,6 +314,14 @@ class PointWidget extends UIPoint
     move_mode_cell = @row.insertCell(6)
     move_mode_cell.classList.add('move_mode')
     @option.move_perc_mode = BoolUIOption.create(move_mode_cell, "point_#{name}_move_mode", @move_perc_mode, @on_move_perc_mode_change)
+
+  on_x_change: (value) =>
+    @set_x(value)
+    APP.resumable_reset()
+
+  on_y_change: (value) =>
+    @set_y(value)
+    APP.resumable_reset()
 
   on_move_perc_mode_change: (value) =>
     @move_perc_mode = value
@@ -806,7 +814,7 @@ class StochasticSierpinski
 
     @option =
       canvas_width:  new NumberUIOption('canvas_width',  420, @on_canvas_hw_change)
-      canvas_height: new NumberUIOption('canvas_height', 320, @on_canvas_hw_change)
+      canvas_height: new NumberUIOption('canvas_height', 420, @on_canvas_hw_change)
       draw_opacity:  new NumberUIOption('draw_opacity', 35, @on_draw_opacity_change)
 
     @serializebox        = @context.getElementById('serializebox')
@@ -1165,7 +1173,7 @@ class StochasticSierpinski
     loc = @event_to_canvas_loc(event)
     p = @first_nearby_point(loc)
     if p?
-      @dnd_target = w
+      @dnd_target = p
       p.highlight()
 
   on_mouseup: (event) =>
