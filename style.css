@@ -151,15 +151,21 @@ td.blank {
   width: 3.5em;
 }
 
+#all_points_table {
+  float: right;
+}
+
 #point_pos_table input[type="color"] {
   width: 3em;
 }
 
-#point_pos_table input[type="number"] {
+#point_pos_table input[type="number"],
+#all_points_table input[type="number"] {
   width: 4em;
 }
 
-#point_pos_table input[type="range"] {
+#point_pos_table input[type="range"],
+#all_points_table input[type="range"] {
   width: 8em;
 }
 

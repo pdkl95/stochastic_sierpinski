@@ -206,6 +206,32 @@ class UIPoint extends Point
     ctx.strokeStyle = @color
     ctx.strokeRect(@x - 2, @y - 2, 5, 5)
 
+  move_perc_range_el_init: ->
+    @move_perc_range_el.min = 0
+    @move_perc_range_el.max = 100
+    @move_perc_range_el.step = 5
+    @move_perc_range_el.value = @move_perc * 100
+    @move_perc_range_el.addEventListener('input', @on_move_per_range_input)
+
+  on_move_perc_option_change: (value) =>
+    @set_move_perc(value)
+    APP.resumable_reset()
+
+  on_move_per_range_input: (event) =>
+    @set_move_perc(event.target.value)
+    APP.resumable_reset()
+
+  set_move_perc_range: (newvalue) ->
+    if @move_perc_range_el?
+      step = @move_perc_range_el.step
+      rounded = Math.round(newvalue / step) * step
+      @move_perc_range_el.value = rounded
+
+  set_move_perc: (newvalue) ->
+    @move_perc = newvalue / 100.0
+    @option.move_perc.set(@move_perc * 100)
+    @set_move_perc_range(@option.move_perc.get())
+
 class PointWidget extends UIPoint
   @is_name_used: (name) ->
     for w in APP.points
@@ -265,11 +291,7 @@ class PointWidget extends UIPoint
         })
 
     @move_perc_range_el = APP.create_input_element('range')
-    @move_perc_range_el.min = 0
-    @move_perc_range_el.max = 100
-    @move_perc_range_el.step = 5
-    @move_perc_range_el.value = @move_perc * 100
-    @move_perc_range_el.addEventListener('input', @on_move_per_range_input)
+    @move_perc_range_el_init()
 
     move_perc_adj_cell = @row.insertCell(5)
     move_perc_adj_cell.appendChild(@move_perc_range_el)
@@ -289,25 +311,6 @@ class PointWidget extends UIPoint
   on_color_change: (event) =>
     @set_color(event.target.value)
     APP.resumable_reset()
-
-  on_move_perc_option_change: (value) =>
-    @set_move_perc(value)
-    APP.resumable_reset()
-
-  on_move_per_range_input: (event) =>
-    @set_move_perc(event.target.value)
-    APP.resumable_reset()
-
-  set_move_perc_range: (newvalue) ->
-    if @move_perc_range_el?
-      step = @move_perc_range_el.step
-      rounded = Math.round(newvalue / step) * step
-      @move_perc_range_el.value = rounded
-
-  set_move_perc: (newvalue) ->
-    @move_perc = newvalue / 100.0
-    @option.move_perc.set(@move_perc * 100)
-    @set_move_perc_range(@option.move_perc.get())
 
   highlight: () ->
     @row.classList.add('highlight')
@@ -388,6 +391,19 @@ class DrawPoint extends UIPoint
   build: ->
     @info_x_cell = APP.context.getElementById(@info_x_id)
     @info_y_cell = APP.context.getElementById(@info_y_id)
+
+    @btn_set_all_points = APP.context.getElementById('set_all_points')
+    @move_perc_range_el = APP.context.getElementById('all_points_move_perc_range')
+    @move_perc_range_el_init()
+
+    @option =
+      move_perc: new NumberUIOption('all_points_move_perc_option',  @move_perc * 100, @on_move_perc_option_change)
+
+    @btn_set_all_points.addEventListener('click', @on_set_all_points)
+
+  on_set_all_points: (event) =>
+    APP.set_all_points_move_perc(@move_perc * 100)
+    APP.resumable_reset()
 
   reset_color_cache: ->
     @color_avg = {}
@@ -922,6 +938,10 @@ class StochasticSierpinski
   on_num_points_input: (event) =>
     @set_ngon(event.target.value)
 
+  set_all_points_move_perc: (value) ->
+    for p in @points
+      p.set_move_perc(value)
+
   on_steps_per_frame_input: (event) =>
     @set_steps_per_frame(event.target.value)
 
@@ -983,6 +1003,7 @@ class StochasticSierpinski
         canvas_height: @option.canvas_height.value
         draw_style:    @option.draw_style.value
         draw_opacity:  @option.draw_opacity.value
+        all_points_move_perc: @cur.option.move_perc.get()
 
     JSON.stringify(opt)
 
@@ -998,6 +1019,9 @@ class StochasticSierpinski
 
       if opt.options.draw_opacity?
         @option.draw_opacity.set(opt.options.draw_opacity)
+
+      if opt.options.all_points_move_perc?
+        @cur.set_move_perc(opt.options.all_points_move_perc)
 
     if opt.points?
       @set_num_points(opt.points.length)
