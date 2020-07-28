@@ -178,6 +178,15 @@ undivert(`style.css')
                        type="number" value="100" step="1">
               </td>
             </tr>
+            <tr>
+              <th>Movement Data Source</th>
+              <td>
+                <select id="movement_data_source" name="movement_data_source">
+                  <option value="dest">Destination</option>
+                  <option value="orig">Origin</option>
+                </select>
+              </td>
+            </tr>
           </table>
         </div>
 

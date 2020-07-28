@@ -166,19 +166,20 @@ class Point
     @move_no_text_update(x, y)
     @update_text()
 
-  move_perc_towards: (other, perc = other.move_perc) ->
-    dx = other.x - (@x)
-    dy = other.y - (@y)
+  move_perc_towards: (target, perc = target.move_perc) ->
+    dx = target.x - (@x)
+    dy = target.y - (@y)
     @move(@x + dx * perc, @y + dy * perc)
 
-  move_perc_towards_no_text_update: (other, perc = other.move_perc) ->
-    dx = other.x - (@x)
-    dy = other.y - (@y)
+  move_perc_towards_no_text_update: (target, perc = target.move_perc) ->
+    dx = target.x - (@x)
+    dy = target.y - (@y)
     @move_no_text_update(@x + dx * perc, @y + dy * perc)
 
-  move_absolute_towards_no_text_update: (other, dist = other.move_perc * APP.move_absolute_magnitude) ->
-    dx = other.x - (@x)
-    dy = other.y - (@y)
+  move_absolute_towards_no_text_update: (target, dist = target.move_perc) ->
+    dist *= APP.move_absolute_magnitude
+    dx = target.x - (@x)
+    dy = target.y - (@y)
     mag = Math.sqrt(dx*dx + dy*dy)
     norm_x = dx / mag
     norm_y = dy / mag
@@ -424,10 +425,13 @@ class DrawPoint extends UIPoint
   constructor: (name) ->
     super '0', name
 
+    @movement_from_origin = true
+
     @restrictions = new TargetRestriction(APP.context)
 
     @set_color('#000000')
     @set_draw_style(@option.draw_style.get())
+    @set_data_source('dest')
 
   build: ->
     @info_x_cell = APP.context.getElementById(@info_x_id)
@@ -440,6 +444,7 @@ class DrawPoint extends UIPoint
     @option =
       move_perc: new NumberUIOption('all_points_move_perc_option',  @move_perc * 100, @on_move_perc_option_change)
       draw_style: new EnumUIOption('draw_style', 'color_blend_prev_color', @set_draw_style)
+      data_source: new EnumUIOption('movement_data_source', 'dest', @set_data_source)
 
     @btn_set_all_points.addEventListener('click', @on_set_all_points)
 
@@ -464,8 +469,8 @@ class DrawPoint extends UIPoint
     target.color_alpha
 
   get_color_blend_prev1: ->
-    b = PointWidget.prev_target[1]
-    a = PointWidget.prev_target[0]
+    b = @prev_target[1]
+    a = @prev_target[0]
     return a.color_alpha unless b?
     name = a.name + b.name
     @color_avg[name] ?= @blend_target_colors(a, b)
@@ -477,6 +482,15 @@ class DrawPoint extends UIPoint
     c = "rgba(#{@prev_color_blend[0]},#{@prev_color_blend[1]},#{@prev_color_blend[2]},#{@alpha})"
     #console.log(t, p, @prev_color_blend, c)
     c
+
+  set_data_source: (src) =>
+    @option.data_source.set(src)
+    @single_step = switch @option.data_source.get()
+      when 'dest' then @single_step_destination
+      when 'orig' then @single_step_origin
+      else
+        @single_step_destination
+    APP.resumable_reset()
 
   set_draw_style: (mode) =>
     @option.draw_style.set(mode)
@@ -559,17 +573,26 @@ class DrawPoint extends UIPoint
     ctx.fillRect(@x, @y, 1, 1)
     return null
 
-  single_step: ->
+  single_step_origin: ->
     target = @random_point()
-    if target?
-      if target.move_perc_mode
-        @move_perc_towards_no_text_update(target)
-      else
-        @move_absolute_towards_no_text_update(target)
-      @draw_graph(target)
-      return true
+    return false unless target?
+    origin = @prev_target[1]
+    if origin.move_perc_mode
+      @move_perc_towards_no_text_update(target, origin.move_perc)
     else
-      return false
+      @move_absolute_towards_no_text_update(target, origin.move_perc)
+    @draw_graph(target)
+    return true
+
+  single_step_destination: ->
+    target = @random_point()
+    return false unless target?
+    if target.move_perc_mode
+      @move_perc_towards_no_text_update(target, target.move_perc)
+    else
+      @move_absolute_towards_no_text_update(target, target.move_perc)
+    @draw_graph(target)
+    return true
 
 class TargetRestrictionOption
   constructor: (@context, @offset, @name) ->
@@ -1053,6 +1076,7 @@ class StochasticSierpinski
         canvas_height: @option.canvas_height.value
         draw_opacity:  @option.draw_opacity.value
         draw_style:    @cur.option.draw_style.get()
+        data_source:   @cur.option.data_source.get()
         all_points_move_perc: @cur.option.move_perc.get()
         move_absolute_magnitude: @move_absolute_magnitude
         move_range_min: @option.move_range_min.get()
@@ -1072,6 +1096,9 @@ class StochasticSierpinski
 
       if opt.options.draw_style?
         @cur.set_draw_style(opt.options.draw_style)
+
+      if opt.options.data_source?
+        @cur.set_data_source(opt.options.data_source)
 
       if opt.options.move_range_min?
         @option.move_range_min.set(opt.options.move_range_min)

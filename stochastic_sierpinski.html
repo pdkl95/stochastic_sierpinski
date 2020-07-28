@@ -591,6 +591,15 @@ td.move_mode {
                        type="number" value="100" step="1">
               </td>
             </tr>
+            <tr>
+              <th>Movement Data Source</th>
+              <td>
+                <select id="movement_data_source" name="movement_data_source">
+                  <option value="dest">Destination</option>
+                  <option value="orig">Origin</option>
+                </select>
+              </td>
+            </tr>
           </table>
         </div>
 
@@ -831,33 +840,34 @@ td.move_mode {
       return this.update_text();
     };
 
-    Point.prototype.move_perc_towards = function(other, perc) {
+    Point.prototype.move_perc_towards = function(target, perc) {
       var dx, dy;
       if (perc == null) {
-        perc = other.move_perc;
+        perc = target.move_perc;
       }
-      dx = other.x - this.x;
-      dy = other.y - this.y;
+      dx = target.x - this.x;
+      dy = target.y - this.y;
       return this.move(this.x + dx * perc, this.y + dy * perc);
     };
 
-    Point.prototype.move_perc_towards_no_text_update = function(other, perc) {
+    Point.prototype.move_perc_towards_no_text_update = function(target, perc) {
       var dx, dy;
       if (perc == null) {
-        perc = other.move_perc;
+        perc = target.move_perc;
       }
-      dx = other.x - this.x;
-      dy = other.y - this.y;
+      dx = target.x - this.x;
+      dy = target.y - this.y;
       return this.move_no_text_update(this.x + dx * perc, this.y + dy * perc);
     };
 
-    Point.prototype.move_absolute_towards_no_text_update = function(other, dist) {
+    Point.prototype.move_absolute_towards_no_text_update = function(target, dist) {
       var dx, dy, mag, norm_x, norm_y;
       if (dist == null) {
-        dist = other.move_perc * APP.move_absolute_magnitude;
+        dist = target.move_perc;
       }
-      dx = other.x - this.x;
-      dy = other.y - this.y;
+      dist *= APP.move_absolute_magnitude;
+      dx = target.x - this.x;
+      dy = target.y - this.y;
       mag = Math.sqrt(dx * dx + dy * dy);
       norm_x = dx / mag;
       norm_y = dy / mag;
@@ -1213,11 +1223,14 @@ td.move_mode {
 
     function DrawPoint(name) {
       this.set_draw_style = bind(this.set_draw_style, this);
+      this.set_data_source = bind(this.set_data_source, this);
       this.on_set_all_points = bind(this.on_set_all_points, this);
       DrawPoint.__super__.constructor.call(this, '0', name);
+      this.movement_from_origin = true;
       this.restrictions = new TargetRestriction(APP.context);
       this.set_color('#000000');
       this.set_draw_style(this.option.draw_style.get());
+      this.set_data_source('dest');
     }
 
     DrawPoint.prototype.build = function() {
@@ -1228,7 +1241,8 @@ td.move_mode {
       this.move_perc_range_el_init();
       this.option = {
         move_perc: new NumberUIOption('all_points_move_perc_option', this.move_perc * 100, this.on_move_perc_option_change),
-        draw_style: new EnumUIOption('draw_style', 'color_blend_prev_color', this.set_draw_style)
+        draw_style: new EnumUIOption('draw_style', 'color_blend_prev_color', this.set_draw_style),
+        data_source: new EnumUIOption('movement_data_source', 'dest', this.set_data_source)
       };
       return this.btn_set_all_points.addEventListener('click', this.on_set_all_points);
     };
@@ -1261,8 +1275,8 @@ td.move_mode {
 
     DrawPoint.prototype.get_color_blend_prev1 = function() {
       var a, b, base1, name;
-      b = PointWidget.prev_target[1];
-      a = PointWidget.prev_target[0];
+      b = this.prev_target[1];
+      a = this.prev_target[0];
       if (b == null) {
         return a.color_alpha;
       }
@@ -1277,6 +1291,21 @@ td.move_mode {
       this.prev_color_blend = Color.blend_rgb(t, p);
       c = "rgba(" + this.prev_color_blend[0] + "," + this.prev_color_blend[1] + "," + this.prev_color_blend[2] + "," + this.alpha + ")";
       return c;
+    };
+
+    DrawPoint.prototype.set_data_source = function(src) {
+      this.option.data_source.set(src);
+      this.single_step = (function() {
+        switch (this.option.data_source.get()) {
+          case 'dest':
+            return this.single_step_destination;
+          case 'orig':
+            return this.single_step_origin;
+          default:
+            return this.single_step_destination;
+        }
+      }).call(this);
+      return APP.resumable_reset();
     };
 
     DrawPoint.prototype.set_draw_style = function(mode) {
@@ -1377,20 +1406,35 @@ td.move_mode {
       return null;
     };
 
-    DrawPoint.prototype.single_step = function() {
-      var target;
+    DrawPoint.prototype.single_step_origin = function() {
+      var origin, target;
       target = this.random_point();
-      if (target != null) {
-        if (target.move_perc_mode) {
-          this.move_perc_towards_no_text_update(target);
-        } else {
-          this.move_absolute_towards_no_text_update(target);
-        }
-        this.draw_graph(target);
-        return true;
-      } else {
+      if (target == null) {
         return false;
       }
+      origin = this.prev_target[1];
+      if (origin.move_perc_mode) {
+        this.move_perc_towards_no_text_update(target, origin.move_perc);
+      } else {
+        this.move_absolute_towards_no_text_update(target, origin.move_perc);
+      }
+      this.draw_graph(target);
+      return true;
+    };
+
+    DrawPoint.prototype.single_step_destination = function() {
+      var target;
+      target = this.random_point();
+      if (target == null) {
+        return false;
+      }
+      if (target.move_perc_mode) {
+        this.move_perc_towards_no_text_update(target, target.move_perc);
+      } else {
+        this.move_absolute_towards_no_text_update(target, target.move_perc);
+      }
+      this.draw_graph(target);
+      return true;
     };
 
     return DrawPoint;
@@ -2158,6 +2202,7 @@ td.move_mode {
           canvas_height: this.option.canvas_height.value,
           draw_opacity: this.option.draw_opacity.value,
           draw_style: this.cur.option.draw_style.get(),
+          data_source: this.cur.option.data_source.get(),
           all_points_move_perc: this.cur.option.move_perc.get(),
           move_absolute_magnitude: this.move_absolute_magnitude,
           move_range_min: this.option.move_range_min.get(),
@@ -2179,6 +2224,9 @@ td.move_mode {
         }
         if (opt.options.draw_style != null) {
           this.cur.set_draw_style(opt.options.draw_style);
+        }
+        if (opt.options.data_source != null) {
+          this.cur.set_data_source(opt.options.data_source);
         }
         if (opt.options.move_range_min != null) {
           this.option.move_range_min.set(opt.options.move_range_min);
