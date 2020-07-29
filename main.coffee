@@ -190,6 +190,17 @@ class Point
     dy = @y - other.y
     Math.sqrt((dx * dx) + (dy * dy))
 
+  scale_width: (scale) ->
+    @set_x(@x * scale)
+    @update_text()
+
+  scale_height: (scale) ->
+    @set_y(@y * scale)
+    @update_text()
+
+  scale: (scale) ->
+    @scale_width(scale, origin)
+
 class UIPoint extends Point
   constructor: (hue, args...) ->
     @set_color_hue(hue)
@@ -793,6 +804,14 @@ class StochasticSierpinski
   REG_POLYGON_MARGIN: 10
   NEARBY_RADIUS: 8
 
+  DEFAULT:
+    graph:
+      width:  420
+      height: 420
+    draw_opacity:   35
+    move_range_min: 0
+    move_range_max: 100
+
   points: []
   move_absolute_magnitude: 100
 
@@ -831,17 +850,39 @@ class StochasticSierpinski
     @btn_move_all_random      = @context.getElementById('move_all_random')
 
     @option =
-      canvas_width:   new NumberUIOption('canvas_width',   420, @on_canvas_hw_change)
-      canvas_height:  new NumberUIOption('canvas_height',  420, @on_canvas_hw_change)
-      draw_opacity:   new NumberUIOption('draw_opacity',    35, @on_draw_opacity_change)
-      move_range_min: new NumberUIOption('move_range_min',   0, @on_move_range_change)
-      move_range_max: new NumberUIOption('move_range_max', 100, @on_move_range_change)
+      canvas_width:   new NumberUIOption('canvas_width',   APP.DEFAULT.graph.width,    @on_canvas_width_change)
+      canvas_height:  new NumberUIOption('canvas_height',  APP.DEFAULT.graph.height,   @on_canvas_height_change)
+      draw_opacity:   new NumberUIOption('draw_opacity',   APP.DEFAULT.draw_opacity,   @on_draw_opacity_change)
+      move_range_min: new NumberUIOption('move_range_min', APP.DEFAULT.move_range_min, @on_move_range_change)
+      move_range_max: new NumberUIOption('move_range_max', APP.DEFAULT.move_range_max, @on_move_range_change)
 
     @serializebox        = @context.getElementById('serializebox')
     @serializebox_title  = @context.getElementById('serializebox_title')
     @serializebox_text   = @context.getElementById('serializebox_text')
     @serializebox_action = @context.getElementById('serializebox_action')
     @serializebox_cancel = @context.getElementById('serializebox_cancel')
+
+    @graph_wrapper.addEventListener 'mouseenter', @on_mouseenter
+    @graph_wrapper.addEventListener 'mouseleave', @on_mouseleav
+
+    for i in [0..document.styleSheets.length]
+      s = document.styleSheets[i]
+      if s?.title == 'app_stylesheet'
+        @app_stylesheet = s
+        break
+
+    if @app_stylesheet?
+      for i in [0..@app_stylesheet.cssRules.length]
+        r = @app_stylesheet.cssRules[i]
+        if r?.selectorText == '.canvas_size'
+          @canvas_size_rule = r
+          break
+
+      if @canvas_size_rule?
+        @graph_wrapper_observer = new MutationObserver(@on_graph_wrapper_mutate)
+        @graph_wrapper_observer.observe(@graph_wrapper, { attributes: true })
+
+    @resize_graph(@option.canvas_width.get(), @option.canvas_height.get())
 
     @cur = new DrawPoint('Cur')
 
@@ -873,26 +914,6 @@ class StochasticSierpinski
     @graph_ui_canvas.addEventListener 'mousedown', @on_mousedown
     @graph_ui_canvas.addEventListener 'mouseup',   @on_mouseup
     @graph_ui_canvas.addEventListener 'mousemove', @on_mousemove
-
-    @graph_wrapper.addEventListener 'mouseenter', @on_mouseenter
-    @graph_wrapper.addEventListener 'mouseleave', @on_mouseleave
-
-    for i in [0..document.styleSheets.length]
-      s = document.styleSheets[i]
-      if s?.title == 'app_stylesheet'
-        @app_stylesheet = s
-        break
-
-    if @app_stylesheet?
-      for i in [0..@app_stylesheet.cssRules.length]
-        r = @app_stylesheet.cssRules[i]
-        if r?.selectorText == '.canvas_size'
-          @canvas_size_rule = r
-          break
-
-      if @canvas_size_rule?
-        @graph_wrapper_observer = new MutationObserver(@on_graph_wrapper_mutate)
-        @graph_wrapper_observer.observe(@graph_wrapper, { attributes: true })
 
     @clear_update_and_draw()
 
@@ -934,6 +955,7 @@ class StochasticSierpinski
   on_graph_wrapper_mutate: (event) =>
     if @graph_wrapper.offsetWidth != @graph_ui_canvas.width or @graph_wrapper.offsetHeight != @graph_ui_canvas.height
       @resize_graph(@graph_wrapper.offsetWidth, @graph_wrapper.offsetHeight)
+      APP.resumable_reset()
 
   clamp_points_to_canvas: ->
     [width, height] = APP.max_xy()
@@ -944,21 +966,35 @@ class StochasticSierpinski
       p.x = width  - 1 if p.x >= width
       p.y = height - 1 if p.y >= height
 
-  resize_graph: (w, h) ->
+  resize_graph_width: (w) ->
+    scale = w / @graph_canvas.width
+    p.scale_width(scale) for p in @points
+
     @graph_canvas.width  = w
-    @graph_canvas.height = h
     @graph_ui_canvas.width  = w
-    @graph_ui_canvas.height = h
     @canvas_size_rule.style.width  = "#{w}px"
-    @canvas_size_rule.style.height = "#{h}px"
     @option.canvas_width.set(w)
+
+  resize_graph_height: (h) ->
+    scale = h / @graph_canvas.height
+    p.scale_height(scale) for p in @points
+
+    @graph_canvas.height = h
+    @graph_ui_canvas.height = h
+    @canvas_size_rule.style.height = "#{h}px"
     @option.canvas_height.set(h)
 
-    @clamp_points_to_canvas()
+  resize_graph: (w, h) ->
+    @resize_graph_width(w)
+    @resize_graph_height(h)
+
+  on_canvas_width_change: =>
+    @resize_graph_width(@option.canvas_width.value) 
     @resumable_reset()
 
-  on_canvas_hw_change: =>
-    @resize_graph(@option.canvas_width.value, @option.canvas_height.value)
+  on_canvas_height_change: =>
+    @resize_graph_height(@option.canvas_height.value)
+    @resumable_reset()
 
   attach_point: (point) ->
     @points.push(point)
