@@ -881,6 +881,20 @@ td.move_mode {
       return Math.sqrt((dx * dx) + (dy * dy));
     };
 
+    Point.prototype.scale_width = function(scale) {
+      this.set_x(this.x * scale);
+      return this.update_text();
+    };
+
+    Point.prototype.scale_height = function(scale) {
+      this.set_y(this.y * scale);
+      return this.update_text();
+    };
+
+    Point.prototype.scale = function(scale) {
+      return this.scale_width(scale, origin);
+    };
+
     return Point;
 
   })();
@@ -1796,6 +1810,16 @@ td.move_mode {
 
     StochasticSierpinski.prototype.NEARBY_RADIUS = 8;
 
+    StochasticSierpinski.prototype.DEFAULT = {
+      graph: {
+        width: 420,
+        height: 420
+      },
+      draw_opacity: 35,
+      move_range_min: 0,
+      move_range_max: 100
+    };
+
     StochasticSierpinski.prototype.points = [];
 
     StochasticSierpinski.prototype.move_absolute_magnitude = 100;
@@ -1830,7 +1854,8 @@ td.move_mode {
       this.on_create_png = bind(this.on_create_png, this);
       this.on_steps_per_frame_input = bind(this.on_steps_per_frame_input, this);
       this.on_num_points_input = bind(this.on_num_points_input, this);
-      this.on_canvas_hw_change = bind(this.on_canvas_hw_change, this);
+      this.on_canvas_height_change = bind(this.on_canvas_height_change, this);
+      this.on_canvas_width_change = bind(this.on_canvas_width_change, this);
       this.on_graph_wrapper_mutate = bind(this.on_graph_wrapper_mutate, this);
       this.on_mouseleave = bind(this.on_mouseleave, this);
       this.on_mouseenter = bind(this.on_mouseenter, this);
@@ -1866,40 +1891,19 @@ td.move_mode {
       this.btn_move_all_reg_polygon = this.context.getElementById('move_all_reg_polygon');
       this.btn_move_all_random = this.context.getElementById('move_all_random');
       this.option = {
-        canvas_width: new NumberUIOption('canvas_width', 420, this.on_canvas_hw_change),
-        canvas_height: new NumberUIOption('canvas_height', 420, this.on_canvas_hw_change),
-        draw_opacity: new NumberUIOption('draw_opacity', 35, this.on_draw_opacity_change),
-        move_range_min: new NumberUIOption('move_range_min', 0, this.on_move_range_change),
-        move_range_max: new NumberUIOption('move_range_max', 100, this.on_move_range_change)
+        canvas_width: new NumberUIOption('canvas_width', APP.DEFAULT.graph.width, this.on_canvas_width_change),
+        canvas_height: new NumberUIOption('canvas_height', APP.DEFAULT.graph.height, this.on_canvas_height_change),
+        draw_opacity: new NumberUIOption('draw_opacity', APP.DEFAULT.draw_opacity, this.on_draw_opacity_change),
+        move_range_min: new NumberUIOption('move_range_min', APP.DEFAULT.move_range_min, this.on_move_range_change),
+        move_range_max: new NumberUIOption('move_range_max', APP.DEFAULT.move_range_max, this.on_move_range_change)
       };
       this.serializebox = this.context.getElementById('serializebox');
       this.serializebox_title = this.context.getElementById('serializebox_title');
       this.serializebox_text = this.context.getElementById('serializebox_text');
       this.serializebox_action = this.context.getElementById('serializebox_action');
       this.serializebox_cancel = this.context.getElementById('serializebox_cancel');
-      this.cur = new DrawPoint('Cur');
-      this.set_ngon(3);
-      this.set_steps_per_frame(100);
-      this.num_points_el.addEventListener('input', this.on_num_points_input);
-      this.steps_per_frame_el.addEventListener('input', this.on_steps_per_frame_input);
-      this.btn_reset.addEventListener('click', this.on_reset);
-      this.btn_step.addEventListener('click', this.on_step);
-      this.btn_multistep.addEventListener('click', this.on_multistep);
-      this.btn_run.addEventListener('click', this.on_run);
-      this.context.addEventListener('keydown', this.on_keydown);
-      this.btn_create_png.addEventListener('click', this.on_create_png);
-      this.btn_save_url.addEventListener('click', this.on_save_url);
-      this.btn_save.addEventListener('click', this.on_save);
-      this.btn_load.addEventListener('click', this.on_load);
-      this.btn_move_all_reg_polygon.addEventListener('click', this.on_move_all_reg_polygon);
-      this.btn_move_all_random.addEventListener('click', this.on_move_all_random);
-      this.serializebox_action.addEventListener('click', this.on_serializebox_action);
-      this.serializebox_cancel.addEventListener('click', this.on_serializebox_cancel);
-      this.graph_ui_canvas.addEventListener('mousedown', this.on_mousedown);
-      this.graph_ui_canvas.addEventListener('mouseup', this.on_mouseup);
-      this.graph_ui_canvas.addEventListener('mousemove', this.on_mousemove);
       this.graph_wrapper.addEventListener('mouseenter', this.on_mouseenter);
-      this.graph_wrapper.addEventListener('mouseleave', this.on_mouseleave);
+      this.graph_wrapper.addEventListener('mouseleave', this.on_mouseleav);
       for (i = j = 0, ref = document.styleSheets.length; 0 <= ref ? j <= ref : j >= ref; i = 0 <= ref ? ++j : --j) {
         s = document.styleSheets[i];
         if ((s != null ? s.title : void 0) === 'app_stylesheet') {
@@ -1922,6 +1926,28 @@ td.move_mode {
           });
         }
       }
+      this.resize_graph(this.option.canvas_width.get(), this.option.canvas_height.get());
+      this.cur = new DrawPoint('Cur');
+      this.set_ngon(3);
+      this.set_steps_per_frame(100);
+      this.num_points_el.addEventListener('input', this.on_num_points_input);
+      this.steps_per_frame_el.addEventListener('input', this.on_steps_per_frame_input);
+      this.btn_reset.addEventListener('click', this.on_reset);
+      this.btn_step.addEventListener('click', this.on_step);
+      this.btn_multistep.addEventListener('click', this.on_multistep);
+      this.btn_run.addEventListener('click', this.on_run);
+      this.context.addEventListener('keydown', this.on_keydown);
+      this.btn_create_png.addEventListener('click', this.on_create_png);
+      this.btn_save_url.addEventListener('click', this.on_save_url);
+      this.btn_save.addEventListener('click', this.on_save);
+      this.btn_load.addEventListener('click', this.on_load);
+      this.btn_move_all_reg_polygon.addEventListener('click', this.on_move_all_reg_polygon);
+      this.btn_move_all_random.addEventListener('click', this.on_move_all_random);
+      this.serializebox_action.addEventListener('click', this.on_serializebox_action);
+      this.serializebox_cancel.addEventListener('click', this.on_serializebox_cancel);
+      this.graph_ui_canvas.addEventListener('mousedown', this.on_mousedown);
+      this.graph_ui_canvas.addEventListener('mouseup', this.on_mouseup);
+      this.graph_ui_canvas.addEventListener('mousemove', this.on_mousemove);
       return this.clear_update_and_draw();
     };
 
@@ -1989,7 +2015,8 @@ td.move_mode {
 
     StochasticSierpinski.prototype.on_graph_wrapper_mutate = function(event) {
       if (this.graph_wrapper.offsetWidth !== this.graph_ui_canvas.width || this.graph_wrapper.offsetHeight !== this.graph_ui_canvas.height) {
-        return this.resize_graph(this.graph_wrapper.offsetWidth, this.graph_wrapper.offsetHeight);
+        this.resize_graph(this.graph_wrapper.offsetWidth, this.graph_wrapper.offsetHeight);
+        return APP.resumable_reset();
       }
     };
 
@@ -2018,21 +2045,47 @@ td.move_mode {
       return results;
     };
 
-    StochasticSierpinski.prototype.resize_graph = function(w, h) {
+    StochasticSierpinski.prototype.resize_graph_width = function(w) {
+      var j, len1, p, ref, scale;
+      scale = w / this.graph_canvas.width;
+      ref = this.points;
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        p = ref[j];
+        p.scale_width(scale);
+      }
       this.graph_canvas.width = w;
-      this.graph_canvas.height = h;
       this.graph_ui_canvas.width = w;
-      this.graph_ui_canvas.height = h;
       this.canvas_size_rule.style.width = w + "px";
+      return this.option.canvas_width.set(w);
+    };
+
+    StochasticSierpinski.prototype.resize_graph_height = function(h) {
+      var j, len1, p, ref, scale;
+      scale = h / this.graph_canvas.height;
+      ref = this.points;
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        p = ref[j];
+        p.scale_height(scale);
+      }
+      this.graph_canvas.height = h;
+      this.graph_ui_canvas.height = h;
       this.canvas_size_rule.style.height = h + "px";
-      this.option.canvas_width.set(w);
-      this.option.canvas_height.set(h);
-      this.clamp_points_to_canvas();
+      return this.option.canvas_height.set(h);
+    };
+
+    StochasticSierpinski.prototype.resize_graph = function(w, h) {
+      this.resize_graph_width(w);
+      return this.resize_graph_height(h);
+    };
+
+    StochasticSierpinski.prototype.on_canvas_width_change = function() {
+      this.resize_graph_width(this.option.canvas_width.value);
       return this.resumable_reset();
     };
 
-    StochasticSierpinski.prototype.on_canvas_hw_change = function() {
-      return this.resize_graph(this.option.canvas_width.value, this.option.canvas_height.value);
+    StochasticSierpinski.prototype.on_canvas_height_change = function() {
+      this.resize_graph_height(this.option.canvas_height.value);
+      return this.resumable_reset();
     };
 
     StochasticSierpinski.prototype.attach_point = function(point) {
