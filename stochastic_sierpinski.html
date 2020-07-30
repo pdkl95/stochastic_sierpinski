@@ -942,7 +942,7 @@ td.move_mode {
     };
 
     UIPoint.prototype.move_perc_range_el_init = function() {
-      this.set_move_range(0, 100);
+      this.set_move_range();
       this.move_perc_range_el.value = this.move_perc * 100;
       return this.move_perc_range_el.addEventListener('input', this.on_move_per_range_input);
     };
@@ -950,10 +950,10 @@ td.move_mode {
     UIPoint.prototype.set_move_range = function(min, max, step) {
       var value;
       if (min == null) {
-        min = 0;
+        min = APP.option.move_range_min.get();
       }
       if (max == null) {
-        max = 100;
+        max = APP.option.move_range_max.get();
       }
       if (step == null) {
         step = 5;

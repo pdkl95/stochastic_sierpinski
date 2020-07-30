@@ -229,11 +229,11 @@ class UIPoint extends Point
     ctx.strokeRect(@x - 2, @y - 2, 5, 5)
 
   move_perc_range_el_init: ->
-    @set_move_range(0, 100)
+    @set_move_range()
     @move_perc_range_el.value = @move_perc * 100
     @move_perc_range_el.addEventListener('input', @on_move_per_range_input)
 
-  set_move_range: (min = 0, max = 100, step = 5) ->
+  set_move_range: (min = APP.option.move_range_min.get(), max = APP.option.move_range_max.get(), step = 5) ->
     @move_perc_range_el.min = min
     @move_perc_range_el.max = max
     @move_perc_range_el.step = step
