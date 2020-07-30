@@ -128,7 +128,7 @@ class Color
     @blend_hsl(a_hsl, b_hsl)
 
 class Point
-  constructor: (@name, x, y, @move_perc = 0.5) ->
+  constructor: (@name, x, y, @move_perc = APP.DEFAULT.move_perc) ->
     x ?= APP.graph_ui_canvas.width / 2
     y ?= APP.graph_ui_canvas.height / 2
 
@@ -417,6 +417,10 @@ class PointWidget extends UIPoint
 
     APP.resumable_reset()
 
+  load_default_state: ->
+    @set_move_perc(APP.DEFAULT.move_perc * 100)
+    @set_move_perc_mode(true)
+
   destroy: () ->
     APP.detach_point(this)
 
@@ -454,8 +458,8 @@ class DrawPoint extends UIPoint
 
     @option =
       move_perc: new NumberUIOption('all_points_move_perc_option',  @move_perc * 100, @on_move_perc_option_change)
-      draw_style: new EnumUIOption('draw_style', 'color_blend_prev_color', @set_draw_style)
-      data_source: new EnumUIOption('movement_data_source', 'dest', @set_data_source)
+      draw_style: new EnumUIOption('draw_style', APP.DEFAULT.cursor.draw_style, @set_draw_style)
+      data_source: new EnumUIOption('movement_data_source', APP.DEFAULT.cursor.data_source, @set_data_source)
 
     @btn_set_all_points.addEventListener('click', @on_set_all_points)
 
@@ -734,6 +738,9 @@ class TargetRestriction
 
     APP.update_metadata_and_reset()
 
+  load_default_state: ->
+    o.reset() for o in @options
+
 class UIOption
   constructor: (@id, @default, @on_change_callback) ->
     if @id instanceof Element
@@ -811,6 +818,10 @@ class StochasticSierpinski
     draw_opacity:   35
     move_range_min: 0
     move_range_max: 100
+    move_perc: 0.5
+    cursor:
+      draw_style: 'color_blend_prev_color'
+      data_source: 'dest'
 
   points: []
   move_absolute_magnitude: 100
@@ -886,7 +897,7 @@ class StochasticSierpinski
 
     @cur = new DrawPoint('Cur')
 
-    @set_ngon(3)
+    @load_default_state()
 
     @set_steps_per_frame(100)
 
@@ -915,7 +926,25 @@ class StochasticSierpinski
     @graph_ui_canvas.addEventListener 'mouseup',   @on_mouseup
     @graph_ui_canvas.addEventListener 'mousemove', @on_mousemove
 
+    window.addEventListener 'hashchange', @on_hashchange
+
     @clear_update_and_draw()
+
+  load_default_state: ->
+    @set_ngon(3)
+
+    @option.canvas_width.set(APP.DEFAULT.graph.width)
+    @option.canvas_height.set(APP.DEFAULT.graph.height)
+    @option.draw_opacity.set(APP.DEFAULT.draw_opacity)
+    @option.move_range_min.set(APP.DEFAULT.move_range_min)
+    @option.move_range_max.set(APP.DEFAULT.move_range_max)
+    @set_move_range()
+    @cur.set_move_perc(APP.DEFAULT.move_perc * 100)
+    @cur.set_draw_style(APP.DEFAULT.cursor.draw_style)
+    @cur.set_data_source(APP.DEFAULT.cursor.data_source)
+
+    p.load_default_state() for p in @points
+    r.load_default_state() for r in @cur.restrictions
 
   create_element: (name, id = null) ->
     el = @context.createElement(name)
@@ -928,12 +957,13 @@ class StochasticSierpinski
     el
 
   on_move_range_change: =>
-    min = @option.move_range_min.get()
-    max = @option.move_range_max.get()
+    @set_move_range(@option.move_range_min.get(), @option.move_range_max.get())
+    @resumable_reset()
+
+  set_move_range: (min = APP.DEFAULT.move_range_min, max = APP.DEFAULT.move_range_max) ->
     @cur.set_move_range(min, max)
     for p in @points
       p.set_move_range(min, max)
-    @resumable_reset()
 
   on_draw_opacity_change: =>
     o = @option.draw_opacity.value
@@ -1388,9 +1418,14 @@ class StochasticSierpinski
       when "s", "S"        then @on_save()
       when "l", "L"        then @on_load()
 
+  on_hashchange: =>
+    if document.location.hash?.length > 1
+      @deserialize(document.location.hash.slice(1))
+    else
+      @load_default_state()
+
 document.addEventListener 'DOMContentLoaded', =>
   APP = new StochasticSierpinski(document)
   APP.init()
+  APP.on_hashchange()
 
-  if document.location.hash?.length > 1
-    APP.deserialize(document.location.hash.slice(1))
