@@ -155,10 +155,27 @@ td.blank {
 }
 
 #canvas_width,
-#canvas_height,
+#canvas_height {
+  width: 5em;
+}
+
+#set_all_points_box {
+  padding-right: 0;
+}
+
+#set_all_points {
+  font-weight: bold;
+  padding-left: 1px;
+  padding-right: 1px;
+}
+
+#move_range_max_label {
+  margin-left: 0.5em;
+}
+
 #move_range_min,
 #move_range_max {
-  width: 5em;
+  width: 3em;
 }
 
 #steps_per_frame,

@@ -338,10 +338,27 @@ td.blank {
 }
 
 #canvas_width,
-#canvas_height,
+#canvas_height {
+  width: 5em;
+}
+
+#set_all_points_box {
+  padding-right: 0;
+}
+
+#set_all_points {
+  font-weight: bold;
+  padding-left: 1px;
+  padding-right: 1px;
+}
+
+#move_range_max_label {
+  margin-left: 0.5em;
+}
+
 #move_range_min,
 #move_range_max {
-  width: 5em;
+  width: 3em;
 }
 
 #steps_per_frame,
@@ -443,11 +460,14 @@ td.move_mode {
       <div class="info panel">
         <table id="all_points_table">
           <tr>
-            <th colspan=2>
-              All points move %
-              <button id="set_all_points">Set</button>
-            </th>
-            <th class="move_mode"></th>
+            <td colspan=3 class="right">
+              <label for="move_range_min">MIN</label>
+              <input id="move_range_min" name="move_range_min"
+                     type="number" value="0" step="1">
+              <label for="move_range_max" id="move_range_max_label">MAX</label>
+              <input id="move_range_max" name="move_range_max"
+                     type="number" value="100" step="1">
+            </td>
           </tr>
           <tr>
             <td>
@@ -457,7 +477,9 @@ td.move_mode {
               <input type="range" id="all_points_move_perc_range"
                      min="0" max="100" step="5" value="50">
             </td>
-            <td class="move_mode"></td>
+            <td class="move_mode" id="set_all_points_box">
+              <button id="set_all_points">&darr;</button>
+            </td>
           </tr>
         </table>
         <table id="misc_info_table">
@@ -579,17 +601,6 @@ td.move_mode {
               <th>Draw Opacity</th>
               <td><input id="draw_opacity" type="number"
                          min="0" max="100" step="5"></td>
-            </tr>
-            <tr>
-              <th>Move % Range</th>
-              <td>
-                <label for="move_range_min">MIN:</label>
-                <input id="move_range_min" name="move_range_min"
-                       type="number" value="0" step="1">
-                <label for="move_range_max">MAX:</label>
-                <input id="move_range_max" name="move_range_max"
-                       type="number" value="100" step="1">
-              </td>
             </tr>
             <tr>
               <th>Movement Data Source</th>

@@ -30,11 +30,14 @@ undivert(`style.css')
       <div class="info panel">
         <table id="all_points_table">
           <tr>
-            <th colspan=2>
-              All points move %
-              <button id="set_all_points">Set</button>
-            </th>
-            <th class="move_mode"></th>
+            <td colspan=3 class="right">
+              <label for="move_range_min">MIN</label>
+              <input id="move_range_min" name="move_range_min"
+                     type="number" value="0" step="1">
+              <label for="move_range_max" id="move_range_max_label">MAX</label>
+              <input id="move_range_max" name="move_range_max"
+                     type="number" value="100" step="1">
+            </td>
           </tr>
           <tr>
             <td>
@@ -44,7 +47,9 @@ undivert(`style.css')
               <input type="range" id="all_points_move_perc_range"
                      min="0" max="100" step="5" value="50">
             </td>
-            <td class="move_mode"></td>
+            <td class="move_mode" id="set_all_points_box">
+              <button id="set_all_points">&darr;</button>
+            </td>
           </tr>
         </table>
         <table id="misc_info_table">
@@ -166,17 +171,6 @@ undivert(`style.css')
               <th>Draw Opacity</th>
               <td><input id="draw_opacity" type="number"
                          min="0" max="100" step="5"></td>
-            </tr>
-            <tr>
-              <th>Move % Range</th>
-              <td>
-                <label for="move_range_min">MIN:</label>
-                <input id="move_range_min" name="move_range_min"
-                       type="number" value="0" step="1">
-                <label for="move_range_max">MAX:</label>
-                <input id="move_range_max" name="move_range_max"
-                       type="number" value="100" step="1">
-              </td>
             </tr>
             <tr>
               <th>Movement Data Source</th>
