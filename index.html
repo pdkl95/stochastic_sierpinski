@@ -338,10 +338,27 @@ td.blank {
 }
 
 #canvas_width,
-#canvas_height,
+#canvas_height {
+  width: 5em;
+}
+
+#set_all_points_box {
+  padding-right: 0;
+}
+
+#set_all_points {
+  font-weight: bold;
+  padding-left: 1px;
+  padding-right: 1px;
+}
+
+#move_range_max_label {
+  margin-left: 0.5em;
+}
+
 #move_range_min,
 #move_range_max {
-  width: 5em;
+  width: 3em;
 }
 
 #steps_per_frame,
@@ -443,11 +460,14 @@ td.move_mode {
       <div class="info panel">
         <table id="all_points_table">
           <tr>
-            <th colspan=2>
-              All points move %
-              <button id="set_all_points">Set</button>
-            </th>
-            <th class="move_mode"></th>
+            <td colspan=3 class="right">
+              <label for="move_range_min">MIN</label>
+              <input id="move_range_min" name="move_range_min"
+                     type="number" value="0" step="1">
+              <label for="move_range_max" id="move_range_max_label">MAX</label>
+              <input id="move_range_max" name="move_range_max"
+                     type="number" value="100" step="1">
+            </td>
           </tr>
           <tr>
             <td>
@@ -457,7 +477,9 @@ td.move_mode {
               <input type="range" id="all_points_move_perc_range"
                      min="0" max="100" step="5" value="50">
             </td>
-            <td class="move_mode"></td>
+            <td class="move_mode" id="set_all_points_box">
+              <button id="set_all_points">&darr;</button>
+            </td>
           </tr>
         </table>
         <table id="misc_info_table">
@@ -579,17 +601,6 @@ td.move_mode {
               <th>Draw Opacity</th>
               <td><input id="draw_opacity" type="number"
                          min="0" max="100" step="5"></td>
-            </tr>
-            <tr>
-              <th>Move % Range</th>
-              <td>
-                <label for="move_range_min">MIN:</label>
-                <input id="move_range_min" name="move_range_min"
-                       type="number" value="0" step="1">
-                <label for="move_range_max">MAX:</label>
-                <input id="move_range_max" name="move_range_max"
-                       type="number" value="100" step="1">
-              </td>
             </tr>
             <tr>
               <th>Movement Data Source</th>
@@ -790,7 +801,7 @@ td.move_mode {
   Point = (function() {
     function Point(name1, x, y, move_perc) {
       this.name = name1;
-      this.move_perc = move_perc != null ? move_perc : 0.5;
+      this.move_perc = move_perc != null ? move_perc : APP.DEFAULT.move_perc;
       this.set_y = bind(this.set_y, this);
       this.set_x = bind(this.set_x, this);
       if (x == null) {
@@ -942,7 +953,7 @@ td.move_mode {
     };
 
     UIPoint.prototype.move_perc_range_el_init = function() {
-      this.set_move_range(0, 100);
+      this.set_move_range();
       this.move_perc_range_el.value = this.move_perc * 100;
       return this.move_perc_range_el.addEventListener('input', this.on_move_per_range_input);
     };
@@ -950,10 +961,10 @@ td.move_mode {
     UIPoint.prototype.set_move_range = function(min, max, step) {
       var value;
       if (min == null) {
-        min = 0;
+        min = APP.option.move_range_min.get();
       }
       if (max == null) {
-        max = 100;
+        max = APP.option.move_range_max.get();
       }
       if (step == null) {
         step = 5;
@@ -1208,6 +1219,11 @@ td.move_mode {
       return APP.resumable_reset();
     };
 
+    PointWidget.prototype.load_default_state = function() {
+      this.set_move_perc(APP.DEFAULT.move_perc * 100);
+      return this.set_move_perc_mode(true);
+    };
+
     PointWidget.prototype.destroy = function() {
       var opt, opt_name, ref;
       APP.detach_point(this);
@@ -1255,8 +1271,8 @@ td.move_mode {
       this.move_perc_range_el_init();
       this.option = {
         move_perc: new NumberUIOption('all_points_move_perc_option', this.move_perc * 100, this.on_move_perc_option_change),
-        draw_style: new EnumUIOption('draw_style', 'color_blend_prev_color', this.set_draw_style),
-        data_source: new EnumUIOption('movement_data_source', 'dest', this.set_data_source)
+        draw_style: new EnumUIOption('draw_style', APP.DEFAULT.cursor.draw_style, this.set_draw_style),
+        data_source: new EnumUIOption('movement_data_source', APP.DEFAULT.cursor.data_source, this.set_data_source)
       };
       return this.btn_set_all_points.addEventListener('click', this.on_set_all_points);
     };
@@ -1643,6 +1659,17 @@ td.move_mode {
       return APP.update_metadata_and_reset();
     };
 
+    TargetRestriction.prototype.load_default_state = function() {
+      var j, len1, o, ref, results;
+      ref = this.options;
+      results = [];
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        o = ref[j];
+        results.push(o.reset());
+      }
+      return results;
+    };
+
     return TargetRestriction;
 
   })();
@@ -1817,7 +1844,12 @@ td.move_mode {
       },
       draw_opacity: 35,
       move_range_min: 0,
-      move_range_max: 100
+      move_range_max: 100,
+      move_perc: 0.5,
+      cursor: {
+        draw_style: 'color_blend_prev_color',
+        data_source: 'dest'
+      }
     };
 
     StochasticSierpinski.prototype.points = [];
@@ -1826,6 +1858,7 @@ td.move_mode {
 
     function StochasticSierpinski(context) {
       this.context = context;
+      this.on_hashchange = bind(this.on_hashchange, this);
       this.on_keydown = bind(this.on_keydown, this);
       this.update = bind(this.update, this);
       this.redraw_ui = bind(this.redraw_ui, this);
@@ -1928,7 +1961,7 @@ td.move_mode {
       }
       this.resize_graph(this.option.canvas_width.get(), this.option.canvas_height.get());
       this.cur = new DrawPoint('Cur');
-      this.set_ngon(3);
+      this.load_default_state();
       this.set_steps_per_frame(100);
       this.num_points_el.addEventListener('input', this.on_num_points_input);
       this.steps_per_frame_el.addEventListener('input', this.on_steps_per_frame_input);
@@ -1948,7 +1981,34 @@ td.move_mode {
       this.graph_ui_canvas.addEventListener('mousedown', this.on_mousedown);
       this.graph_ui_canvas.addEventListener('mouseup', this.on_mouseup);
       this.graph_ui_canvas.addEventListener('mousemove', this.on_mousemove);
+      window.addEventListener('hashchange', this.on_hashchange);
       return this.clear_update_and_draw();
+    };
+
+    StochasticSierpinski.prototype.load_default_state = function() {
+      var j, k, len1, len2, p, r, ref, ref1, results;
+      this.set_ngon(3);
+      this.option.canvas_width.set(APP.DEFAULT.graph.width);
+      this.option.canvas_height.set(APP.DEFAULT.graph.height);
+      this.option.draw_opacity.set(APP.DEFAULT.draw_opacity);
+      this.option.move_range_min.set(APP.DEFAULT.move_range_min);
+      this.option.move_range_max.set(APP.DEFAULT.move_range_max);
+      this.set_move_range();
+      this.cur.set_move_perc(APP.DEFAULT.move_perc * 100);
+      this.cur.set_draw_style(APP.DEFAULT.cursor.draw_style);
+      this.cur.set_data_source(APP.DEFAULT.cursor.data_source);
+      ref = this.points;
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        p = ref[j];
+        p.load_default_state();
+      }
+      ref1 = this.cur.restrictions;
+      results = [];
+      for (k = 0, len2 = ref1.length; k < len2; k++) {
+        r = ref1[k];
+        results.push(r.load_default_state());
+      }
+      return results;
     };
 
     StochasticSierpinski.prototype.create_element = function(name, id) {
@@ -1974,16 +2034,26 @@ td.move_mode {
     };
 
     StochasticSierpinski.prototype.on_move_range_change = function() {
-      var j, len1, max, min, p, ref;
-      min = this.option.move_range_min.get();
-      max = this.option.move_range_max.get();
+      this.set_move_range(this.option.move_range_min.get(), this.option.move_range_max.get());
+      return this.resumable_reset();
+    };
+
+    StochasticSierpinski.prototype.set_move_range = function(min, max) {
+      var j, len1, p, ref, results;
+      if (min == null) {
+        min = APP.DEFAULT.move_range_min;
+      }
+      if (max == null) {
+        max = APP.DEFAULT.move_range_max;
+      }
       this.cur.set_move_range(min, max);
       ref = this.points;
+      results = [];
       for (j = 0, len1 = ref.length; j < len1; j++) {
         p = ref[j];
-        p.set_move_range(min, max);
+        results.push(p.set_move_range(min, max));
       }
-      return this.resumable_reset();
+      return results;
     };
 
     StochasticSierpinski.prototype.on_draw_opacity_change = function() {
@@ -2628,18 +2698,25 @@ td.move_mode {
       }
     };
 
+    StochasticSierpinski.prototype.on_hashchange = function() {
+      var ref;
+      console.log(document.location.hash);
+      if (((ref = document.location.hash) != null ? ref.length : void 0) > 1) {
+        return this.deserialize(document.location.hash.slice(1));
+      } else {
+        return this.load_default_state();
+      }
+    };
+
     return StochasticSierpinski;
 
   })();
 
   document.addEventListener('DOMContentLoaded', (function(_this) {
     return function() {
-      var ref;
       APP = new StochasticSierpinski(document);
       APP.init();
-      if (((ref = document.location.hash) != null ? ref.length : void 0) > 1) {
-        return APP.deserialize(document.location.hash.slice(1));
-      }
+      return APP.on_hashchange();
     };
   })(this));
 
