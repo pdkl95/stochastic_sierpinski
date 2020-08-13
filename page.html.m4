@@ -62,6 +62,10 @@ undivert(`style.css')
             <th>Total Steps</th>
             <td id="total_steps" colspan=2></td>
           </tr>
+          <tr>
+            <th>Last Choice</th>
+            <td id="last_choice"></td>
+          </tr>
         </table>
         <table id="point_pos_table">
           <tr>
@@ -136,12 +140,28 @@ undivert(`style.css')
 
         <h3>Restricted Location Bitmap</h3>
 
-        <div id="imgmask_img_box" class="hidden">
+        <div id="imgmask_img_box" class="imgmask_img_hide hidden">
           <figure>
-            <figcaption id="imgmask_img_caption">Original</figcaption>
+            <figcaption id="imgmask_img_caption">
+              Original
+              <br>
+              <span class="imgmask_caption_size_hw">
+                <code id="imgmask_img_size_width"></code>
+                &nbsp;x&nbsp;
+                <code id="imgmask_img_size_height"></code>
+              </span>
+            </figcaption>
           </figure>
           <figure>
-            <figcaption id="imgmask_bitmap_caption">Bitmap</figcaption>
+            <figcaption id="imgmask_bitmap_caption">
+              Bitmap
+              <br>
+              <span class="imgmask_caption_size_hw">
+                <code id="imgmask_bitmap_size_width"></code>
+                &nbsp;x&nbsp;
+                <code id="imgmask_bitmap_size_height"></code>
+              </span>
+            </figcaption>
           </figure>
         </div>
 
@@ -150,20 +170,54 @@ undivert(`style.css')
             <tr>
               <th>Enabled?</th>
               <td><input id="imgmask_enabled" type="checkbox"></td>
+              <td></td>
             </tr>
             <tr>
-              <th>Border Padding Size</th>
-              <td><input id="imgmask_padding" type="number" value="33"
-                         min="0" max="49" step="1">%</td>
+              <th>Load Image As Bitmap</th>
+              <td><input id="imgmask_file" type="file" accept="image/*"></td>
+              <td>
+              </td>
             </tr>
             <tr>
               <th>Bitmap Threshold</th>
               <td><input id="imgmask_threshold" type="range" value="1"
                          min="1" max="254" step="1">%</td>
+              <td></td>
             </tr>
             <tr>
-              <th>Load Image As Bitmap</th>
-              <td><input id="imgmask_file" type="file" accept="image/*"></td>
+              <th>Border Padding</th>
+              <td>
+                <label for="imgmask_padding_width">L/R</label>
+                <input id="imgmask_padding_width"
+                       name="imgmask_padding_width"
+                       type="number" value="50"
+                       min="0" max="99" step="1">&nbsp;%
+                <label for="imgmask_padding_height">T/B</label>
+                <input id="imgmask_padding_height"
+                       name="imgmask_padding_height"
+                       type="number" value="50"
+                       min="0" max="99" step="1">&nbsp;%
+              </td>
+              <td></td>
+            </tr>
+            <tr>
+              <th>Bitmap Offset</th>
+              <td>
+                <label for="imgmask_offset_x">X</label>
+                <input id="imgmask_offset_x" name="imgmask_offset_x"
+                       type="number" value="0" step="1">
+                <label for="imgmask_offset_y">Y</label>
+                <input id="imgmask_offset_y" name="imgmask_offset_y"
+                       type="number" value="0" step="1">
+              </td>
+              <td></td>
+            </tr>
+            <tr>
+              <th>Bitmap Oversampling</th>
+              <td><input id="imgmask_oversample" type="number"
+                         value="2" min="1" max="4" step="1">&nbsp;x
+              <td>
+              </td>
             </tr>
           </table>
         </div>

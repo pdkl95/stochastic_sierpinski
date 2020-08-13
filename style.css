@@ -182,13 +182,47 @@ td.blank {
   width: 3em;
 }
 
-#imgmask_img_box > figure > img,
-#imgmask_img_box > figure > canvas {
-  width: 64px;
-  height: 64px;
+.imgmask_caption_size_hw {
+  margin-left: 0.3em;
+  font-weight: light;
 }
 
-#imgmask_padding,
+.imgmask_caption_size_hw > code {
+  font-weight: normal;
+}
+
+#imgmask_img_box > figure {
+  display: inline-block;
+  margin: 0;
+}
+#imgmask_img_box > figure ~ figure {
+  margin-left: 1em;
+}
+
+#imgmask_img_box > figure > figcaption {
+  font-weight: bold;
+}
+
+#imgmask_img_box > figure > img,
+#imgmask_img_box > figure > canvas {
+  width: 96px;
+  height: 96px;
+  padding: 3px;
+  border-radius: 3px;
+  border: 1px inset rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 3px -1px rgba(0, 0, 0, 0.5) inset;
+  background-color: #ccc;
+}
+
+#imgmask_padding_width ~ label {
+  margin-left: 1em;
+}
+
+#imgmask_padding_width,
+#imgmask_padding_height,
+#imgmask_offset_x,
+#imgmask_offset_y,
+#imgmask_oversample,
 #steps_per_frame,
 #draw_opacity {
   width: 3.5em;

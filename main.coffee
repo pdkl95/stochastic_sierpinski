@@ -484,30 +484,86 @@ class DrawPoint extends UIPoint
     @info_x_cell = APP.context.getElementById(@info_x_id)
     @info_y_cell = APP.context.getElementById(@info_y_id)
 
+    @last_choice_cell = APP.context.getElementById('last_choice')
+
     @btn_set_all_points = APP.context.getElementById('set_all_points')
     @move_perc_range_el = APP.context.getElementById('all_points_move_perc_range')
     @move_perc_range_el_init()
 
-    @imgmask_img_box = APP.context.getElementById('imgmask_img_box')
-    @imgmask_file    = APP.context.getElementById('imgmask_file')
-    @imgmask_img_caption = APP.context.getElementById('imgmask_img_caption')
-    @imgmask_bitmap_caption  = APP.context.getElementById('imgmask_bitmap_caption')
+    @imgmask_img_hide_list = APP.context.querySelectorAll('.imgmask_img_hide')
+
+    @imgmask_file               = APP.context.getElementById('imgmask_file')
+    @imgmask_img_caption        = APP.context.getElementById('imgmask_img_caption')
+    @imgmask_img_size_width     = APP.context.getElementById('imgmask_img_size_width')
+    @imgmask_img_size_height    = APP.context.getElementById('imgmask_img_size_height')
+    @imgmask_bitmap_caption     = APP.context.getElementById('imgmask_bitmap_caption')
+    @imgmask_bitmap_size_width  = APP.context.getElementById('imgmask_bitmap_size_width')
+    @imgmask_bitmap_size_height = APP.context.getElementById('imgmask_bitmap_size_height')
 
     @imgmask_img_ready = false
 
     @option =
-      imgmask_enabled:   new BoolUIOption(  'imgmask_enabled',   APP.DEFAULT.imgmask.enabled,   @on_imgmask_enabled_change)
-      imgmask_padding:   new NumberUIOption('imgmask_padding',   APP.DEFAULT.imgmask.padding,   @on_imgmask_padding_change)
-      imgmask_threshold: new NumberUIOption('imgmask_threshold', APP.DEFAULT.imgmask.threshold, @on_imgmask_threshold_change)
-      move_perc:         new NumberUIOption('all_points_move_perc_option',  @move_perc * 100, @on_move_perc_option_change)
-      draw_style:        new EnumUIOption(  'draw_style',           APP.DEFAULT.cursor.draw_style,  @set_draw_style)
-      data_source:       new EnumUIOption(  'movement_data_source', APP.DEFAULT.cursor.data_source, @set_data_source)
+      imgmask_enabled:    new BoolUIOption(  'imgmask_enabled',    APP.DEFAULT.imgmask.enabled,    @on_imgmask_enabled_change)
+      imgmask_threshold:  new NumberUIOption('imgmask_threshold',  APP.DEFAULT.imgmask.threshold,  @on_imgmask_threshold_change)
+      imgmask_oversample: new NumberUIOption('imgmask_oversample', APP.DEFAULT.imgmask.oversample, @on_imgmask_oversample_change)
+      imgmask_padding_width:  new NumberUIOption('imgmask_padding_width',  APP.DEFAULT.imgmask.padding.width,  @on_imgmask_padding_change)
+      imgmask_padding_height: new NumberUIOption('imgmask_padding_height', APP.DEFAULT.imgmask.padding.height, @on_imgmask_padding_change)
+      imgmask_offset_x: new NumberUIOption('imgmask_offset_x', APP.DEFAULT.imgmask.offset.x, @on_imgmask_offset_change)
+      imgmask_offset_y: new NumberUIOption('imgmask_offset_y', APP.DEFAULT.imgmask.offset.y, @on_imgmask_offset_change)
+      move_perc:   new NumberUIOption('all_points_move_perc_option',  @move_perc * 100, @on_move_perc_option_change)
+      draw_style:  new EnumUIOption('draw_style',           APP.DEFAULT.cursor.draw_style,  @set_draw_style)
+      data_source: new EnumUIOption('movement_data_source', APP.DEFAULT.cursor.data_source, @set_data_source)
 
-    @option.imgmask_padding.interaction_callbacks(@on_imgmask_padding_focus, @on_imgmask_padding_blur)
+    @imgmask_overlay_state =
+      imgmask_padding_width: false
+      imgmask_padding_height: false
+      imgmask_offset_x: false
+      imgmask_offset_y: false
+
+    changefunc = @on_imgmask_overlay_change
+    @option.imgmask_padding_width.interaction_callbacks('imgmask_padding_width', changefunc, changefunc)
+    @option.imgmask_padding_height.interaction_callbacks('imgmask_padding_height', changefunc, changefunc)
+    @option.imgmask_offset_x.interaction_callbacks('imgmask_offset_x', changefunc, changefunc)
+    @option.imgmask_offset_y.interaction_callbacks('imgmask_offset_y', changefunc, changefunc)
+
+    @update_imgmask_padding()
+    @update_imgmask_offset()
     @on_imgmask_enabled_change()
     @imgmask_file.addEventListener 'change', @on_imgmask_file_change
 
     @btn_set_all_points.addEventListener('click', @on_set_all_points)
+
+  save_imgmask: ->
+    opt =
+      enabled: @cur.option.imgmask_enabled.get()
+      threshold:  @cur.option.imgmask_threshold.get()
+      oversample: @cur.option.imgmask_oversample.get()
+      padding:
+        width:  @cur.option.imgmask_padding_width.get()
+        height: @cur.option.imgmask_padding_height.get()
+      offset:
+        x: @cur.option.imgmask_offset_x.get()
+        y: @cur.option.imgmask_offset_y.get()
+
+  load_imgmask: (opt) ->
+    if opt.enabled?
+      @cur.option.imgmask_enabled.set(opt.enabled)
+
+    if opt.threshold?
+      @cur.option.imgmask_threshold.set(opt.threshold)
+
+    if opt.oversample?
+      @cur.option.imgmask_oversample.set(opt.oversample)
+
+    if opt.padding?
+      if opt.padding.width? and opt.padding.height?
+        @cur.option.imgmask_padding_width.set(opt.padding.width)
+        @cur.option.imgmask_padding_height.set(opt.padding.height)
+
+    if opt.offset?
+      if opt.offset.x? and opt.offset.y?
+        @cur.option.imgmask_offset_x.set(opt.offset.x)
+        @cur.option.imgmask_offset_y.set(opt.offset.y)
 
   on_set_all_points: (event) =>
     APP.set_all_points_move_perc(@move_perc * 100)
@@ -595,58 +651,116 @@ class DrawPoint extends UIPoint
       if @option.imgmask_enabled.value
         APP.resumable_reset()
 
+  on_imgmask_oversample_change: =>
+    if @imgmask_img_ready
+      @imgmask_prepare_bitmap()
+      if @option.imgmask_enabled.value
+        APP.resumable_reset()
+
+  update_imgmask_padding: ->
+    @imgmask_padperc_width  = @option.imgmask_padding_width.value / 100
+    @imgmask_padperc_height = @option.imgmask_padding_height.value / 100
+
+  update_imgmask_offset: ->
+    @imgmask_offset_x = @option.imgmask_offset_x.value
+    @imgmask_offset_y = @option.imgmask_offset_y.value
+
   on_imgmask_padding_change: =>
-    APP.redraw_ui() if APP.show_imgmask_overlay
+    @update_imgmask_padding()
+    @update_imgmask_bitmap()
 
-  on_imgmask_padding_focus: =>
-    APP.show_imgmask_overlay = true
-    APP.redraw_ui()
+  on_imgmask_offset_change: =>
+    @update_imgmask_offset()
+    @update_imgmask_bitmap()
 
-  on_imgmask_padding_blur: =>
-    APP.show_imgmask_overlay = false
+  update_imgmask_bitmap: ->
+    if @imgmask_img_ready
+      @imgmask_convert_img_to_bitmap()
+
+      if @option.imgmask_enabled.value
+        APP.resumable_reset()
+      else
+       APP.redraw_ui() if APP.show_imgmask_overlay
+
+    else
+      APP.redraw_ui() if APP.show_imgmask_overlay
+
+  any_imgmask_overlay_state_focused: ->
+    Object.values(@imgmask_overlay_state).flatten().reduce( (x, t) -> x or t )
+
+  on_imgmask_overlay_change: (name, has_focus) =>
+    @imgmask_overlay_state[name] = has_focus
+    APP.show_imgmask_overlay = @any_imgmask_overlay_state_focused()
     APP.redraw_ui()
 
   imgmask_prepare_bitmap: ->
     @imgmask_bitmap.remove() if @imgmask_bitmap?
     @imgmask_bitmap = document.createElement('canvas')
-    @imgmask_bitmap.width  = @imgmask_img.width
-    @imgmask_bitmap.height = @imgmask_img.height
+
+    @imgmask_oversample = @option.imgmask_oversample.value
+    @imgmask_bitmap.width  = @imgmask_img_width  * @imgmask_oversample
+    @imgmask_bitmap.height = @imgmask_img_height * @imgmask_oversample
+
+    @imgmask_img_size_width.textContent     = '' + @imgmask_img_width
+    @imgmask_img_size_height.textContent    = '' + @imgmask_img_height
+    @imgmask_bitmap_size_width.textContent  = '' + @imgmask_bitmap.width
+    @imgmask_bitmap_size_height.textContent = '' + @imgmask_bitmap.height
 
     @imgmask_bitmap_caption.parentElement.insertBefore(@imgmask_bitmap, @imgmask_bitmap_caption)
     @imgmask_bitmap_ctx = @imgmask_bitmap.getContext('2d', alpha: false)
 
+    @imgmask_convert_img_to_bitmap()
+
   imgmask_convert_img_to_bitmap: ->
     w = @imgmask_bitmap.width
     h = @imgmask_bitmap.height
-    @imgmask_bitmap_ctx.drawImage(@imgmask_img, 0, 0, w, h)
+    hw = w / 2
+    hh = h / 2
 
-    image_data = @imgmask_bitmap_ctx.getImageData(0, 0, w, h)
+    @imgmask_pad_width  = Math.floor(hw * @imgmask_padperc_width)
+    @imgmask_pad_height = Math.floor(hh * @imgmask_padperc_height)
+    @imgmask_dst_img_width  = w - (2 * @imgmask_pad_width)
+    @imgmask_dst_img_height = h - (2 * @imgmask_pad_height)
+    @imgmask_rpad_edge_x = @imgmask_pad_width + @imgmask_dst_img_width
+    @imgmask_rpad_edge_y = @imgmask_pad_height + @imgmask_dst_img_height
 
+    @imgmask_overlay_margin_x = Math.ceil(hw * @imgmask_padperc_width ) - @imgmask_pad_width
+    @imgmask_overlay_margin_y = Math.ceil(hh * @imgmask_padperc_height) - @imgmask_pad_height
+
+    @imgmask_bitmap_ctx.fillStyle = 'rgb(255,255,255)'
+    @imgmask_bitmap_ctx.fillRect(0, 0, w, h)
+
+    @imgmask_bitmap_ctx.drawImage(@imgmask_img,
+      0, 0, @imgmask_img_width, @imgmask_img_height,
+      @imgmask_pad_width + @imgmask_offset_x, @imgmask_pad_height + @imgmask_offset_y, @imgmask_dst_img_width, @imgmask_dst_img_height)
+
+    image_data = @imgmask_bitmap_ctx.getImageData(@imgmask_pad_width, @imgmask_pad_height, @imgmask_dst_img_width, @imgmask_dst_img_width)
     d = image_data.data
     threshold = @option.imgmask_threshold.value / 255.0
-    console.log('threshold', threshold)
-    console.log('d.length', d.length)
 
     for i in [0...(d.length)] by 4
       y = Color.srgb_to_luminance(d[i], d[i + 1], d[i + 2])
       x = if y < threshold then 0 else 255
-      d[i + 2] = x
+      d[i    ] = x
       d[i + 1] = x
-      d[i] = x
+      d[i + 2] = x
 
-    @imgmask_bitmap_ctx.putImageData(image_data, 0, 0)
+    @imgmask_bitmap_ctx.putImageData(image_data, @imgmask_pad_width, @imgmask_pad_height)
 
   set_imgmask_img_ready: (newvalue) ->
     @imgmask_img_ready = newvalue
     @set_single_step_func()
     if @imgmask_img_ready
-      @imgmask_img_box.classList.remove('hidden')
+      for el in @imgmask_img_hide_list
+        el.classList.remove('hidden')
     else
-      @imgmask_img_box.classList.add('hidden')
+      for el in @imgmask_img_hide_list
+        el.classList.add('hidden')
 
   on_imgmask_img_load: =>
+    @imgmask_img_width  = @imgmask_img.width
+    @imgmask_img_height = @imgmask_img.height
     @imgmask_prepare_bitmap()
-    @imgmask_convert_img_to_bitmap()
     @set_imgmask_img_ready(true)
 
   on_imgmask_file_reader_load: (event) =>
@@ -668,13 +782,21 @@ class DrawPoint extends UIPoint
     reader.readAsDataURL(file)
 
   enable_imgmask: ->
-    @option.imgmask_padding.enable()
+    @option.imgmask_padding_width.enable()
+    @option.imgmask_padding_height.enable()
+    @option.imgmask_offset_x.enable()
+    @option.imgmask_offset_y.enable()
     @option.imgmask_threshold.enable()
+    @option.imgmask_oversample.enable()
     @imgmask_file.disabled = false
 
   disable_imgmask: ->
-    @option.imgmask_padding.disable()
+    @option.imgmask_padding_width.disable()
+    @option.imgmask_padding_height.disable()
+    @option.imgmask_offset_x.disable()
+    @option.imgmask_offset_y.disable()
     @option.imgmask_threshold.disable()
+    @option.imgmask_oversample.disable()
     @imgmask_file.disabled = true
 
   target_chosen_twice: ->
@@ -738,6 +860,9 @@ class DrawPoint extends UIPoint
     p
 
   draw_graph: (target) ->
+    if @last_choice_cell?
+      @last_choice_cell.textContent = target.name
+
     ctx = APP.graph_ctx
     ctx.fillStyle = @get_current_color(target)
     ctx.fillRect(@x, @y, 1, 1)
@@ -778,7 +903,11 @@ class DrawPoint extends UIPoint
     else
       @coords_after_move_absolute_towards_target(target, origin.move_perc)
 
-    return false if @collides_with_bitmap(coords...)
+    if @collides_with_bitmap(coords...)
+      if @last_choice_cell?
+        @last_choice_cell.textContent = "HIT! (#{Math.floor(coords[0])}, #{Math.floor(coords[1])})"
+      return false
+
     @move_no_text_update_array(coords)
 
     @draw_graph(target)
@@ -793,34 +922,23 @@ class DrawPoint extends UIPoint
     else
       @coords_after_move_absolute_towards_target(target, target.move_perc)
 
-    return false if @collides_with_bitmap(coords...)
+    if @collides_with_bitmap(coords...)
+      if @last_choice_cell?
+        @last_choice_cell.textContent = "HIT! (#{Math.floor(coords[0])}, #{Math.floor(coords[1])})"
+      return false
+
     @move_no_text_update_array(coords)
 
     @draw_graph(target)
     return true
 
   collides_with_bitmap: (x, y) ->
-    cw = APP.graph_ui_canvas.width
-    ch = APP.graph_ui_canvas.height
+    return false unless @imgmask_pad_width  < x < @imgmask_rpad_edge_x
+    return false unless @imgmask_pad_height < y < @imgmask_rpad_edge_y
 
-    padperc = @option.imgmask_padding.value / 100
-    padwidth  = padperc * cw
-    return false if x < padwidth
-    padheight = padperc * ch
-    return false if y < padheight
-    padwidth2  = 2 * padwidth
-    return false if x >= padwidth2
-    padheight2 = 2 * padheight
-    return false if y >= padheight2
-
-    imgwidth  = cw - padwidth2
-    imgheight = ch - padwidth2
-    imgstartx = (cw / 2) - (imgwidth / 2)
-    imgstarty = (ch / 2) - (imgheight / 2)
-    testx = Math.floor(((x - imgstartx) / imgwidth ) * imgwidth )
-    testy = Math.floor(((y - imgstarty) / imgheight) * imgheight)
+    testx = Math.floor(x * @imgmask_oversample)
+    testy = Math.floor(y * @imgmask_oversample)
     pixel = @imgmask_bitmap_ctx.getImageData(testx, testy, 1, 1)
-
     return (pixel.data[0]) < 128
 
 
@@ -977,7 +1095,7 @@ class UIOption
   disable: ->
     @el.disabled = true
 
-  interaction_callbacks: (@focus_callback, @blur_callback) ->
+  interaction_callbacks: (@interaction_name, @focus_callback, @blur_callback) ->
     unless @interaction_events_captured?
       @el.addEventListener('focus',      @on_focus)
       @el.addEventListener('blur',       @on_blur)
@@ -990,22 +1108,22 @@ class UIOption
   on_focus: =>
     @have_focus = true
     if @focus_callback?
-      @focus_callback() unless @have_mouse
+      @focus_callback(@interaction_name, true) unless @have_mouse
 
   on_blur: =>
     @have_focus = false
     if @blur_callback?
-      @blur_callback() unless @have_mouse
+      @blur_callback(@interaction_name, false) unless @have_mouse
 
   on_mouseenter: =>
     @have_mouse = true
     if @focus_callback?
-      @focus_callback() unless @have_focus
+      @focus_callback(@interaction_name, true) unless @have_focus
 
   on_mouseleave: =>
     @have_mouse = false
     if @blur_callback?
-      @blur_callback() unless @have_focus
+      @blur_callback(@interaction_name, false) unless @have_focus
 
   destroy: ->
     @el.remove() if @el?
@@ -1075,8 +1193,14 @@ class StochasticSierpinski
       data_source: 'dest'
     imgmask:
       enabled: false
-      padding: 33
+      padding:
+        width:  50
+        height: 50
+      offset:
+        x: 0
+        y: 0
       threshold: 1
+      oversample: 2
 
   points: []
   move_absolute_magnitude: 100
@@ -1417,9 +1541,7 @@ class StochasticSierpinski
         move_absolute_magnitude: @move_absolute_magnitude
         move_range_min: @option.move_range_min.get()
         move_range_max: @option.move_range_max.get()
-        imgmask_enabled:   @cur.option.imgmask_enabled.get()
-        imgmask_padding:   @cur.option.imgmask_padding.get()
-        imgmask_threshold: @cur.option.imgmask_threshold.get()
+        imgmask: @cur.save_imgmask()
 
     JSON.stringify(opt)
 
@@ -1454,14 +1576,8 @@ class StochasticSierpinski
       if opt.options.move_absolute_magnitude?
         @move_absolute_magnitude = opt.options.move_absolute_magnitude
 
-      if opt.options.imgmask_enabled?
-        @cur.option.imgmask_enabled.set(opt.options.imgmask_enabled)
-
-      if opt.options.imgmask_padding?
-        @cur.option.imgmask_padding.set(opt.options.imgmask_padding)
-
-      if opt.options.imgmask_threshold?
-        @cur.option.imgmask_threshold.set(opt.options.imgmask_threshold)
+      if opt.options.imgmask
+        @cur.load_imgmask(opt.options.imgmask)
 
     if opt.points?
       @set_num_points(opt.points.length)
@@ -1657,41 +1773,61 @@ class StochasticSierpinski
       @step_count += 1
     return null
 
-  step: (num_steps = 1) =>
-    @single_step() for [0...num_steps]
+  step: =>
+    @single_step()
 
     @update_info_elements()
     @redraw_ui()
     return null
 
   multistep: ->
-    @step(@steps_per_frame)
+    save_last_choice_cell = @cur.last_choice_cell
+    @cur.last_choice_cell = null
+
+    @single_step() for [1...@steps_per_frame]
+
+    @cur.last_choice_cell = save_last_choice_cell
+
+    @single_step()
+
+    @update_info_elements()
+    @redraw_ui()
     return null
 
   render_imgmask_overlay: ->
     cw = @graph_ui_canvas.width
     ch = @graph_ui_canvas.height
+    hcw = cw / 2
+    hch = ch / 2
 
-    padperc = @cur.option.imgmask_padding.value / 100
-    padwidth  = padperc * cw
-    padheight = padperc * ch
-    imgwidth  = cw - (2 * padwidth)
-    imgheight = ch - (2 * padheight)
+    padwidth  = @cur.imgmask_pad_width      / @cur.imgmask_oversample
+    padheight = @cur.imgmask_pad_height     / @cur.imgmask_oversample
+    imgwidth  = @cur.imgmask_dst_img_width  / @cur.imgmask_oversample
+    imgheight = @cur.imgmask_dst_img_height / @cur.imgmask_oversample
+    offset_x  = @cur.imgmask_offset_x       / @cur.imgmask_oversample
+    offset_y  = @cur.imgmask_offset_y       / @cur.imgmask_oversample
+
+    offset_x -= @cur.imgmask_overlay_margin_x
+    offset_y -= @cur.imgmask_overlay_margin_y
+
+    if @cur.imgmask_img_ready
+      @graph_ui_ctx.save()
+      oldalpha = @graph_ui_ctx.globalAlpha
+      @graph_ui_ctx.globalAlpha = 0.5
+      @graph_ui_ctx.drawImage(@cur.imgmask_bitmap,
+        0, 0, @cur.imgmask_bitmap.width, @cur.imgmask_bitmap.height,
+        0, 0, cw, ch)
+      @graph_ui_ctx.globalAlpha = oldalpha
+      @graph_ui_ctx.restore()
 
     @graph_ui_ctx.save()
     img_region = new Path2D()
-    img_region.rect(padwidth, padheight, imgwidth, imgheight)
+    img_region.rect(padwidth + offset_x, padheight + offset_y, imgwidth, imgheight)
     img_region.rect(0, 0, cw, ch)
     @graph_ui_ctx.clip(img_region, 'evenodd')
     @graph_ui_ctx.fillStyle = 'rgba(255, 65, 2, 0.3)'
     @graph_ui_ctx.fillRect(0, 0, cw, ch)
     @graph_ui_ctx.restore()
-
-    if @cur.imgmask_img_ready
-      oldalpha = @graph_ui_ctx.globalAlpha
-      @graph_ui_ctx.globalAlpha = 0.5
-      @graph_ui_ctx.drawImage(@cur.imgmask_bitmap, padwidth, padheight, imgwidth, imgheight)
-      @graph_ui_ctx.globalAlpha = oldalpha
 
   redraw_ui: =>
     @graph_ui_ctx.clearRect(0, 0, @graph_ui_canvas.width, @graph_ui_canvas.height)
@@ -1704,7 +1840,6 @@ class StochasticSierpinski
     @render_imgmask_overlay() if @show_imgmask_overlay
 
     return null
-
 
   update: =>
     @frame_is_scheduled = false
