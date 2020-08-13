@@ -138,12 +138,10 @@ undivert(`style.css')
 
         <div id="imgmask_img_box" class="hidden">
           <figure>
-            <img id="imgmask_img" width="64" height="64">
-            <figcaption>Original</figcaption>
+            <figcaption id="imgmask_img_caption">Original</figcaption>
           </figure>
           <figure>
-            <canvas id="imgmask_bitmap" width="64" height="64"></canvas>
-            <figcaption>Bitmap</figcaption>
+            <figcaption id="imgmask_bitmap_caption">Bitmap</figcaption>
           </figure>
         </div>
 

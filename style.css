@@ -182,6 +182,12 @@ td.blank {
   width: 3em;
 }
 
+#imgmask_img_box > figure > img,
+#imgmask_img_box > figure > canvas {
+  width: 64px;
+  height: 64px;
+}
+
 #imgmask_padding,
 #steps_per_frame,
 #draw_opacity {

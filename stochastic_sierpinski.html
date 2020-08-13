@@ -365,6 +365,12 @@ td.blank {
   width: 3em;
 }
 
+#imgmask_img_box > figure > img,
+#imgmask_img_box > figure > canvas {
+  width: 64px;
+  height: 64px;
+}
+
 #imgmask_padding,
 #steps_per_frame,
 #draw_opacity {
@@ -573,12 +579,10 @@ td.move_mode {
 
         <div id="imgmask_img_box" class="hidden">
           <figure>
-            <img id="imgmask_img" width="64" height="64">
-            <figcaption>Original</figcaption>
+            <figcaption id="imgmask_img_caption">Original</figcaption>
           </figure>
           <figure>
-            <canvas id="imgmask_bitmap" width="64" height="64"></canvas>
-            <figcaption>Bitmap</figcaption>
+            <figcaption id="imgmask_bitmap_caption">Bitmap</figcaption>
           </figure>
         </div>
 
@@ -1338,6 +1342,7 @@ td.move_mode {
 
     function DrawPoint(name) {
       this.on_imgmask_file_change = bind(this.on_imgmask_file_change, this);
+      this.on_imgmask_file_reader_load = bind(this.on_imgmask_file_reader_load, this);
       this.on_imgmask_img_load = bind(this.on_imgmask_img_load, this);
       this.on_imgmask_padding_blur = bind(this.on_imgmask_padding_blur, this);
       this.on_imgmask_padding_focus = bind(this.on_imgmask_padding_focus, this);
@@ -1363,11 +1368,8 @@ td.move_mode {
       this.move_perc_range_el_init();
       this.imgmask_img_box = APP.context.getElementById('imgmask_img_box');
       this.imgmask_file = APP.context.getElementById('imgmask_file');
-      this.imgmask_img = APP.context.getElementById('imgmask_img');
-      this.imgmask_bitmap = APP.context.getElementById('imgmask_bitmap');
-      this.imgmask_bitmap_ctx = this.imgmask_bitmap.getContext('2d', {
-        alpha: false
-      });
+      this.imgmask_img_caption = APP.context.getElementById('imgmask_img_caption');
+      this.imgmask_bitmap_caption = APP.context.getElementById('imgmask_bitmap_caption');
       this.imgmask_img_ready = false;
       this.option = {
         imgmask_enabled: new BoolUIOption('imgmask_enabled', APP.DEFAULT.imgmask.enabled, this.on_imgmask_enabled_change),
@@ -1379,9 +1381,8 @@ td.move_mode {
       };
       this.option.imgmask_padding.interaction_callbacks(this.on_imgmask_padding_focus, this.on_imgmask_padding_blur);
       this.on_imgmask_enabled_change();
-      this.btn_set_all_points.addEventListener('click', this.on_set_all_points);
-      this.imgmask_img.addEventListener('load', this.on_imgmask_img_load);
-      return this.imgmask_file.addEventListener('change', this.on_imgmask_file_change);
+      this.imgmask_file.addEventListener('change', this.on_imgmask_file_change);
+      return this.btn_set_all_points.addEventListener('click', this.on_set_all_points);
     };
 
     DrawPoint.prototype.on_set_all_points = function(event) {
@@ -1526,32 +1527,63 @@ td.move_mode {
       return APP.redraw_ui();
     };
 
+    DrawPoint.prototype.imgmask_prepare_bitmap = function() {
+      if (this.imgmask_bitmap != null) {
+        this.imgmask_bitmap.remove();
+      }
+      this.imgmask_bitmap = document.createElement('canvas');
+      this.imgmask_bitmap.width = this.imgmask_img.width;
+      this.imgmask_bitmap.height = this.imgmask_img.height;
+      this.imgmask_bitmap_caption.parentElement.insertBefore(this.imgmask_bitmap, this.imgmask_bitmap_caption);
+      return this.imgmask_bitmap_ctx = this.imgmask_bitmap.getContext('2d', {
+        alpha: false
+      });
+    };
+
     DrawPoint.prototype.imgmask_convert_img_to_bitmap = function() {
       var d, h, i, image_data, j, ref, threshold, w, x, y;
-      w = this.imgmask_img.width;
-      h = this.imgmask_img.height;
-      this.imgmask_bitmap.width = w;
-      this.imgmask_bitmap.height = h;
+      w = this.imgmask_bitmap.width;
+      h = this.imgmask_bitmap.height;
       this.imgmask_bitmap_ctx.drawImage(this.imgmask_img, 0, 0, w, h);
       image_data = this.imgmask_bitmap_ctx.getImageData(0, 0, w, h);
       d = image_data.data;
       threshold = this.option.imgmask_threshold.value / 255.0;
+      console.log('threshold', threshold);
+      console.log('d.length', d.length);
       for (i = j = 0, ref = d.length; j < ref; i = j += 4) {
         y = Color.srgb_to_luminance(d[i], d[i + 1], d[i + 2]);
-        x = y < threshold ? 0 : 1;
-        d[i + 2] = d[i + 1] = d[i] = Math.floor(x * 255);
+        x = y < threshold ? 0 : 255;
+        d[i + 2] = x;
+        d[i + 1] = x;
+        d[i] = x;
       }
       return this.imgmask_bitmap_ctx.putImageData(image_data, 0, 0);
     };
 
     DrawPoint.prototype.set_imgmask_img_ready = function(newvalue) {
       this.imgmask_img_ready = newvalue;
-      return this.set_single_step_func();
+      this.set_single_step_func();
+      if (this.imgmask_img_ready) {
+        return this.imgmask_img_box.classList.remove('hidden');
+      } else {
+        return this.imgmask_img_box.classList.add('hidden');
+      }
     };
 
     DrawPoint.prototype.on_imgmask_img_load = function() {
+      this.imgmask_prepare_bitmap();
       this.imgmask_convert_img_to_bitmap();
       return this.set_imgmask_img_ready(true);
+    };
+
+    DrawPoint.prototype.on_imgmask_file_reader_load = function(event) {
+      if (this.imgmask_img != null) {
+        this.imgmask_img.remove();
+      }
+      this.imgmask_img = new Image();
+      this.imgmask_img_caption.parentElement.insertBefore(this.imgmask_img, this.imgmask_img_caption);
+      this.imgmask_img.onload = this.on_imgmask_img_load;
+      return this.imgmask_img.src = event.target.result;
     };
 
     DrawPoint.prototype.on_imgmask_file_change = function() {
@@ -1565,13 +1597,8 @@ td.move_mode {
       }
       this.set_imgmask_img_ready(false);
       reader = new FileReader();
-      reader.onload = (function(_this) {
-        return function(event) {
-          return _this.imgmask_img.src = event.target.result;
-        };
-      })(this);
-      reader.readAsDataURL(file);
-      return this.imgmask_img_box.classList.remove('hidden');
+      reader.onload = this.on_imgmask_file_reader_load;
+      return reader.readAsDataURL(file);
     };
 
     DrawPoint.prototype.enable_imgmask = function() {
@@ -2642,9 +2669,12 @@ td.move_mode {
     };
 
     StochasticSierpinski.prototype.on_create_png = function() {
-      var dataurl;
-      dataurl = this.graph_canvas.toDataURL('png');
-      return window.open(dataurl, '_blank');
+      return this.open_in_new_window(this.graph_canvas.toDataURL('png'));
+    };
+
+    StochasticSierpinski.prototype.open_in_new_window = function(url) {
+      console.log('open in new window', url);
+      return window.open(url, '_blank');
     };
 
     StochasticSierpinski.prototype.show_serializebox = function(title, text, action_callback) {
@@ -2699,7 +2729,8 @@ td.move_mode {
           move_range_min: this.option.move_range_min.get(),
           move_range_max: this.option.move_range_max.get(),
           imgmask_enabled: this.cur.option.imgmask_enabled.get(),
-          imgmask_padding: this.cur.option.imgmask_padding.get()
+          imgmask_padding: this.cur.option.imgmask_padding.get(),
+          imgmask_threshold: this.cur.option.imgmask_threshold.get()
         }
       };
       return JSON.stringify(opt);
@@ -2741,6 +2772,9 @@ td.move_mode {
         }
         if (opt.options.imgmask_padding != null) {
           this.cur.option.imgmask_padding.set(opt.options.imgmask_padding);
+        }
+        if (opt.options.imgmask_threshold != null) {
+          this.cur.option.imgmask_threshold.set(opt.options.imgmask_threshold);
         }
       }
       if (opt.points != null) {

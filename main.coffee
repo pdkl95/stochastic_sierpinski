@@ -490,9 +490,8 @@ class DrawPoint extends UIPoint
 
     @imgmask_img_box = APP.context.getElementById('imgmask_img_box')
     @imgmask_file    = APP.context.getElementById('imgmask_file')
-    @imgmask_img     = APP.context.getElementById('imgmask_img')
-    @imgmask_bitmap  = APP.context.getElementById('imgmask_bitmap')
-    @imgmask_bitmap_ctx = @imgmask_bitmap.getContext('2d', alpha: false)
+    @imgmask_img_caption = APP.context.getElementById('imgmask_img_caption')
+    @imgmask_bitmap_caption  = APP.context.getElementById('imgmask_bitmap_caption')
 
     @imgmask_img_ready = false
 
@@ -506,11 +505,9 @@ class DrawPoint extends UIPoint
 
     @option.imgmask_padding.interaction_callbacks(@on_imgmask_padding_focus, @on_imgmask_padding_blur)
     @on_imgmask_enabled_change()
+    @imgmask_file.addEventListener 'change', @on_imgmask_file_change
 
     @btn_set_all_points.addEventListener('click', @on_set_all_points)
-
-    @imgmask_img.addEventListener 'load', @on_imgmask_img_load
-    @imgmask_file.addEventListener 'change', @on_imgmask_file_change
 
   on_set_all_points: (event) =>
     APP.set_all_points_move_perc(@move_perc * 100)
@@ -609,32 +606,55 @@ class DrawPoint extends UIPoint
     APP.show_imgmask_overlay = false
     APP.redraw_ui()
 
+  imgmask_prepare_bitmap: ->
+    @imgmask_bitmap.remove() if @imgmask_bitmap?
+    @imgmask_bitmap = document.createElement('canvas')
+    @imgmask_bitmap.width  = @imgmask_img.width
+    @imgmask_bitmap.height = @imgmask_img.height
+
+    @imgmask_bitmap_caption.parentElement.insertBefore(@imgmask_bitmap, @imgmask_bitmap_caption)
+    @imgmask_bitmap_ctx = @imgmask_bitmap.getContext('2d', alpha: false)
+
   imgmask_convert_img_to_bitmap: ->
-    w = @imgmask_img.width
-    h = @imgmask_img.height
-    @imgmask_bitmap.width  = w
-    @imgmask_bitmap.height = h
+    w = @imgmask_bitmap.width
+    h = @imgmask_bitmap.height
     @imgmask_bitmap_ctx.drawImage(@imgmask_img, 0, 0, w, h)
 
     image_data = @imgmask_bitmap_ctx.getImageData(0, 0, w, h)
 
     d = image_data.data
     threshold = @option.imgmask_threshold.value / 255.0
+    console.log('threshold', threshold)
+    console.log('d.length', d.length)
 
     for i in [0...(d.length)] by 4
       y = Color.srgb_to_luminance(d[i], d[i + 1], d[i + 2])
-      x = if y < threshold then 0 else 1
-      d[i + 2] = d[i + 1] = d[i] = Math.floor(x * 255)
+      x = if y < threshold then 0 else 255
+      d[i + 2] = x
+      d[i + 1] = x
+      d[i] = x
 
     @imgmask_bitmap_ctx.putImageData(image_data, 0, 0)
 
   set_imgmask_img_ready: (newvalue) ->
     @imgmask_img_ready = newvalue
     @set_single_step_func()
+    if @imgmask_img_ready
+      @imgmask_img_box.classList.remove('hidden')
+    else
+      @imgmask_img_box.classList.add('hidden')
 
   on_imgmask_img_load: =>
+    @imgmask_prepare_bitmap()
     @imgmask_convert_img_to_bitmap()
     @set_imgmask_img_ready(true)
+
+  on_imgmask_file_reader_load: (event) =>
+    @imgmask_img.remove() if @imgmask_img?
+    @imgmask_img = new Image()
+    @imgmask_img_caption.parentElement.insertBefore(@imgmask_img, @imgmask_img_caption)
+    @imgmask_img.onload = @on_imgmask_img_load
+    @imgmask_img.src = event.target.result
 
   on_imgmask_file_change: =>
     return if @imgmask_file.files.length < 1
@@ -643,9 +663,9 @@ class DrawPoint extends UIPoint
 
     @set_imgmask_img_ready(false)
     reader = new FileReader()
-    reader.onload = (event) => @imgmask_img.src = event.target.result
+    reader.onload = @on_imgmask_file_reader_load
+
     reader.readAsDataURL(file)
-    @imgmask_img_box.classList.remove('hidden')
 
   enable_imgmask: ->
     @option.imgmask_padding.enable()
@@ -1346,8 +1366,11 @@ class StochasticSierpinski
         @serialize_cookie('steps_per_frame', @steps_per_frame)
 
   on_create_png: =>
-    dataurl = @graph_canvas.toDataURL('png')
-    window.open(dataurl, '_blank')
+    @open_in_new_window(@graph_canvas.toDataURL('png'))
+
+  open_in_new_window: (url) ->
+    console.log('open in new window', url)
+    window.open(url, '_blank')
 
   show_serializebox: (title, text, action_callback) ->
     @serializebox_title.textContent = title
@@ -1394,8 +1417,9 @@ class StochasticSierpinski
         move_absolute_magnitude: @move_absolute_magnitude
         move_range_min: @option.move_range_min.get()
         move_range_max: @option.move_range_max.get()
-        imgmask_enabled: @cur.option.imgmask_enabled.get()
-        imgmask_padding: @cur.option.imgmask_padding.get()
+        imgmask_enabled:   @cur.option.imgmask_enabled.get()
+        imgmask_padding:   @cur.option.imgmask_padding.get()
+        imgmask_threshold: @cur.option.imgmask_threshold.get()
 
     JSON.stringify(opt)
 
@@ -1435,6 +1459,9 @@ class StochasticSierpinski
 
       if opt.options.imgmask_padding?
         @cur.option.imgmask_padding.set(opt.options.imgmask_padding)
+
+      if opt.options.imgmask_threshold?
+        @cur.option.imgmask_threshold.set(opt.options.imgmask_threshold)
 
     if opt.points?
       @set_num_points(opt.points.length)
