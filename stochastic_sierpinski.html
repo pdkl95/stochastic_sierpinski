@@ -1858,6 +1858,7 @@ td.move_mode {
 
     function StochasticSierpinski(context) {
       this.context = context;
+      this.load_from_cookie = bind(this.load_from_cookie, this);
       this.on_hashchange = bind(this.on_hashchange, this);
       this.on_keydown = bind(this.on_keydown, this);
       this.update = bind(this.update, this);
@@ -1962,7 +1963,7 @@ td.move_mode {
       this.resize_graph(this.option.canvas_width.get(), this.option.canvas_height.get());
       this.cur = new DrawPoint('Cur');
       this.load_default_state();
-      this.set_steps_per_frame(100);
+      this.set_steps_per_frame(100, false);
       this.num_points_el.addEventListener('input', this.on_num_points_input);
       this.steps_per_frame_el.addEventListener('input', this.on_steps_per_frame_input);
       this.btn_reset.addEventListener('click', this.on_reset);
@@ -2258,7 +2259,11 @@ td.move_mode {
       return this.set_steps_per_frame(event.target.value);
     };
 
-    StochasticSierpinski.prototype.set_steps_per_frame = function(int_value) {
+    StochasticSierpinski.prototype.set_steps_per_frame = function(int_value, save_to_cookie) {
+      if (save_to_cookie == null) {
+        save_to_cookie = true;
+      }
+      this.old_steps_per_frame = this.steps_per_frame;
       this.steps_per_frame = parseInt(int_value);
       if (this.steps_per_frame < 1) {
         this.steps_per_frame = 1;
@@ -2266,10 +2271,15 @@ td.move_mode {
       this.btn_multistep.textContent = "Step " + this.steps_per_frame + "x";
       if (this.steps_per_frame === 1) {
         this.steps_per_frame_el.value = 0;
-        return this.btn_multistep.disabled = true;
+        this.btn_multistep.disabled = true;
       } else {
         this.steps_per_frame_el.value = this.steps_per_frame;
-        return this.btn_multistep.disabled = false;
+        this.btn_multistep.disabled = false;
+      }
+      if (save_to_cookie) {
+        if (this.old_steps_per_frame !== this.steps_per_frame) {
+          return this.serialize_cookie('steps_per_frame', this.steps_per_frame);
+        }
       }
     };
 
@@ -2700,12 +2710,33 @@ td.move_mode {
 
     StochasticSierpinski.prototype.on_hashchange = function() {
       var ref;
-      console.log(document.location.hash);
       if (((ref = document.location.hash) != null ? ref.length : void 0) > 1) {
         return this.deserialize(document.location.hash.slice(1));
       } else {
         return this.load_default_state();
       }
+    };
+
+    StochasticSierpinski.prototype.serialize_cookie = function(key, value) {
+      return document.cookie = key + "=" + value;
+    };
+
+    StochasticSierpinski.prototype.deserialize_cookie = function(key, value) {
+      switch (key) {
+        case 'steps_per_frame':
+          return this.set_steps_per_frame(value);
+      }
+    };
+
+    StochasticSierpinski.prototype.load_from_cookie = function() {
+      var cookie, j, len1, ref, results;
+      ref = document.cookie.split('; ');
+      results = [];
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        cookie = ref[j];
+        results.push(this.deserialize_cookie.apply(this, cookie.split('=')));
+      }
+      return results;
     };
 
     return StochasticSierpinski;
@@ -2716,7 +2747,8 @@ td.move_mode {
     return function() {
       APP = new StochasticSierpinski(document);
       APP.init();
-      return APP.on_hashchange();
+      APP.on_hashchange();
+      return APP.load_from_cookie();
     };
   })(this));
 

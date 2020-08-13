@@ -899,7 +899,7 @@ class StochasticSierpinski
 
     @load_default_state()
 
-    @set_steps_per_frame(100)
+    @set_steps_per_frame(100, false)
 
     @num_points_el.addEventListener 'input', @on_num_points_input
     @steps_per_frame_el.addEventListener 'input', @on_steps_per_frame_input
@@ -1084,7 +1084,8 @@ class StochasticSierpinski
   on_steps_per_frame_input: (event) =>
     @set_steps_per_frame(event.target.value)
 
-  set_steps_per_frame: (int_value) ->
+  set_steps_per_frame: (int_value, save_to_cookie = true) ->
+    @old_steps_per_frame = @steps_per_frame
     @steps_per_frame = parseInt(int_value)
 
     if @steps_per_frame < 1
@@ -1097,6 +1098,10 @@ class StochasticSierpinski
     else
       @steps_per_frame_el.value = @steps_per_frame
       @btn_multistep.disabled = false
+
+    if save_to_cookie
+      unless @old_steps_per_frame == @steps_per_frame
+        @serialize_cookie('steps_per_frame', @steps_per_frame)
 
   on_create_png: =>
     dataurl = @graph_canvas.toDataURL('png')
@@ -1424,8 +1429,19 @@ class StochasticSierpinski
     else
       @load_default_state()
 
+  serialize_cookie: (key, value) ->
+    document.cookie = "#{key}=#{value}"
+
+  deserialize_cookie: (key, value) ->
+    switch key
+      when 'steps_per_frame' then @set_steps_per_frame(value)
+
+  load_from_cookie: =>
+    for cookie in document.cookie.split('; ')
+      @deserialize_cookie(cookie.split('=')...)
+
 document.addEventListener 'DOMContentLoaded', =>
   APP = new StochasticSierpinski(document)
   APP.init()
   APP.on_hashchange()
-
+  APP.load_from_cookie()
