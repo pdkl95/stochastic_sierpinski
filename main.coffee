@@ -148,7 +148,7 @@ class Color
       Color.linear_rgb_to_luminance(rl, gl, bl)
 
 class Point
-  constructor: (@name, x, y, @move_perc = 0.5) ->
+  constructor: (@name, x, y, @move_perc = APP.DEFAULT.move_perc) ->
     x ?= APP.graph_ui_canvas.width / 2
     y ?= APP.graph_ui_canvas.height / 2
 
@@ -156,11 +156,25 @@ class Point
     @info_x_id = 'point_' + @el_id + '_x'
     @info_y_id = 'point_' + @el_id + '_y'
 
+    @move_perc_mode = true
+
+    @build()
+
     @move x, y
 
+  build: ->
+
   update_text: () ->
-    @info_x.textContent = @ix if @info_x
-    @info_y.textContent = @iy if @info_y
+    @info_x_cell.textContent = @ix if @info_x_cell
+    @info_y_cell.textContent = @iy if @info_y_cell
+
+  set_x: (x) =>
+    @x = x
+    @ix = Math.floor(@x)
+
+  set_y: (y) =>
+    @y = y
+    @iy = Math.floor(@y)
 
   move_no_text_update: (x, y) ->
     @x = x
@@ -168,24 +182,56 @@ class Point
     @ix = Math.floor(@x)
     @iy = Math.floor(@y)
 
+  move_no_text_update_array: (coord) ->
+    @x = coord[0]
+    @y = coord[1]
+    @ix = Math.floor(@x)
+    @iy = Math.floor(@y)
+
   move: (x, y) ->
     @move_no_text_update(x, y)
     @update_text()
 
-  move_towards: (other, perc = other.move_perc) ->
-    dx = other.x - (@x)
-    dy = other.y - (@y)
-    @move @x + dx * perc, @y + dy * perc
+  move_perc_towards: (target, perc = target.move_perc) ->
+    dx = target.x - (@x)
+    dy = target.y - (@y)
+    @move(@x + dx * perc, @y + dy * perc)
 
-  move_towards_no_text_update: (other, perc = other.move_perc) ->
-    dx = other.x - (@x)
-    dy = other.y - (@y)
-    @move_no_text_update @x + dx * perc, @y + dy * perc
+  coords_after_move_perc_towards_target: (target, perc = target.move_perc) ->
+    dx = target.x - (@x)
+    dy = target.y - (@y)
+    [@x + dx * perc, @y + dy * perc]
+
+  move_perc_towards_no_text_update: (target, perc = target.move_perc) ->
+    @move_no_text_update_array(@coords_after_move_perc_towards_target(target, perc))
+
+  coords_after_move_absolute_towards_target: (target, dist = target.move_perc) ->
+    dist *= APP.move_absolute_magnitude
+    dx = target.x - (@x)
+    dy = target.y - (@y)
+    mag = Math.sqrt(dx*dx + dy*dy)
+    norm_x = dx / mag
+    norm_y = dy / mag
+    [@x + norm_x * dist, @y + norm_y * dist]
+
+  move_absolute_towards_no_text_update: (target, dist = target.move_perc) ->
+    @move_no_text_update_array(@coords_after_move_absolute_towards_target(target, dist))
 
   distance: (other) ->
     dx = @x - other.x
     dy = @y - other.y
     Math.sqrt((dx * dx) + (dy * dy))
+
+  scale_width: (scale) ->
+    @set_x(@x * scale)
+    @update_text()
+
+  scale_height: (scale) ->
+    @set_y(@y * scale)
+    @update_text()
+
+  scale: (scale) ->
+    @scale_width(scale, origin)
 
 class UIPoint extends Point
   constructor: (hue, args...) ->
@@ -214,178 +260,49 @@ class UIPoint extends Point
     ctx.strokeStyle = @color
     ctx.strokeRect(@x - 2, @y - 2, 5, 5)
 
+  move_perc_range_el_init: ->
+    @set_move_range()
+    @move_perc_range_el.value = @move_perc * 100
+    @move_perc_range_el.addEventListener('input', @on_move_per_range_input)
+
+  set_move_range: (min = APP.option.move_range_min.get(), max = APP.option.move_range_max.get(), step = 5) ->
+    @move_perc_range_el.min = min
+    @move_perc_range_el.max = max
+    @move_perc_range_el.step = step
+    if @option? and @option.move_proc?
+      value = @option.move_proc.get()
+      value = min if value < min
+      value = max if value > max
+      @option.move_proc.set_range(min, max)
+      @option.move_proc.set(value)
+
+  on_move_perc_option_change: (value) =>
+    @set_move_perc(value)
+    APP.resumable_reset()
+
+  on_move_per_range_input: (event) =>
+    @set_move_perc(event.target.value)
+    APP.resumable_reset()
+
+  set_move_perc_range: (newvalue) ->
+    if @move_perc_range_el?
+      step = @move_perc_range_el.step
+      rounded = Math.round(newvalue / step) * step
+      @move_perc_range_el.value = rounded
+
+  set_move_perc: (newvalue) ->
+    @move_perc = newvalue / 100.0
+    newvalue = @move_perc * 100
+    @option.move_perc.set(newvalue)
+    @set_move_perc_range(newvalue)
+
+  set_move_perc_mode: (newvalue) ->
+    @move_perc_mode = newvalue
+    @option.move_perc_mode.set(@move_perc_mode)
+
 class PointWidget extends UIPoint
-  @widgets = []
-
-  @MIN_POINTS = 3
-  @MAX_POINTS = 8
-
-  @NEARBY_RADIUS = 8
-  @REG_POLYGON_MARGIN = 10
-
-  @restrictions: null
-
-  @restricted:
-    single: []
-    double: []
-
-  @prev_target: [null, null, null]
-
-  @target_chosen_twice: ->
-    @prev_target[0] == @prev_target[1]
-
-  @current_restricted_choices: ->
-    if @restrictions.using_double() and @target_chosen_twice()
-      @restricted.double
-    else
-      @restricted.single
-
-  @filtered_choices: (type) ->
-    value_getter = "value_#{type}"
-
-    len  = @widgets.length
-    last = len - 1
-
-    choices = []
-
-    unless @restrictions.option.self[value_getter]
-      choices.push(0)
-    len -= 1
-
-    if len % 2 == 1
-      len -= 1
-      unless @restrictions.option.opposite[value_getter]
-        choices.push(parseInt(last / 2) + 1)
-
-    neighbor = 1
-    while len >= 2
-      [p, n] = @restrictions.neighbor(neighbor)
-
-      unless p[value_getter]
-        choices.push(p.offset + @widgets.length)
-
-      unless n[value_getter]
-        choices.push(n.offset)
-
-      len -= 2
-      neighbor += 1
-
-    choices
-
-  @update_widget_list_metadata: () ->
-    return if @widgets.length < 3
-    @restrictions.set_enabled(@widgets.length)
-    @restricted.single = @filtered_choices('single')
-    @restricted.double = @filtered_choices('double')
-    @prev_target[0] = @prev_target[1] = @widgets[0]
-
-  @add_widget: () ->
-    if PointWidget.widgets.length < @MAX_POINTS
-      PointWidget.create()
-      APP.resumable_reset()
-
-  @remove_widget: () ->
-    len = PointWidget.widgets.length
-    if len > @MIN_POINTS
-      PointWidget.widgets[len - 1].destroy()
-
-  @recolor_periodic_hue: (step, start = 0.0) ->
-    hue = start
-    for w in PointWidget.widgets
-      w.set_color_hue(hue)
-      hue += step
-
-  @recolor_equidistant_hue: () ->
-    PointWidget.recolor_periodic_hue(360.0 / PointWidget.widgets.length)
-
-  @set_ngon: (n, recolor = true) ->
-    PointWidget.set_num_widgets(n)
-    PointWidget.move_all_reg_polygon()
-    PointWidget.recolor_equidistant_hue() if recolor
-
-  @set_num_widgets: (n) ->
-    return unless n >= @MIN_POINTS and n <= @MAX_POINTS
-
-    PointWidget.add_widget() while n > PointWidget.widgets.length
-    PointWidget.remove_widget() while PointWidget.widgets.length > n
-
-  @move_all_reg_polygon: () ->
-    len = PointWidget.widgets.length
-
-    [maxx, maxy] = APP.max_xy()
-    minside = Math.min(maxx, maxy)
-    cx = maxx / 2
-    cy = maxy / 2
-    r = Math.min(cx, cy) - @REG_POLYGON_MARGIN
-    theta = (Math.PI * 2) / len
-
-    rotate = -Math.PI/2
-
-    switch len
-      when 3
-        side = minside - (2 * @REG_POLYGON_MARGIN)
-        height = side * (Math.sqrt(3) / 2)
-        tri_adj = (minside - height) / 2
-        cy += tri_adj * Math.sqrt(2)
-        r *= 1.2
-
-      when 4
-        rotate += Math.PI/4
-        r *= Math.sqrt(2)
-
-    for w, i in PointWidget.widgets
-      x = parseInt(r * Math.cos(rotate + theta * i))
-      y = parseInt(r * Math.sin(rotate + theta * i))
-      w.move(cx + x, cy + y)
-
-    APP.resumable_reset()
-
-  @move_all_random: () ->
-    for w in PointWidget.widgets
-      w.move(APP.random_x(), APP.random_y())
-
-    APP.resumable_reset()
-
-  @clamp_widgets_to_canvas: () ->
-    [width, height] = APP.max_xy()
-
-    for w in PointWidget.widgets
-      w.x = 0 if w.x < 0
-      w.y = 0 if w.y < 0
-      w.x = width  - 1 if w.x >= width
-      w.y = height - 1 if w.y >= height
-
-  @nearby_widgets: (loc) ->
-    @widgets.filter (w) =>
-      w.distance(loc) < @NEARBY_RADIUS
-
-  @first_nearby_widget: (loc) ->
-    nearlist = PointWidget.nearby_widgets(loc)
-    if nearlist?
-      nearlist[0]
-    else
-      null
-
-  @random_widget: ->
-    choices = @current_restricted_choices()
-    choice = choices[ parseInt(Math.random() * choices.length) ]
-    prev_idx = PointWidget.widgets.indexOf(@prev_target[0])
-    idx = (choice + prev_idx) % PointWidget.widgets.length
-
-    w = PointWidget.widgets[idx]
-    @prev_target[2] = @prev_target[1]
-    @prev_target[1] = @prev_target[0]
-    @prev_target[0] = w
-    w
-
-  @unhighlight_all: () ->
-    changed = false
-    for w in @widgets
-      changed = true if w.unhighlight()
-    return changed
-
   @is_name_used: (name) ->
-    for w in PointWidget.widgets
+    for w in APP.points
       return true if w.name == name
     return false
 
@@ -405,13 +322,11 @@ class PointWidget extends UIPoint
     opt.x ?= APP.random_x()
     opt.y ?= APP.random_y()
 
-    w = new PointWidget(opt.hue, opt.name, opt.x, opt.y, opt.move_perc)
+    new PointWidget(opt.hue, opt.name, opt.x, opt.y, opt.move_perc)
 
   constructor: (args...) ->
     super args...
-    @build()
-    PointWidget.widgets.push(this)
-    PointWidget.update_widget_list_metadata()
+    APP.attach_point(this)
 
   build: ->
     @draw_highlight = false
@@ -421,33 +336,48 @@ class PointWidget extends UIPoint
     @namecell = @row.insertCell(0)
     @set_name(@name)
 
-    @color_selector_el = document.createElement('input')
-    @color_selector_el.type = 'color'
+    @color_selector_el = APP.create_input_element('color')
     @color_selector_el.value = @color
     @color_selector_el.addEventListener('change', @on_color_change)
 
-    color_selector = @row.insertCell(1)
-    color_selector.appendChild(@color_selector_el)
+    color_selector_cell = @row.insertCell(1)
+    color_selector_cell.appendChild(@color_selector_el)
 
-    @info_x = @row.insertCell(2)
-    @info_x.textContent = @x
-
-    @info_y = @row.insertCell(3)
-    @info_y.textContent = @y
-
+    @info_x_cell = @row.insertCell(2)
+    @info_y_cell = @row.insertCell(3)
     @move_perc_cell = @row.insertCell(4)
-    @move_perc_cell.textContent = @move_perc.toFixed(2)
 
-    @move_per_range_el = document.createElement('input')
-    @move_per_range_el.type = 'range'
-    @move_per_range_el.min = 0
-    @move_per_range_el.max = 1
-    @move_per_range_el.step = 0.05
-    @move_per_range_el.value = @move_perc
-    @move_per_range_el.addEventListener('input', @on_move_per_range_input)
+    @option =
+      x: NumberUIOption.create(@info_x_cell, "#{@info_x_id}_option", @x, @on_x_change)
+      y: NumberUIOption.create(@info_y_cell, "#{@info_y_id}_option", @y, @on_y_change)
+      move_perc: NumberUIOption.create(@move_perc_cell, "point_#{@el_id}_move_perc_option",
+        @move_perc * 100, @on_move_perc_option_change)
+
+    @move_perc_range_el = APP.create_input_element('range')
+    @move_perc_range_el_init()
 
     move_perc_adj_cell = @row.insertCell(5)
-    move_perc_adj_cell.appendChild(@move_per_range_el)
+    move_perc_adj_cell.appendChild(@move_perc_range_el)
+
+    move_mode_cell = @row.insertCell(6)
+    move_mode_cell.classList.add('move_mode')
+    @option.move_perc_mode = BoolUIOption.create(move_mode_cell, "point_#{name}_move_mode", @move_perc_mode, @on_move_perc_mode_change)
+
+  on_x_change: (value) =>
+    @set_x(value)
+    APP.resumable_reset()
+
+  on_y_change: (value) =>
+    @set_y(value)
+    APP.resumable_reset()
+
+  on_move_perc_mode_change: (value) =>
+    @move_perc_mode = value
+    APP.resumable_reset()
+
+  update_text: ->
+    @option.x.set(@ix)
+    @option.y.set(@iy)
 
   set_name: (name) ->
     @name = name
@@ -460,14 +390,6 @@ class PointWidget extends UIPoint
   on_color_change: (event) =>
     @set_color(event.target.value)
     APP.resumable_reset()
-
-  on_move_per_range_input: (event) =>
-    @set_move_perc(event.target.value)
-    APP.resumable_reset()
-
-  set_move_perc: (newvalue) ->
-    @move_perc = parseFloat(newvalue)
-    @move_perc_cell.textContent = @move_perc.toFixed(2) if @move_perc_cell
 
   highlight: () ->
     @row.classList.add('highlight')
@@ -501,7 +423,8 @@ class PointWidget extends UIPoint
       name:      @name
       x:         @x
       y:         @y
-      move_perc: @move_perc
+      move_perc: @option.move_perc.get()
+      move_mode: if @move_perc_mode then 'percent' else 'absolute'
       color:     @color
 
   load: (opt) ->
@@ -512,35 +435,86 @@ class PointWidget extends UIPoint
       @move(opt.x, opt.y)
 
     if opt.move_perc?
+      if 0.0 < opt.move_perc < 1.0
+        opt.move_perc *= 100
       @set_move_perc(opt.move_perc)
+
+    if opt.move_mode?
+      switch opt.move_mode
+        when 'percent'  then @set_move_perc_mode(true)
+        when 'absolute' then @set_move_perc_mode(false)
 
     if opt.color?
       @set_color(opt.color)
 
     APP.resumable_reset()
 
-  destroy: () ->
-    idx = PointWidget.widgets.indexOf(this)
+  load_default_state: ->
+    @set_move_perc(APP.DEFAULT.move_perc * 100)
+    @set_move_perc_mode(true)
 
-    if idx > -1
-      PointWidget.widgets.splice(idx, 1)
-      PointWidget.update_widget_list_metadata()
+  destroy: () ->
+    APP.detach_point(this)
+
+    for opt_name, opt of @option
+      opt.destroy()
 
     @color_selector_el.remove()
-    @move_per_range_el.remove()
+    @move_perc_range_el.remove()
     @row.remove()
 
-    APP.resumable_reset()
-
 class DrawPoint extends UIPoint
-  constructor: (name, draw_style) ->
+  prev_target: [null, null, null]
+  restricted:
+    single_origin: []
+    double_origin: []
+
+  constructor: (name) ->
     super '0', name
 
-    @info_x = APP.context.getElementById(@info_x_id)
-    @info_y = APP.context.getElementById(@info_y_id)
+    @movement_from_origin = true
+
+    @restrictions = new TargetRestriction(APP.context)
 
     @set_color('#000000')
-    @set_draw_style(draw_style)
+    @set_draw_style(@option.draw_style.get())
+    @set_data_source('dest')
+
+  build: ->
+    @info_x_cell = APP.context.getElementById(@info_x_id)
+    @info_y_cell = APP.context.getElementById(@info_y_id)
+
+    @btn_set_all_points = APP.context.getElementById('set_all_points')
+    @move_perc_range_el = APP.context.getElementById('all_points_move_perc_range')
+    @move_perc_range_el_init()
+
+    @imgmask_img_box = APP.context.getElementById('imgmask_img_box')
+    @imgmask_file    = APP.context.getElementById('imgmask_file')
+    @imgmask_img     = APP.context.getElementById('imgmask_img')
+    @imgmask_bitmap  = APP.context.getElementById('imgmask_bitmap')
+    @imgmask_bitmap_ctx = @imgmask_bitmap.getContext('2d', alpha: false)
+
+    @imgmask_img_ready = false
+
+    @option =
+      imgmask_enabled:   new BoolUIOption(  'imgmask_enabled',   APP.DEFAULT.imgmask.enabled,   @on_imgmask_enabled_change)
+      imgmask_padding:   new NumberUIOption('imgmask_padding',   APP.DEFAULT.imgmask.padding,   @on_imgmask_padding_change)
+      imgmask_threshold: new NumberUIOption('imgmask_threshold', APP.DEFAULT.imgmask.threshold, @on_imgmask_threshold_change)
+      move_perc:         new NumberUIOption('all_points_move_perc_option',  @move_perc * 100, @on_move_perc_option_change)
+      draw_style:        new EnumUIOption(  'draw_style',           APP.DEFAULT.cursor.draw_style,  @set_draw_style)
+      data_source:       new EnumUIOption(  'movement_data_source', APP.DEFAULT.cursor.data_source, @set_data_source)
+
+    @option.imgmask_padding.interaction_callbacks(@on_imgmask_padding_focus, @on_imgmask_padding_blur)
+    @on_imgmask_enabled_change()
+
+    @btn_set_all_points.addEventListener('click', @on_set_all_points)
+
+    @imgmask_img.addEventListener 'load', @on_imgmask_img_load
+    @imgmask_file.addEventListener 'change', @on_imgmask_file_change
+
+  on_set_all_points: (event) =>
+    APP.set_all_points_move_perc(@move_perc * 100)
+    APP.resumable_reset()
 
   reset_color_cache: ->
     @color_avg = {}
@@ -559,8 +533,8 @@ class DrawPoint extends UIPoint
     target.color_alpha
 
   get_color_blend_prev1: ->
-    b = PointWidget.prev_target[1]
-    a = PointWidget.prev_target[0]
+    b = @prev_target[1]
+    a = @prev_target[0]
     return a.color_alpha unless b?
     name = a.name + b.name
     @color_avg[name] ?= @blend_target_colors(a, b)
@@ -573,8 +547,31 @@ class DrawPoint extends UIPoint
     #console.log(t, p, @prev_color_blend, c)
     c
 
-  set_draw_style: (mode) ->
-    @get_current_color = switch mode
+  set_data_source: (src) =>
+    @option.data_source.set(src)
+    @set_single_step_func()
+    APP.resumable_reset()
+
+  set_single_step_func: ->
+    return @single = @single_step_destinaion unless @option?.data_source?
+
+    @single_step = if @option?.imgmask_enabled.value and @imgmask_img_ready
+      switch @option.data_source.get()
+        when 'dest' then @single_step_destination_imgmask
+        when 'orig' then @single_step_origin_imgmask
+        else
+          @single_step_destination_imgmask
+
+    else
+      switch @option.data_source.get()
+        when 'dest' then @single_step_destination
+        when 'orig' then @single_step_origin
+        else
+          @single_step_destination
+
+  set_draw_style: (mode) =>
+    @option.draw_style.set(mode)
+    @get_current_color = switch @option.draw_style.get()
       when 'mono'                    then @get_color_mono
       when 'color_target'            then @get_color_target
       when 'color_blend_prev_target' then @get_color_blend_prev1
@@ -587,10 +584,225 @@ class DrawPoint extends UIPoint
     @alpha   = opacity / 100
     super(opacity)
 
+  on_imgmask_enabled_change: =>
+    if @option?.imgmask_enabled?
+      @set_single_step_func()
+      if @option.imgmask_enabled.value
+        @enable_imgmask()
+      else
+        @disable_imgmask()
+
+  on_imgmask_threshold_change: =>
+    if @imgmask_img_ready
+      @imgmask_convert_img_to_bitmap()
+      if @option.imgmask_enabled.value
+        APP.resumable_reset()
+
+  on_imgmask_padding_change: =>
+    APP.redraw_ui() if APP.show_imgmask_overlay
+
+  on_imgmask_padding_focus: =>
+    APP.show_imgmask_overlay = true
+    APP.redraw_ui()
+
+  on_imgmask_padding_blur: =>
+    APP.show_imgmask_overlay = false
+    APP.redraw_ui()
+
+  imgmask_convert_img_to_bitmap: ->
+    w = @imgmask_img.width
+    h = @imgmask_img.height
+    @imgmask_bitmap.width  = w
+    @imgmask_bitmap.height = h
+    @imgmask_bitmap_ctx.drawImage(@imgmask_img, 0, 0, w, h)
+
+    image_data = @imgmask_bitmap_ctx.getImageData(0, 0, w, h)
+
+    d = image_data.data
+    threshold = @option.imgmask_threshold.value / 255.0
+
+    for i in [0...(d.length)] by 4
+      y = Color.srgb_to_luminance(d[i], d[i + 1], d[i + 2])
+      x = if y < threshold then 0 else 1
+      d[i + 2] = d[i + 1] = d[i] = Math.floor(x * 255)
+
+    @imgmask_bitmap_ctx.putImageData(image_data, 0, 0)
+
+  set_imgmask_img_ready: (newvalue) ->
+    @imgmask_img_ready = newvalue
+    @set_single_step_func()
+
+  on_imgmask_img_load: =>
+    @imgmask_convert_img_to_bitmap()
+    @set_imgmask_img_ready(true)
+
+  on_imgmask_file_change: =>
+    return if @imgmask_file.files.length < 1
+    file = @imgmask_file.files[0]
+    return unless file.type.startsWith('image/')
+
+    @set_imgmask_img_ready(false)
+    reader = new FileReader()
+    reader.onload = (event) => @imgmask_img.src = event.target.result
+    reader.readAsDataURL(file)
+    @imgmask_img_box.classList.remove('hidden')
+
+  enable_imgmask: ->
+    @option.imgmask_padding.enable()
+    @option.imgmask_threshold.enable()
+    @imgmask_file.disabled = false
+
+  disable_imgmask: ->
+    @option.imgmask_padding.disable()
+    @option.imgmask_threshold.disable()
+    @imgmask_file.disabled = true
+
+  target_chosen_twice: ->
+    @prev_target[0] == @prev_target[1]
+
+  current_restricted_choices: ->
+    if @restrictions.using_double() and @target_chosen_twice()
+      @restricted.double_origin
+    else
+      @restricted.single_origin
+
+  filtered_choices: (type) ->
+    value_getter = "value_#{type}"
+
+    len  = num_points = APP.points.length
+    last = len - 1
+
+    choices = []
+
+    unless @restrictions.option.self[value_getter]
+      choices.push(0)
+    len -= 1
+
+    if len % 2 == 1
+      len -= 1
+      unless @restrictions.option.opposite[value_getter]
+        choices.push(parseInt(last / 2) + 1)
+
+    neighbor = 1
+    while len >= 2
+      [p, n] = @restrictions.neighbor(neighbor)
+
+      unless p[value_getter]
+        choices.push(p.offset + num_points)
+
+      unless n[value_getter]
+        choices.push(n.offset)
+
+      len -= 2
+      neighbor += 1
+
+    choices
+
+  update_point_list_metadata: ->
+    return if APP.points.length < 3
+    @restrictions.set_enabled(APP.points.length)
+    @restricted.single_origin = @filtered_choices('single')
+    @restricted.double_origin = @filtered_choices('double')
+    @prev_target[0] = @prev_target[1] = APP.points[0]
+
+  random_point: ->
+    choices = @current_restricted_choices()
+    choice = choices[ parseInt(Math.random() * choices.length) ]
+    prev_idx = APP.points.indexOf(@prev_target[0])
+    idx = (choice + prev_idx) % APP.points.length
+
+    p = APP.points[idx]
+    @prev_target[2] = @prev_target[1]
+    @prev_target[1] = @prev_target[0]
+    @prev_target[0] = p
+    p
+
   draw_graph: (target) ->
     ctx = APP.graph_ctx
     ctx.fillStyle = @get_current_color(target)
     ctx.fillRect(@x, @y, 1, 1)
+    return null
+
+  single_step_origin: ->
+    target = @random_point()
+    return false unless target?
+    origin = @prev_target[1]
+
+    if origin.move_perc_mode
+      @move_perc_towards_no_text_update(target, origin.move_perc)
+    else
+      @move_absolute_towards_no_text_update(target, origin.move_perc)
+
+    @draw_graph(target)
+    return true
+
+  single_step_destination: ->
+    target = @random_point()
+    return false unless target?
+
+    if target.move_perc_mode
+      @move_perc_towards_no_text_update(target, target.move_perc)
+    else
+      @move_absolute_towards_no_text_update(target, target.move_perc)
+
+    @draw_graph(target)
+    return true
+
+  single_step_origin_imgmask: ->
+    target = @random_point()
+    return false unless target?
+    origin = @prev_target[1]
+
+    coords = if origin.move_perc_mode
+      @coords_after_move_perc_towards_target(target, origin.move_perc)
+    else
+      @coords_after_move_absolute_towards_target(target, origin.move_perc)
+
+    return false if @collides_with_bitmap(coords...)
+    @move_no_text_update_array(coords)
+
+    @draw_graph(target)
+    return true
+
+  single_step_destination_imgmask: ->
+    target = @random_point()
+    return false unless target?
+
+    coords = if target.move_perc_mode
+      @coords_after_move_perc_towards_target(target, target.move_perc)
+    else
+      @coords_after_move_absolute_towards_target(target, target.move_perc)
+
+    return false if @collides_with_bitmap(coords...)
+    @move_no_text_update_array(coords)
+
+    @draw_graph(target)
+    return true
+
+  collides_with_bitmap: (x, y) ->
+    cw = APP.graph_ui_canvas.width
+    ch = APP.graph_ui_canvas.height
+
+    padperc = @option.imgmask_padding.value / 100
+    padwidth  = padperc * cw
+    return false if x < padwidth
+    padheight = padperc * ch
+    return false if y < padheight
+    padwidth2  = 2 * padwidth
+    return false if x >= padwidth2
+    padheight2 = 2 * padheight
+    return false if y >= padheight2
+
+    imgwidth  = cw - padwidth2
+    imgheight = ch - padwidth2
+    imgstartx = (cw / 2) - (imgwidth / 2)
+    imgstarty = (ch / 2) - (imgheight / 2)
+    testx = Math.floor(((x - imgstartx) / imgwidth ) * imgwidth )
+    testy = Math.floor(((y - imgstarty) / imgheight) * imgheight)
+    pixel = @imgmask_bitmap_ctx.getImageData(testx, testy, 1, 1)
+
+    return (pixel.data[0]) < 128
+
 
 class TargetRestrictionOption
   constructor: (@context, @offset, @name) ->
@@ -626,14 +838,12 @@ class TargetRestrictionOption
   set_single: (value) ->
     @value_single = value
     @checkbox_single.checked = @value_single
-    PointWidget.update_widget_list_metadata()
-    APP.resumable_reset()
+    APP.update_metadata_and_reset()
 
   set_double: (value) ->
     @value_double = value
     @checkbox_double.checked = @value_double
-    PointWidget.update_widget_list_metadata()
-    APP.resumable_reset()
+    APP.update_metadata_and_reset()
 
   on_change_single: (event) =>
     @set_single(event.target.checked)
@@ -721,13 +931,19 @@ class TargetRestriction
       for name in opt.double
         @find(name)?.set_double(true)
 
-    PointWidget.update_widget_list_metadata()
-    APP.resumable_reset()
+    APP.update_metadata_and_reset()
 
-class OtherOption
-  constructor: (@id, @default, @on_change_callback = null) ->
-    @context = APP.context
-    @el = @context.getElementById(@id)
+  load_default_state: ->
+    o.reset() for o in @options
+
+class UIOption
+  constructor: (@id, @default, @on_change_callback) ->
+    if @id instanceof Element
+      @el = @id
+      @id = @el.id
+    else
+      @el = APP.context.getElementById(@id)
+
     @set(@default)
     @el.addEventListener('change', @on_change)
 
@@ -771,7 +987,16 @@ class OtherOption
     if @blur_callback?
       @blur_callback() unless @have_focus
 
-class BoolOtherOption extends OtherOption
+  destroy: ->
+    @el.remove() if @el?
+    @el = null
+
+class BoolUIOption extends UIOption
+  @create: (parent, @id, rest...) ->
+    opt = new BoolUIOption(APP.create_input_element('checkbox', @id), rest...)
+    parent.appendChild(opt.el)
+    opt
+
   get: (element = @el) ->
     element.checked
 
@@ -779,7 +1004,12 @@ class BoolOtherOption extends OtherOption
     @value = !!bool_value
     @el.checked = @value
 
-class NumberOtherOption extends OtherOption
+class NumberUIOption extends UIOption
+  @create: (parent, @id, rest...) ->
+    opt = new NumberUIOption(APP.create_input_element('number', @id), rest...)
+    parent.appendChild(opt.el)
+    opt
+
   get: (element = @el) ->
     element.value
 
@@ -787,7 +1017,12 @@ class NumberOtherOption extends OtherOption
     @value = parseInt(number_value)
     @el.value = @value
 
-class EnumOtherOption extends OtherOption
+  set_range: (min, max, step = 1) ->
+    @el.min = min
+    @el.max = max
+    @el.step = step
+
+class EnumUIOption extends UIOption
   get: (element = @el) ->
     element.value
 
@@ -802,10 +1037,36 @@ class EnumOtherOption extends OtherOption
     @value = @el.value
 
 class StochasticSierpinski
+  MIN_POINTS: 3
+  MAX_POINTS: 8
+  REG_POLYGON_MARGIN: 10
+  NEARBY_RADIUS: 8
+
+  DEFAULT:
+    graph:
+      width:  420
+      height: 420
+    draw_opacity:   35
+    move_range_min: 0
+    move_range_max: 100
+    move_perc: 0.5
+    cursor:
+      draw_style: 'color_blend_prev_color'
+      data_source: 'dest'
+    imgmask:
+      enabled: false
+      padding: 33
+      threshold: 1
+
+  points: []
+  move_absolute_magnitude: 100
+
   constructor: (@context) ->
 
   init: () ->
     @running = false
+
+    @show_imgmask_overlay = false
 
     @step_count = 0
 
@@ -831,27 +1092,17 @@ class StochasticSierpinski
     @total_steps_cell = @context.getElementById('total_steps')
     @point_pos_table  = @context.getElementById('point_pos_table')
 
+    @num_points_el = @context.getElementById('num_points')
+
     @btn_move_all_reg_polygon = @context.getElementById('move_all_reg_polygon')
     @btn_move_all_random      = @context.getElementById('move_all_random')
 
-    @locbit_img_box = @context.getElementById('locbit_img_box')
-    @locbit_file    = @context.getElementById('locbit_file')
-    @locbit_img     = @context.getElementById('locbit_img')
-    @locbit_bitmap  = @context.getElementById('locbit_bitmap')
-    @locbit_bitmap_ctx = @locbit_bitmap.getContext('2d', alpha: false)
-
     @option =
-      locbit_enabled:   new BoolOtherOption(  'locbit_enabled', false, @on_locbit_enabled_change)
-      locbit_padding:   new NumberOtherOption('locbit_padding', 33, @on_locbit_padding_change)
-      locbit_threshold: new NumberOtherOption('locbit_threshold', 1, @on_locbit_threshold_change)
-      canvas_width:     new NumberOtherOption('canvas_width', 420, @on_canvas_hw_change)
-      canvas_height:    new NumberOtherOption('canvas_height', 320, @on_canvas_hw_change)
-      draw_style:       new EnumOtherOption(  'draw_style', 'color_blend_prev_color', @on_draw_style_change)
-      draw_opacity:     new NumberOtherOption('draw_opacity', 35, @on_draw_opacity_change)
-
-    @locbit_img_ready = false
-    @on_locbit_enabled_change()
-    @option.locbit_padding.interaction_callbacks(@on_locbit_padding_focus, @on_locbit_padding_blur)
+      canvas_width:     new NumberUIOption('canvas_width',     APP.DEFAULT.graph.width,      @on_canvas_width_change)
+      canvas_height:    new NumberUIOption('canvas_height',    APP.DEFAULT.graph.height,     @on_canvas_height_change)
+      draw_opacity:     new NumberUIOption('draw_opacity',     APP.DEFAULT.draw_opacity,     @on_draw_opacity_change)
+      move_range_min:   new NumberUIOption('move_range_min',   APP.DEFAULT.move_range_min,   @on_move_range_change)
+      move_range_max:   new NumberUIOption('move_range_max',   APP.DEFAULT.move_range_max,   @on_move_range_change)
 
     @serializebox        = @context.getElementById('serializebox')
     @serializebox_title  = @context.getElementById('serializebox_title')
@@ -859,48 +1110,8 @@ class StochasticSierpinski
     @serializebox_action = @context.getElementById('serializebox_action')
     @serializebox_cancel = @context.getElementById('serializebox_cancel')
 
-
-    PointWidget.restrictions = new TargetRestriction(@context)
-
-    @cur = new DrawPoint('Cur', @option.draw_style.value)
-
-    PointWidget.set_ngon(3)
-
-    @set_steps_per_frame(100)
-
-    @num_points_el = @context.getElementById('num_points')
-    @num_points_el.value = PointWidget.widgets.length;
-
-    @num_points_el.addEventListener 'input', @on_num_points_input
-    @steps_per_frame_el.addEventListener 'input', @on_steps_per_frame_input
-
-    @btn_reset.addEventListener      'click', @on_reset
-    @btn_step.addEventListener       'click', @on_ste
-    @btn_multistep.addEventListener  'click', @on_multistep
-    @btn_run.addEventListener        'click', @on_run
-
-    @context.addEventListener 'keydown', @on_keydown
-
-    @btn_create_png.addEventListener 'click', @on_create_png
-    @btn_save_url.addEventListener 'click', @on_save_url
-    @btn_save.addEventListener 'click', @on_save
-    @btn_load.addEventListener 'click', @on_load
-
-    @btn_move_all_reg_polygon.addEventListener 'click', @on_move_all_reg_polygon
-    @btn_move_all_random.addEventListener 'click', @on_move_all_random
-
-    @locbit_img.addEventListener 'load', @on_locbit_img_load
-    @locbit_file.addEventListener 'change', @on_locbit_file_change
-
-    @serializebox_action.addEventListener 'click', @on_serializebox_action
-    @serializebox_cancel.addEventListener 'click', @on_serializebox_cancel
-
-    @graph_ui_canvas.addEventListener 'mousedown', @on_mousedown
-    @graph_ui_canvas.addEventListener 'mouseup',   @on_mouseup
-    @graph_ui_canvas.addEventListener 'mousemove', @on_mousemove
-
     @graph_wrapper.addEventListener 'mouseenter', @on_mouseenter
-    @graph_wrapper.addEventListener 'mouseleave', @on_mouseleave
+    @graph_wrapper.addEventListener 'mouseleave', @on_mouseleav
 
     for i in [0..document.styleSheets.length]
       s = document.styleSheets[i]
@@ -919,132 +1130,83 @@ class StochasticSierpinski
         @graph_wrapper_observer = new MutationObserver(@on_graph_wrapper_mutate)
         @graph_wrapper_observer.observe(@graph_wrapper, { attributes: true })
 
+    @resize_graph(@option.canvas_width.get(), @option.canvas_height.get())
+
+    @cur = new DrawPoint('Cur')
+
+    @load_default_state()
+
+    @set_steps_per_frame(100, false)
+
+    @num_points_el.addEventListener 'input', @on_num_points_input
+    @steps_per_frame_el.addEventListener 'input', @on_steps_per_frame_input
+
+    @btn_reset.addEventListener      'click', @on_reset
+    @btn_step.addEventListener       'click', @on_step
+    @btn_multistep.addEventListener  'click', @on_multistep
+    @btn_run.addEventListener        'click', @on_run
+
+    @context.addEventListener 'keydown', @on_keydown
+
+    @btn_create_png.addEventListener 'click', @on_create_png
+    @btn_save_url.addEventListener 'click', @on_save_url
+    @btn_save.addEventListener 'click', @on_save
+    @btn_load.addEventListener 'click', @on_load
+
+    @btn_move_all_reg_polygon.addEventListener 'click', @on_move_all_reg_polygon
+    @btn_move_all_random.addEventListener 'click', @on_move_all_random
+
+    @serializebox_action.addEventListener 'click', @on_serializebox_action
+    @serializebox_cancel.addEventListener 'click', @on_serializebox_cancel
+
+    @graph_ui_canvas.addEventListener 'mousedown', @on_mousedown
+    @graph_ui_canvas.addEventListener 'mouseup',   @on_mouseup
+    @graph_ui_canvas.addEventListener 'mousemove', @on_mousemove
+
+    window.addEventListener 'hashchange', @on_hashchange
+
     @clear_update_and_draw()
 
-  on_locbit_enabled_change: =>
-    if @option.locbit_enabled.value
-      @enable_locbit()
-    else
-      @disable_locbit()
+  load_default_state: ->
+    @set_ngon(3)
 
-  on_locbit_threshold_change: =>
-    if @locbit_img_ready
-      @locbit_convert_img_to_bitmap()
-      if @option.locbit_enabled.value
-        @resumable_reset()
+    @option.canvas_width.set(APP.DEFAULT.graph.width)
+    @option.canvas_height.set(APP.DEFAULT.graph.height)
+    @option.draw_opacity.set(APP.DEFAULT.draw_opacity)
+    @option.move_range_min.set(APP.DEFAULT.move_range_min)
+    @option.move_range_max.set(APP.DEFAULT.move_range_max)
+    @set_move_range()
+    @cur.set_move_perc(APP.DEFAULT.move_perc * 100)
+    @cur.set_draw_style(APP.DEFAULT.cursor.draw_style)
+    @cur.set_data_source(APP.DEFAULT.cursor.data_source)
 
-  on_locbit_padding_change: =>
-    @redraw_ui() if @show_locbit_overlay
+    p.load_default_state() for p in @points
+    r.load_default_state() for r in @cur.restrictions
 
-  on_locbit_padding_focus: =>
-    @show_locbit_overlay = true
-    @redraw_ui()
+  create_element: (name, id = null) ->
+    el = @context.createElement(name)
+    el.id = id if id?
+    el
 
-  on_locbit_padding_blur: =>
-    @show_locbit_overlay = false
-    @redraw_ui()
+  create_input_element: (type, id = null) ->
+    el = @create_element('input', id)
+    el.type = type
+    el
 
-  render_locbit_overlay: ->
-    cw = @graph_ui_canvas.width
-    ch = @graph_ui_canvas.height
+  on_move_range_change: =>
+    @set_move_range(@option.move_range_min.get(), @option.move_range_max.get())
+    @resumable_reset()
 
-    padperc = @option.locbit_padding.value / 100
-    padwidth  = padperc * cw
-    padheight = padperc * ch
-    imgwidth  = cw - (2 * padwidth)
-    imgheight = ch - (2 * padheight)
-
-    @graph_ui_ctx.save()
-    img_region = new Path2D()
-    img_region.rect(padwidth, padheight, imgwidth, imgheight)
-    img_region.rect(0, 0, cw, ch)
-    @graph_ui_ctx.clip(img_region, 'evenodd')
-    @graph_ui_ctx.fillStyle = 'rgba(255, 65, 2, 0.3)'
-    @graph_ui_ctx.fillRect(0, 0, cw, ch)
-    @graph_ui_ctx.restore()
-
-    if @locbit_img_ready
-      oldalpha = @graph_ui_ctx.globalAlpha
-      @graph_ui_ctx.globalAlpha = 0.5
-      @graph_ui_ctx.drawImage(@locbit_bitmap, padwidth, padheight, imgwidth, imgheight)
-      @graph_ui_ctx.globalAlpha = oldalpha
-
-  collides_with_bitmap: (x, y) ->
-    cw = @graph_ui_canvas.width
-    ch = @graph_ui_canvas.height
-
-    padperc = @option.locbit_padding.value / 100
-    padwidth  = padperc * cw
-    return false if x < padwidth
-    padheight = padperc * ch
-    return false if y < padheight
-    padwidth2  = 2 * padwidth
-    return false if x >= padwidth2
-    padheight2 = 2 * padheight
-    return false if y >= padheight2
-
-    imgwidth  = cw - padwidth2
-    imgheight = ch - padwidth2
-    imgstartx = (cw / 2) - (imgwidth / 2)
-    imgstarty = (ch / 2) - (imgheight / 2)
-    testx = Math.floor(((x - imgstartx) / imgwidth ) * imgwidth )
-    testy = Math.floor(((y - imgstarty) / imgheight) * imgheight)
-    pixel = @locbit_bitmap_ctx.getImageData(testx, testy, 1, 1)
-
-    return (pixel.data[0]) < 128
-
-  locbit_convert_img_to_bitmap: ->
-    w = @locbit_img.width
-    h = @locbit_img.height
-    @locbit_bitmap.width  = w
-    @locbit_bitmap.height = h
-    @locbit_bitmap_ctx.drawImage(@locbit_img, 0, 0, w, h)
-
-    image_data = @locbit_bitmap_ctx.getImageData(0, 0, w, h)
-
-    d = image_data.data
-    threshold = @option.locbit_threshold.value / 255.0
-
-    for i in [0...(d.length)] by 4
-      y = Color.srgb_to_luminance(d[i], d[i + 1], d[i + 2])
-      x = if y < threshold then 0 else 1
-      d[i + 2] = d[i + 1] = d[i] = Math.floor(x * 255)
-
-    @locbit_bitmap_ctx.putImageData(image_data, 0, 0)
-
-  on_locbit_img_load: =>
-    @locbit_img_ready = true
-    @locbit_convert_img_to_bitmap()
-
-  on_locbit_file_change: =>
-    return if @locbit_file.files.length < 1
-    file = @locbit_file.files[0]
-    return unless file.type.startsWith('image/')
-
-    @locbit_img_ready = false
-    reader = new FileReader()
-    reader.onload = (event) => @locbit_img.src = event.target.result
-    reader.readAsDataURL(file)
-    @locbit_img_box.classList.remove('hidden')
-
-  enable_locbit: ->
-    @option.locbit_padding.enable()
-    @option.locbit_threshold.enable()
-    @locbit_file.disabled = false
-
-  disable_locbit: ->
-    @option.locbit_padding.disable()
-    @option.locbit_threshold.disable()
-    @locbit_file.disabled = true
-
-  on_draw_style_change: =>
-    @cur.set_draw_style(@option.draw_style.value)
+  set_move_range: (min = APP.DEFAULT.move_range_min, max = APP.DEFAULT.move_range_max) ->
+    @cur.set_move_range(min, max)
+    for p in @points
+      p.set_move_range(min, max)
 
   on_draw_opacity_change: =>
     o = @option.draw_opacity.value
     @cur.set_opacity(o)
-    for w in PointWidget.widgets
-      w.set_opacity(o)
+    for p in @points
+      p.set_opacity(o)
 
   clear_update_and_draw: ->
     @update_info_elements()
@@ -1060,30 +1222,112 @@ class StochasticSierpinski
   on_graph_wrapper_mutate: (event) =>
     if @graph_wrapper.offsetWidth != @graph_ui_canvas.width or @graph_wrapper.offsetHeight != @graph_ui_canvas.height
       @resize_graph(@graph_wrapper.offsetWidth, @graph_wrapper.offsetHeight)
+      APP.resumable_reset()
 
-  resize_graph: (w, h) ->
-    @graph_canvas.width  = w
-    @graph_canvas.height = h
-    @graph_ui_canvas.width  = w
-    @graph_ui_canvas.height = h
-    @canvas_size_rule.style.width  = "#{w}px"
-    @canvas_size_rule.style.height = "#{h}px"
+  clamp_points_to_canvas: ->
+    [width, height] = APP.max_xy()
+
+    for p in APP.points
+      p.x = 0 if p.x < 0
+      p.y = 0 if p.y < 0
+      p.x = width  - 1 if p.x >= width
+      p.y = height - 1 if p.y >= height
+
+  resize_graph_width: (w) ->
+    scale = w / @graph_canvas.width
+    p.scale_width(scale) for p in @points
+
+    style_width = "#{w}px"
+    @graph_canvas.width = w
+    @graph_ui_canvas.width = w
+    @graph_wrapper.style.width = style_width
+    @canvas_size_rule.style.width = style_width
     @option.canvas_width.set(w)
+
+  resize_graph_height: (h) ->
+    scale = h / @graph_canvas.height
+    p.scale_height(scale) for p in @points
+
+    style_height = "#{h}px"
+
+    @graph_canvas.height = h
+    @graph_ui_canvas.height = h
+    @graph_wrapper.style.height = style_height
+    @canvas_size_rule.style.height = style_height
     @option.canvas_height.set(h)
 
-    PointWidget.clamp_widgets_to_canvas()
+  resize_graph: (w, h) ->
+    @resize_graph_width(w)
+    @resize_graph_height(h)
+
+  on_canvas_width_change: =>
+    @resize_graph_width(@option.canvas_width.value) 
     @resumable_reset()
 
-  on_canvas_hw_change: =>
-    @resize_graph(@option.canvas_width.value, @option.canvas_height.value)
+  on_canvas_height_change: =>
+    @resize_graph_height(@option.canvas_height.value)
+    @resumable_reset()
+
+  attach_point: (point) ->
+    @points.push(point)
+    @cur.update_point_list_metadata()
+
+  detach_point: (point) ->
+    idx = @points.indexOf(point)
+
+    if idx > -1
+      @points.splice(idx, 1)
+      @cur.update_point_list_metadata()
+
+    APP.resumable_reset()
+
+  add_point: () ->
+    if @points.length < APP.MAX_POINTS
+      PointWidget.create()
+      @resumable_reset()
+
+  remove_point: () ->
+    len = @points.length
+    if len > APP.MIN_POINTS
+      @points[len - 1].destroy()
+
+  set_num_points: (n) ->
+    return unless n >= @MIN_POINTS and n <= @MAX_POINTS
+
+    diff = n - @points.length
+    @add_point() for [0...diff] if diff > 0
+
+    diff = @points.length - n
+    @remove_point() for [0...diff] if diff > 0
+
+    @num_points_el.value = @points.length;
+
+  recolor_periodic_hue: (step, start = 0.0) ->
+    hue = start
+    for p in @points
+      p.set_color_hue(hue)
+      hue += step
+
+  recolor_equidistant_hue: () ->
+    @recolor_periodic_hue(360.0 / @points.length)
+
+  set_ngon: (n, recolor = true) ->
+    @set_num_points(n)
+    @on_move_all_reg_polygon()
+    @recolor_equidistant_hue() if recolor
 
   on_num_points_input: (event) =>
-    PointWidget.set_ngon(event.target.value)
+    @set_ngon(event.target.value)
+
+  set_all_points_move_perc: (value) ->
+    for p in @points
+      p.set_move_perc(value)
 
   on_steps_per_frame_input: (event) =>
     @set_steps_per_frame(event.target.value)
 
-  set_steps_per_frame: (int_value) ->
+  set_steps_per_frame: (int_value, save_to_cookie = true) ->
+    @old_steps_per_frame = @steps_per_frame
     @steps_per_frame = parseInt(int_value)
 
     if @steps_per_frame < 1
@@ -1096,6 +1340,10 @@ class StochasticSierpinski
     else
       @steps_per_frame_el.value = @steps_per_frame
       @btn_multistep.disabled = false
+
+    if save_to_cookie
+      unless @old_steps_per_frame == @steps_per_frame
+        @serialize_cookie('steps_per_frame', @steps_per_frame)
 
   on_create_png: =>
     dataurl = @graph_canvas.toDataURL('png')
@@ -1134,15 +1382,20 @@ class StochasticSierpinski
 
   serialize: ->
     opt =
-      points: PointWidget.widgets.map( (x) -> x.save() )
-      restrictions: PointWidget.restrictions.save()
+      points: @points.map( (x) -> x.save() )
+      restrictions: @cur.restrictions.save()
       options:
-        canvas_width:   @option.canvas_width.value
-        canvas_height:  @option.canvas_height.value
-        locbit_enabled: @option.locbit_enabled.value
-        locbit_padding: @option.locbit_padding.value
-        draw_style:     @option.draw_style.value
-        draw_opacity:   @option.draw_opacity.value
+        canvas_width:  @option.canvas_width.value
+        canvas_height: @option.canvas_height.value
+        draw_opacity:  @option.draw_opacity.value
+        draw_style:    @cur.option.draw_style.get()
+        data_source:   @cur.option.data_source.get()
+        all_points_move_perc: @cur.option.move_perc.get()
+        move_absolute_magnitude: @move_absolute_magnitude
+        move_range_min: @option.move_range_min.get()
+        move_range_max: @option.move_range_max.get()
+        imgmask_enabled: @cur.option.imgmask_enabled.get()
+        imgmask_padding: @cur.option.imgmask_padding.get()
 
     JSON.stringify(opt)
 
@@ -1153,27 +1406,43 @@ class StochasticSierpinski
       if opt.options.canvas_width? and opt.options.canvas_width?
         @resize_graph(opt.options.canvas_width, opt.options.canvas_width)
 
-      if opt.options.locbit_enabled?
-        @option.locbit_enabled.set(opt.options.locbit_enabled)
-
-      if opt.options.locbit_padding?
-        @option.locbit_padding.set(opt.options.locbit_padding)
-
-      if opt.options.draw_style?
-        @option.draw_style.set(opt.options.draw_style)
-
       if opt.options.draw_opacity?
         @option.draw_opacity.set(opt.options.draw_opacity)
 
-    if opt.points?
-      @num_points_el.valueAsNumber = PointWidget.widgets.length;
+      if opt.options.draw_style?
+        @cur.set_draw_style(opt.options.draw_style)
 
-      PointWidget.set_num_widgets(opt.points.length)
+      if opt.options.data_source?
+        @cur.set_data_source(opt.options.data_source)
+
+      if opt.options.move_range_min?
+        @option.move_range_min.set(opt.options.move_range_min)
+
+      if opt.options.move_range_max?
+        @option.move_range_max.set(opt.options.move_range_max)
+
+      if opt.options.move_range_min? or opt.options.move_range_max?
+        @on_move_range_change()
+
+      if opt.options.all_points_move_perc?
+        @cur.set_move_perc(opt.options.all_points_move_perc)
+
+      if opt.options.move_absolute_magnitude?
+        @move_absolute_magnitude = opt.options.move_absolute_magnitude
+
+      if opt.options.imgmask_enabled?
+        @cur.option.imgmask_enabled.set(opt.options.imgmask_enabled)
+
+      if opt.options.imgmask_padding?
+        @cur.option.imgmask_padding.set(opt.options.imgmask_padding)
+
+    if opt.points?
+      @set_num_points(opt.points.length)
       for p, i in opt.points
-        PointWidget.widgets[i].load(p)
+        @points[i].load(p)
 
     if opt.restrictions?
-      PointWidget.restrictions.load(opt.restrictions)
+      @cur.restrictions.load(opt.restrictions)
     
   on_save: =>
     @show_serializebox('Save', @serialize(), null)
@@ -1186,10 +1455,42 @@ class StochasticSierpinski
     document.location = "##{hash}"
 
   on_move_all_reg_polygon: =>
-    PointWidget.move_all_reg_polygon()
+    len = @points.length
 
-  on_move_all_random: =>
-    PointWidget.move_all_random()
+    [maxx, maxy] = @max_xy()
+    minside = Math.min(maxx, maxy)
+    cx = maxx / 2
+    cy = maxy / 2
+    mincxy = Math.min(cx, cy)
+    r = mincxy - @REG_POLYGON_MARGIN
+    theta = (Math.PI * 2) / len
+
+    rotate = -Math.PI/2
+
+    switch len
+      when 3
+        side = minside - (2 * @REG_POLYGON_MARGIN)
+        height = side * (Math.sqrt(3) / 2)
+        tri_adj = (minside - height) / 2
+        cy += tri_adj * 1.5
+        r *= 1.12
+
+      when 4
+        rotate += Math.PI/4
+        r = Math.sqrt((r * r) * 2)
+
+    for p, i in @points
+      x = parseInt(r * Math.cos(rotate + theta * i))
+      y = parseInt(r * Math.sin(rotate + theta * i))
+      p.move(cx + x, cy + y)
+
+    @resumable_reset()
+
+  on_move_all_random: () =>
+    for p in @points
+      p.move(@random_x(), @random_y())
+
+    @resumable_reset()
 
   random_x: =>
     parseInt(Math.random() * @graph_ui_canvas.width)
@@ -1214,13 +1515,30 @@ class StochasticSierpinski
       (0 <= loc.x <= @graph_ui_canvas.width) and
       (0 <= loc.y <= @graph_ui_canvas.height))
 
+  nearby_points: (loc) ->
+    @points.filter (p) =>
+      p.distance(loc) < @NEARBY_RADIUS
+
+  first_nearby_point: (loc) ->
+    nearlist = @nearby_points(loc)
+    if nearlist?
+      nearlist[0]
+    else
+      null
+
+  unhighlight_all: () ->
+    changed = false
+    for p in @points
+      changed = true if p.unhighlight()
+    return changed
+
   on_mousedown: (event) =>
-    PointWidget.unhighlight_all()
+    @unhighlight_all()
     loc = @event_to_canvas_loc(event)
-    w = PointWidget.first_nearby_widget(loc)
-    if w?
-      @dnd_target = w
-      w.highlight()
+    p = @first_nearby_point(loc)
+    if p?
+      @dnd_target = p
+      p.highlight()
 
   on_mouseup: (event) =>
     if @dnd_target?
@@ -1240,15 +1558,19 @@ class StochasticSierpinski
         @redraw_ui()
         @resumable_reset()
     else
-      redraw = PointWidget.unhighlight_all()
+      redraw = @unhighlight_all()
 
-      w = PointWidget.first_nearby_widget(loc)
-      if w?
-        redraw = true if w.highlight()
+      p = @first_nearby_point(loc)
+      if p?
+        redraw = true if p.highlight()
 
       @redraw_ui() if redraw
 
   resumable_reset: () =>
+    @on_reset(true)
+
+  update_metadata_and_reset: ->
+    @cur?.update_point_list_metadata()
     @on_reset(true)
 
   clear_graph_canvas: () ->
@@ -1304,46 +1626,71 @@ class StochasticSierpinski
     @btn_run.classList.add('paused')
 
   single_step: ->
-    target = PointWidget.random_widget()
-    if target?
-      if @option.locbit_enabled.value and @locbit_img_ready
-        newx = @cur.x + ((target.x - @cur.x) * target.move_perc)
-        newy = @cur.y + ((target.y - @cur.y) * target.move_perc)
-        return if @collides_with_bitmap(newx, newy)
-
-      @cur.move_towards_no_text_update target
-      @cur.draw_graph(target)
+    if @cur.single_step()
       @step_count += 1
+    return null
 
   step: (num_steps = 1) =>
     @single_step() for [0...num_steps]
 
     @update_info_elements()
     @redraw_ui()
+    return null
 
   multistep: ->
     @step(@steps_per_frame)
+    return null
+
+  render_imgmask_overlay: ->
+    cw = @graph_ui_canvas.width
+    ch = @graph_ui_canvas.height
+
+    padperc = @cur.option.imgmask_padding.value / 100
+    padwidth  = padperc * cw
+    padheight = padperc * ch
+    imgwidth  = cw - (2 * padwidth)
+    imgheight = ch - (2 * padheight)
+
+    @graph_ui_ctx.save()
+    img_region = new Path2D()
+    img_region.rect(padwidth, padheight, imgwidth, imgheight)
+    img_region.rect(0, 0, cw, ch)
+    @graph_ui_ctx.clip(img_region, 'evenodd')
+    @graph_ui_ctx.fillStyle = 'rgba(255, 65, 2, 0.3)'
+    @graph_ui_ctx.fillRect(0, 0, cw, ch)
+    @graph_ui_ctx.restore()
+
+    if @cur.imgmask_img_ready
+      oldalpha = @graph_ui_ctx.globalAlpha
+      @graph_ui_ctx.globalAlpha = 0.5
+      @graph_ui_ctx.drawImage(@cur.imgmask_bitmap, padwidth, padheight, imgwidth, imgheight)
+      @graph_ui_ctx.globalAlpha = oldalpha
 
   redraw_ui: =>
     @graph_ui_ctx.clearRect(0, 0, @graph_ui_canvas.width, @graph_ui_canvas.height)
 
     @cur?.draw_ui()
 
-    for p in PointWidget.widgets
+    for p in @points
       p.draw_ui()
 
+    @render_imgmask_overlay() if @show_imgmask_overlay
 
-    @render_locbit_overlay() if @show_locbit_overlay
+    return null
+
 
   update: =>
     @frame_is_scheduled = false
     @multistep()
     @schedule_next_frame() if @running
+    return null
 
   schedule_next_frame: () ->
     unless @frame_is_scheduled
       @frame_is_scheduled = true
       window.requestAnimationFrame(@update)
+
+    return null
 
   on_keydown: (event) =>
     switch event.key
@@ -1354,9 +1701,25 @@ class StochasticSierpinski
       when "s", "S"        then @on_save()
       when "l", "L"        then @on_load()
 
+  on_hashchange: =>
+    if document.location.hash?.length > 1
+      @deserialize(document.location.hash.slice(1))
+    else
+      @load_default_state()
+
+  serialize_cookie: (key, value) ->
+    document.cookie = "#{key}=#{value}"
+
+  deserialize_cookie: (key, value) ->
+    switch key
+      when 'steps_per_frame' then @set_steps_per_frame(value)
+
+  load_from_cookie: =>
+    for cookie in document.cookie.split('; ')
+      @deserialize_cookie(cookie.split('=')...)
+
 document.addEventListener 'DOMContentLoaded', =>
   APP = new StochasticSierpinski(document)
   APP.init()
-
-  if document.location.hash?.length > 1
-    APP.deserialize(document.location.hash.slice(1))
+  APP.on_hashchange()
+  APP.load_from_cookie()

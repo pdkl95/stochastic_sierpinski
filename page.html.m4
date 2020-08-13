@@ -18,32 +18,49 @@ undivert(`style.css')
     <div id="content">
       <div class="graph panel">
         <div id="graph_wrapper" class="canvas_wrapper canvas_size">
-          <canvas id="graph" class="graph_canvas canvas_size" width="420" height="320">
+          <canvas id="graph" class="graph_canvas canvas_size" width="420" height="420">
             This requires a browser that supports the &lt;canvas&gt; tag.
           </canvas>
-          <canvas id="graph_ui" class="graph_canvas canvas_size" width="420" height="320">
+          <canvas id="graph_ui" class="graph_canvas canvas_size" width="420" height="420">
             This requires a browser that supports the &lt;canvas&gt; tag.
           </canvas>
         </div>
       </div>
 
       <div class="info panel">
+        <table id="all_points_table">
+          <tr>
+            <td colspan=3 class="right">
+              <label for="move_range_min">MIN</label>
+              <input id="move_range_min" name="move_range_min"
+                     type="number" value="0" step="1">
+              <label for="move_range_max" id="move_range_max_label">MAX</label>
+              <input id="move_range_max" name="move_range_max"
+                     type="number" value="100" step="1">
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <input type="number" id="all_points_move_perc_option" value=50>
+            </td>
+            <td>
+              <input type="range" id="all_points_move_perc_range"
+                     min="0" max="100" step="5" value="50">
+            </td>
+            <td class="move_mode" id="set_all_points_box">
+              <button id="set_all_points">&darr;</button>
+            </td>
+          </tr>
+        </table>
         <table id="misc_info_table">
           <tr>
-            <th>Current Location</th>
+            <th>Current X,Y</th>
             <td id="point_cur_x"></td>
             <td id="point_cur_y"></td>
           </tr>
           <tr>
             <th>Total Steps</th>
             <td id="total_steps" colspan=2></td>
-          </tr>
-          <tr>
-            <th>Steps / Frame</th>
-            <td colspan=2>
-              <input type="number" id="steps_per_frame"
-                     min="0" max="500" step="10">
-            </td>
           </tr>
         </table>
         <table id="point_pos_table">
@@ -53,7 +70,7 @@ undivert(`style.css')
             <th>X</th>
             <th>Y</th>
             <th>Move %</th>
-            <th></th>
+            <th colspan=2 class="right">Rel?</th>
           </tr>
         </table>
       </div>
@@ -119,36 +136,36 @@ undivert(`style.css')
 
         <h3>Restricted Location Bitmap</h3>
 
-        <div id="locbit_img_box" class="hidden">
+        <div id="imgmask_img_box" class="hidden">
           <figure>
-            <img id="locbit_img" width="64" height="64">
+            <img id="imgmask_img" width="64" height="64">
             <figcaption>Original</figcaption>
           </figure>
           <figure>
-            <canvas id="locbit_bitmap" width="64" height="64"></canvas>
+            <canvas id="imgmask_bitmap" width="64" height="64"></canvas>
             <figcaption>Bitmap</figcaption>
           </figure>
         </div>
 
-        <div class="locbitbox buttonbox">
+        <div class="imgmaskbox buttonbox">
           <table>
             <tr>
               <th>Enabled?</th>
-              <td><input id="locbit_enabled" type="checkbox"></td>
+              <td><input id="imgmask_enabled" type="checkbox"></td>
             </tr>
             <tr>
               <th>Border Padding Size</th>
-              <td><input id="locbit_padding" type="number" value="33"
+              <td><input id="imgmask_padding" type="number" value="33"
                          min="0" max="49" step="1">%</td>
             </tr>
             <tr>
               <th>Bitmap Threshold</th>
-              <td><input id="locbit_threshold" type="range" value="1"
+              <td><input id="imgmask_threshold" type="range" value="1"
                          min="1" max="254" step="1">%</td>
             </tr>
             <tr>
               <th>Load Image As Bitmap</th>
-              <td><input id="locbit_file" type="file" accept="image/*"></td>
+              <td><input id="imgmask_file" type="file" accept="image/*"></td>
             </tr>
           </table>
         </div>
@@ -157,12 +174,19 @@ undivert(`style.css')
         <div class="optionsbox buttonbox">
           <table>
             <tr>
+              <th>Steps / Frame</th>
+              <td colspan=2>
+                <input type="number" id="steps_per_frame"
+                       min="0" max="500" step="10">
+              </td>
+            </tr>
+            <tr>
               <th>Canvas Size</th>
               <td>
                 <input id="canvas_width" type="number" value="420"
                        min="64" max="4096" step="1">
-                x
-                <input id="canvas_height" type="number" value="320"
+                &nbsp;x&nbsp;
+                <input id="canvas_height" type="number" value="420"
                        min="64" max="4096" step="1">
               </td>
             </tr>
@@ -181,6 +205,15 @@ undivert(`style.css')
               <th>Draw Opacity</th>
               <td><input id="draw_opacity" type="number"
                          min="0" max="100" step="5">%</td>
+            </tr>
+            <tr>
+              <th>Movement Data Source</th>
+              <td>
+                <select id="movement_data_source" name="movement_data_source">
+                  <option value="dest">Destination</option>
+                  <option value="orig">Origin</option>
+                </select>
+              </td>
             </tr>
           </table>
         </div>

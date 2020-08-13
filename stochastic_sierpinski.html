@@ -209,7 +209,7 @@ h1 {
 
 .canvas_size {
   width: 420px;
-  height: 320px;
+  height: 420px;
 }
 
 .canvas_wrapper {
@@ -224,6 +224,14 @@ h1 {
   resize: both;
 }
 
+.center {
+  text-align: center;
+}
+
+.right {
+  text-align: right;
+}
+
 .panel {
   box-shadow: 1px 1px 6px -3px rgba(0, 0, 0, 0.22), 0 0 20px -4px rgba(255, 255, 255, 0.45) inset;
 }
@@ -236,12 +244,17 @@ h1 {
 
 .info.panel {
   float: left;
-
 }
 
 .graph.panel,
 .info.panel {
   margin-bottom: 7px;
+}
+
+.info.panel > table {
+  margin-left: 7px;
+  margin-right: 7px;
+  margin-bottom: 0px;
 }
 
 .ui.panel {
@@ -312,7 +325,7 @@ footer {
   background-color: #e2e2e2
 }
 
-#locbit_img_box {
+#imgmask_img_box {
   float: right;
 }
 
@@ -333,20 +346,66 @@ td.blank {
   width: 5em;
 }
 
-#locbit_padding,
+#set_all_points_box {
+  padding-right: 0;
+}
+
+#set_all_points {
+  font-weight: bold;
+  padding-left: 1px;
+  padding-right: 1px;
+}
+
+#move_range_max_label {
+  margin-left: 0.5em;
+}
+
+#move_range_min,
+#move_range_max {
+  width: 3em;
+}
+
+#imgmask_padding,
 #steps_per_frame,
 #draw_opacity {
   width: 3.5em;
 }
 
-#point_pos_table input[type="range"] {
-  width: 10em;
+#all_points_table {
+  float: right;
+}
+
+#point_pos_table input[type="color"] {
+  width: 3em;
+}
+
+#point_pos_table input[type="number"],
+#all_points_table input[type="number"] {
+  width: 4em;
+}
+
+#point_pos_table input[type="range"],
+#all_points_table input[type="range"] {
+  width: 8em;
+  margin-left: 0;
+  margin-right: 0;
 }
 
 #point_pos_table td:nth-child(3),
 #point_pos_table td:nth-child(4),
 #point_pos_table td:nth-child(5) {
   text-align: right;
+}
+
+th.move_mode,
+td.move_mode {
+  width: 24px;
+  text-align: center;
+}
+
+#point_pos_table .move_mode input[type="checkbox"] {
+  margin-left: 0;
+  margin-right: 0;
 }
 
 .highlight > td {
@@ -394,32 +453,49 @@ td.blank {
     <div id="content">
       <div class="graph panel">
         <div id="graph_wrapper" class="canvas_wrapper canvas_size">
-          <canvas id="graph" class="graph_canvas canvas_size" width="420" height="320">
+          <canvas id="graph" class="graph_canvas canvas_size" width="420" height="420">
             This requires a browser that supports the &lt;canvas&gt; tag.
           </canvas>
-          <canvas id="graph_ui" class="graph_canvas canvas_size" width="420" height="320">
+          <canvas id="graph_ui" class="graph_canvas canvas_size" width="420" height="420">
             This requires a browser that supports the &lt;canvas&gt; tag.
           </canvas>
         </div>
       </div>
 
       <div class="info panel">
+        <table id="all_points_table">
+          <tr>
+            <td colspan=3 class="right">
+              <label for="move_range_min">MIN</label>
+              <input id="move_range_min" name="move_range_min"
+                     type="number" value="0" step="1">
+              <label for="move_range_max" id="move_range_max_label">MAX</label>
+              <input id="move_range_max" name="move_range_max"
+                     type="number" value="100" step="1">
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <input type="number" id="all_points_move_perc_option" value=50>
+            </td>
+            <td>
+              <input type="range" id="all_points_move_perc_range"
+                     min="0" max="100" step="5" value="50">
+            </td>
+            <td class="move_mode" id="set_all_points_box">
+              <button id="set_all_points">&darr;</button>
+            </td>
+          </tr>
+        </table>
         <table id="misc_info_table">
           <tr>
-            <th>Current Location</th>
+            <th>Current X,Y</th>
             <td id="point_cur_x"></td>
             <td id="point_cur_y"></td>
           </tr>
           <tr>
             <th>Total Steps</th>
             <td id="total_steps" colspan=2></td>
-          </tr>
-          <tr>
-            <th>Steps / Frame</th>
-            <td colspan=2>
-              <input type="number" id="steps_per_frame"
-                     min="0" max="500" step="10">
-            </td>
           </tr>
         </table>
         <table id="point_pos_table">
@@ -429,7 +505,7 @@ td.blank {
             <th>X</th>
             <th>Y</th>
             <th>Move %</th>
-            <th></th>
+            <th colspan=2 class="right">Rel?</th>
           </tr>
         </table>
       </div>
@@ -495,36 +571,36 @@ td.blank {
 
         <h3>Restricted Location Bitmap</h3>
 
-        <div id="locbit_img_box" class="hidden">
+        <div id="imgmask_img_box" class="hidden">
           <figure>
-            <img id="locbit_img" width="64" height="64">
+            <img id="imgmask_img" width="64" height="64">
             <figcaption>Original</figcaption>
           </figure>
           <figure>
-            <canvas id="locbit_bitmap" width="64" height="64"></canvas>
+            <canvas id="imgmask_bitmap" width="64" height="64"></canvas>
             <figcaption>Bitmap</figcaption>
           </figure>
         </div>
 
-        <div class="locbitbox buttonbox">
+        <div class="imgmaskbox buttonbox">
           <table>
             <tr>
               <th>Enabled?</th>
-              <td><input id="locbit_enabled" type="checkbox"></td>
+              <td><input id="imgmask_enabled" type="checkbox"></td>
             </tr>
             <tr>
               <th>Border Padding Size</th>
-              <td><input id="locbit_padding" type="number" value="33"
+              <td><input id="imgmask_padding" type="number" value="33"
                          min="0" max="49" step="1">%</td>
             </tr>
             <tr>
               <th>Bitmap Threshold</th>
-              <td><input id="locbit_threshold" type="range" value="1"
+              <td><input id="imgmask_threshold" type="range" value="1"
                          min="1" max="254" step="1">%</td>
             </tr>
             <tr>
               <th>Load Image As Bitmap</th>
-              <td><input id="locbit_file" type="file" accept="image/*"></td>
+              <td><input id="imgmask_file" type="file" accept="image/*"></td>
             </tr>
           </table>
         </div>
@@ -533,12 +609,19 @@ td.blank {
         <div class="optionsbox buttonbox">
           <table>
             <tr>
+              <th>Steps / Frame</th>
+              <td colspan=2>
+                <input type="number" id="steps_per_frame"
+                       min="0" max="500" step="10">
+              </td>
+            </tr>
+            <tr>
               <th>Canvas Size</th>
               <td>
                 <input id="canvas_width" type="number" value="420"
                        min="64" max="4096" step="1">
-                x
-                <input id="canvas_height" type="number" value="320"
+                &nbsp;x&nbsp;
+                <input id="canvas_height" type="number" value="420"
                        min="64" max="4096" step="1">
               </td>
             </tr>
@@ -557,6 +640,15 @@ td.blank {
               <th>Draw Opacity</th>
               <td><input id="draw_opacity" type="number"
                          min="0" max="100" step="5">%</td>
+            </tr>
+            <tr>
+              <th>Movement Data Source</th>
+              <td>
+                <select id="movement_data_source" name="movement_data_source">
+                  <option value="dest">Destination</option>
+                  <option value="orig">Origin</option>
+                </select>
+              </td>
             </tr>
           </table>
         </div>
@@ -587,11 +679,11 @@ td.blank {
 
     <script type="text/javascript">
 (function() {
-  var APP, BoolOtherOption, Color, DrawPoint, EnumOtherOption, NumberOtherOption, OtherOption, Point, PointWidget, StochasticSierpinski, TargetRestriction, TargetRestrictionOption, UIPoint, base,
+  var APP, BoolUIOption, Color, DrawPoint, EnumUIOption, NumberUIOption, Point, PointWidget, StochasticSierpinski, TargetRestriction, TargetRestrictionOption, UIOption, UIPoint, base,
     slice = [].slice,
+    bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
-    hasProp = {}.hasOwnProperty,
-    bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+    hasProp = {}.hasOwnProperty;
 
   APP = null;
 
@@ -773,7 +865,9 @@ td.blank {
   Point = (function() {
     function Point(name1, x, y, move_perc) {
       this.name = name1;
-      this.move_perc = move_perc != null ? move_perc : 0.5;
+      this.move_perc = move_perc != null ? move_perc : APP.DEFAULT.move_perc;
+      this.set_y = bind(this.set_y, this);
+      this.set_x = bind(this.set_x, this);
       if (x == null) {
         x = APP.graph_ui_canvas.width / 2;
       }
@@ -783,16 +877,30 @@ td.blank {
       this.el_id = this.name.toLowerCase();
       this.info_x_id = 'point_' + this.el_id + '_x';
       this.info_y_id = 'point_' + this.el_id + '_y';
+      this.move_perc_mode = true;
+      this.build();
       this.move(x, y);
     }
 
+    Point.prototype.build = function() {};
+
     Point.prototype.update_text = function() {
-      if (this.info_x) {
-        this.info_x.textContent = this.ix;
+      if (this.info_x_cell) {
+        this.info_x_cell.textContent = this.ix;
       }
-      if (this.info_y) {
-        return this.info_y.textContent = this.iy;
+      if (this.info_y_cell) {
+        return this.info_y_cell.textContent = this.iy;
       }
+    };
+
+    Point.prototype.set_x = function(x) {
+      this.x = x;
+      return this.ix = Math.floor(this.x);
+    };
+
+    Point.prototype.set_y = function(y) {
+      this.y = y;
+      return this.iy = Math.floor(this.y);
     };
 
     Point.prototype.move_no_text_update = function(x, y) {
@@ -802,29 +910,64 @@ td.blank {
       return this.iy = Math.floor(this.y);
     };
 
+    Point.prototype.move_no_text_update_array = function(coord) {
+      this.x = coord[0];
+      this.y = coord[1];
+      this.ix = Math.floor(this.x);
+      return this.iy = Math.floor(this.y);
+    };
+
     Point.prototype.move = function(x, y) {
       this.move_no_text_update(x, y);
       return this.update_text();
     };
 
-    Point.prototype.move_towards = function(other, perc) {
+    Point.prototype.move_perc_towards = function(target, perc) {
       var dx, dy;
       if (perc == null) {
-        perc = other.move_perc;
+        perc = target.move_perc;
       }
-      dx = other.x - this.x;
-      dy = other.y - this.y;
+      dx = target.x - this.x;
+      dy = target.y - this.y;
       return this.move(this.x + dx * perc, this.y + dy * perc);
     };
 
-    Point.prototype.move_towards_no_text_update = function(other, perc) {
+    Point.prototype.coords_after_move_perc_towards_target = function(target, perc) {
       var dx, dy;
       if (perc == null) {
-        perc = other.move_perc;
+        perc = target.move_perc;
       }
-      dx = other.x - this.x;
-      dy = other.y - this.y;
-      return this.move_no_text_update(this.x + dx * perc, this.y + dy * perc);
+      dx = target.x - this.x;
+      dy = target.y - this.y;
+      return [this.x + dx * perc, this.y + dy * perc];
+    };
+
+    Point.prototype.move_perc_towards_no_text_update = function(target, perc) {
+      if (perc == null) {
+        perc = target.move_perc;
+      }
+      return this.move_no_text_update_array(this.coords_after_move_perc_towards_target(target, perc));
+    };
+
+    Point.prototype.coords_after_move_absolute_towards_target = function(target, dist) {
+      var dx, dy, mag, norm_x, norm_y;
+      if (dist == null) {
+        dist = target.move_perc;
+      }
+      dist *= APP.move_absolute_magnitude;
+      dx = target.x - this.x;
+      dy = target.y - this.y;
+      mag = Math.sqrt(dx * dx + dy * dy);
+      norm_x = dx / mag;
+      norm_y = dy / mag;
+      return [this.x + norm_x * dist, this.y + norm_y * dist];
+    };
+
+    Point.prototype.move_absolute_towards_no_text_update = function(target, dist) {
+      if (dist == null) {
+        dist = target.move_perc;
+      }
+      return this.move_no_text_update_array(this.coords_after_move_absolute_towards_target(target, dist));
     };
 
     Point.prototype.distance = function(other) {
@@ -832,6 +975,20 @@ td.blank {
       dx = this.x - other.x;
       dy = this.y - other.y;
       return Math.sqrt((dx * dx) + (dy * dy));
+    };
+
+    Point.prototype.scale_width = function(scale) {
+      this.set_x(this.x * scale);
+      return this.update_text();
+    };
+
+    Point.prototype.scale_height = function(scale) {
+      this.set_y(this.y * scale);
+      return this.update_text();
+    };
+
+    Point.prototype.scale = function(scale) {
+      return this.scale_width(scale, origin);
     };
 
     return Point;
@@ -844,6 +1001,8 @@ td.blank {
     function UIPoint() {
       var args, hue;
       hue = arguments[0], args = 2 <= arguments.length ? slice.call(arguments, 1) : [];
+      this.on_move_per_range_input = bind(this.on_move_per_range_input, this);
+      this.on_move_perc_option_change = bind(this.on_move_perc_option_change, this);
       this.set_color_hue(hue);
       UIPoint.__super__.constructor.apply(this, args);
     }
@@ -878,6 +1037,70 @@ td.blank {
       return ctx.strokeRect(this.x - 2, this.y - 2, 5, 5);
     };
 
+    UIPoint.prototype.move_perc_range_el_init = function() {
+      this.set_move_range();
+      this.move_perc_range_el.value = this.move_perc * 100;
+      return this.move_perc_range_el.addEventListener('input', this.on_move_per_range_input);
+    };
+
+    UIPoint.prototype.set_move_range = function(min, max, step) {
+      var value;
+      if (min == null) {
+        min = APP.option.move_range_min.get();
+      }
+      if (max == null) {
+        max = APP.option.move_range_max.get();
+      }
+      if (step == null) {
+        step = 5;
+      }
+      this.move_perc_range_el.min = min;
+      this.move_perc_range_el.max = max;
+      this.move_perc_range_el.step = step;
+      if ((this.option != null) && (this.option.move_proc != null)) {
+        value = this.option.move_proc.get();
+        if (value < min) {
+          value = min;
+        }
+        if (value > max) {
+          value = max;
+        }
+        this.option.move_proc.set_range(min, max);
+        return this.option.move_proc.set(value);
+      }
+    };
+
+    UIPoint.prototype.on_move_perc_option_change = function(value) {
+      this.set_move_perc(value);
+      return APP.resumable_reset();
+    };
+
+    UIPoint.prototype.on_move_per_range_input = function(event) {
+      this.set_move_perc(event.target.value);
+      return APP.resumable_reset();
+    };
+
+    UIPoint.prototype.set_move_perc_range = function(newvalue) {
+      var rounded, step;
+      if (this.move_perc_range_el != null) {
+        step = this.move_perc_range_el.step;
+        rounded = Math.round(newvalue / step) * step;
+        return this.move_perc_range_el.value = rounded;
+      }
+    };
+
+    UIPoint.prototype.set_move_perc = function(newvalue) {
+      this.move_perc = newvalue / 100.0;
+      newvalue = this.move_perc * 100;
+      this.option.move_perc.set(newvalue);
+      return this.set_move_perc_range(newvalue);
+    };
+
+    UIPoint.prototype.set_move_perc_mode = function(newvalue) {
+      this.move_perc_mode = newvalue;
+      return this.option.move_perc_mode.set(this.move_perc_mode);
+    };
+
     return UIPoint;
 
   })(Point);
@@ -885,253 +1108,9 @@ td.blank {
   PointWidget = (function(superClass) {
     extend(PointWidget, superClass);
 
-    PointWidget.widgets = [];
-
-    PointWidget.MIN_POINTS = 3;
-
-    PointWidget.MAX_POINTS = 8;
-
-    PointWidget.NEARBY_RADIUS = 8;
-
-    PointWidget.REG_POLYGON_MARGIN = 10;
-
-    PointWidget.restrictions = null;
-
-    PointWidget.restricted = {
-      single: [],
-      double: []
-    };
-
-    PointWidget.prev_target = [null, null, null];
-
-    PointWidget.target_chosen_twice = function() {
-      return this.prev_target[0] === this.prev_target[1];
-    };
-
-    PointWidget.current_restricted_choices = function() {
-      if (this.restrictions.using_double() && this.target_chosen_twice()) {
-        return this.restricted.double;
-      } else {
-        return this.restricted.single;
-      }
-    };
-
-    PointWidget.filtered_choices = function(type) {
-      var choices, last, len, n, neighbor, p, ref, value_getter;
-      value_getter = "value_" + type;
-      len = this.widgets.length;
-      last = len - 1;
-      choices = [];
-      if (!this.restrictions.option.self[value_getter]) {
-        choices.push(0);
-      }
-      len -= 1;
-      if (len % 2 === 1) {
-        len -= 1;
-        if (!this.restrictions.option.opposite[value_getter]) {
-          choices.push(parseInt(last / 2) + 1);
-        }
-      }
-      neighbor = 1;
-      while (len >= 2) {
-        ref = this.restrictions.neighbor(neighbor), p = ref[0], n = ref[1];
-        if (!p[value_getter]) {
-          choices.push(p.offset + this.widgets.length);
-        }
-        if (!n[value_getter]) {
-          choices.push(n.offset);
-        }
-        len -= 2;
-        neighbor += 1;
-      }
-      return choices;
-    };
-
-    PointWidget.update_widget_list_metadata = function() {
-      if (this.widgets.length < 3) {
-        return;
-      }
-      this.restrictions.set_enabled(this.widgets.length);
-      this.restricted.single = this.filtered_choices('single');
-      this.restricted.double = this.filtered_choices('double');
-      return this.prev_target[0] = this.prev_target[1] = this.widgets[0];
-    };
-
-    PointWidget.add_widget = function() {
-      if (PointWidget.widgets.length < this.MAX_POINTS) {
-        PointWidget.create();
-        return APP.resumable_reset();
-      }
-    };
-
-    PointWidget.remove_widget = function() {
-      var len;
-      len = PointWidget.widgets.length;
-      if (len > this.MIN_POINTS) {
-        return PointWidget.widgets[len - 1].destroy();
-      }
-    };
-
-    PointWidget.recolor_periodic_hue = function(step, start) {
-      var hue, j, len1, ref, results, w;
-      if (start == null) {
-        start = 0.0;
-      }
-      hue = start;
-      ref = PointWidget.widgets;
-      results = [];
-      for (j = 0, len1 = ref.length; j < len1; j++) {
-        w = ref[j];
-        w.set_color_hue(hue);
-        results.push(hue += step);
-      }
-      return results;
-    };
-
-    PointWidget.recolor_equidistant_hue = function() {
-      return PointWidget.recolor_periodic_hue(360.0 / PointWidget.widgets.length);
-    };
-
-    PointWidget.set_ngon = function(n, recolor) {
-      if (recolor == null) {
-        recolor = true;
-      }
-      PointWidget.set_num_widgets(n);
-      PointWidget.move_all_reg_polygon();
-      if (recolor) {
-        return PointWidget.recolor_equidistant_hue();
-      }
-    };
-
-    PointWidget.set_num_widgets = function(n) {
-      var results;
-      if (!(n >= this.MIN_POINTS && n <= this.MAX_POINTS)) {
-        return;
-      }
-      while (n > PointWidget.widgets.length) {
-        PointWidget.add_widget();
-      }
-      results = [];
-      while (PointWidget.widgets.length > n) {
-        results.push(PointWidget.remove_widget());
-      }
-      return results;
-    };
-
-    PointWidget.move_all_reg_polygon = function() {
-      var cx, cy, height, i, j, len, len1, maxx, maxy, minside, r, ref, ref1, rotate, side, theta, tri_adj, w, x, y;
-      len = PointWidget.widgets.length;
-      ref = APP.max_xy(), maxx = ref[0], maxy = ref[1];
-      minside = Math.min(maxx, maxy);
-      cx = maxx / 2;
-      cy = maxy / 2;
-      r = Math.min(cx, cy) - this.REG_POLYGON_MARGIN;
-      theta = (Math.PI * 2) / len;
-      rotate = -Math.PI / 2;
-      switch (len) {
-        case 3:
-          side = minside - (2 * this.REG_POLYGON_MARGIN);
-          height = side * (Math.sqrt(3) / 2);
-          tri_adj = (minside - height) / 2;
-          cy += tri_adj * Math.sqrt(2);
-          r *= 1.2;
-          break;
-        case 4:
-          rotate += Math.PI / 4;
-          r *= Math.sqrt(2);
-      }
-      ref1 = PointWidget.widgets;
-      for (i = j = 0, len1 = ref1.length; j < len1; i = ++j) {
-        w = ref1[i];
-        x = parseInt(r * Math.cos(rotate + theta * i));
-        y = parseInt(r * Math.sin(rotate + theta * i));
-        w.move(cx + x, cy + y);
-      }
-      return APP.resumable_reset();
-    };
-
-    PointWidget.move_all_random = function() {
-      var j, len1, ref, w;
-      ref = PointWidget.widgets;
-      for (j = 0, len1 = ref.length; j < len1; j++) {
-        w = ref[j];
-        w.move(APP.random_x(), APP.random_y());
-      }
-      return APP.resumable_reset();
-    };
-
-    PointWidget.clamp_widgets_to_canvas = function() {
-      var height, j, len1, ref, ref1, results, w, width;
-      ref = APP.max_xy(), width = ref[0], height = ref[1];
-      ref1 = PointWidget.widgets;
-      results = [];
-      for (j = 0, len1 = ref1.length; j < len1; j++) {
-        w = ref1[j];
-        if (w.x < 0) {
-          w.x = 0;
-        }
-        if (w.y < 0) {
-          w.y = 0;
-        }
-        if (w.x >= width) {
-          w.x = width - 1;
-        }
-        if (w.y >= height) {
-          results.push(w.y = height - 1);
-        } else {
-          results.push(void 0);
-        }
-      }
-      return results;
-    };
-
-    PointWidget.nearby_widgets = function(loc) {
-      return this.widgets.filter((function(_this) {
-        return function(w) {
-          return w.distance(loc) < _this.NEARBY_RADIUS;
-        };
-      })(this));
-    };
-
-    PointWidget.first_nearby_widget = function(loc) {
-      var nearlist;
-      nearlist = PointWidget.nearby_widgets(loc);
-      if (nearlist != null) {
-        return nearlist[0];
-      } else {
-        return null;
-      }
-    };
-
-    PointWidget.random_widget = function() {
-      var choice, choices, idx, prev_idx, w;
-      choices = this.current_restricted_choices();
-      choice = choices[parseInt(Math.random() * choices.length)];
-      prev_idx = PointWidget.widgets.indexOf(this.prev_target[0]);
-      idx = (choice + prev_idx) % PointWidget.widgets.length;
-      w = PointWidget.widgets[idx];
-      this.prev_target[2] = this.prev_target[1];
-      this.prev_target[1] = this.prev_target[0];
-      this.prev_target[0] = w;
-      return w;
-    };
-
-    PointWidget.unhighlight_all = function() {
-      var changed, j, len1, ref, w;
-      changed = false;
-      ref = this.widgets;
-      for (j = 0, len1 = ref.length; j < len1; j++) {
-        w = ref[j];
-        if (w.unhighlight()) {
-          changed = true;
-        }
-      }
-      return changed;
-    };
-
     PointWidget.is_name_used = function(name) {
       var j, len1, ref, w;
-      ref = PointWidget.widgets;
+      ref = APP.points;
       for (j = 0, len1 = ref.length; j < len1; j++) {
         w = ref[j];
         if (w.name === name) {
@@ -1154,7 +1133,6 @@ td.blank {
     };
 
     PointWidget.create = function(opt) {
-      var w;
       if (opt == null) {
         opt = {};
       }
@@ -1173,47 +1151,66 @@ td.blank {
       if (opt.y == null) {
         opt.y = APP.random_y();
       }
-      return w = new PointWidget(opt.hue, opt.name, opt.x, opt.y, opt.move_perc);
+      return new PointWidget(opt.hue, opt.name, opt.x, opt.y, opt.move_perc);
     };
 
     function PointWidget() {
       var args;
       args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
-      this.on_move_per_range_input = bind(this.on_move_per_range_input, this);
       this.on_color_change = bind(this.on_color_change, this);
+      this.on_move_perc_mode_change = bind(this.on_move_perc_mode_change, this);
+      this.on_y_change = bind(this.on_y_change, this);
+      this.on_x_change = bind(this.on_x_change, this);
       PointWidget.__super__.constructor.apply(this, args);
-      this.build();
-      PointWidget.widgets.push(this);
-      PointWidget.update_widget_list_metadata();
+      APP.attach_point(this);
     }
 
     PointWidget.prototype.build = function() {
-      var color_selector, move_perc_adj_cell;
+      var color_selector_cell, move_mode_cell, move_perc_adj_cell;
       this.draw_highlight = false;
       this.row = APP.point_pos_table.insertRow(-1);
       this.namecell = this.row.insertCell(0);
       this.set_name(this.name);
-      this.color_selector_el = document.createElement('input');
-      this.color_selector_el.type = 'color';
+      this.color_selector_el = APP.create_input_element('color');
       this.color_selector_el.value = this.color;
       this.color_selector_el.addEventListener('change', this.on_color_change);
-      color_selector = this.row.insertCell(1);
-      color_selector.appendChild(this.color_selector_el);
-      this.info_x = this.row.insertCell(2);
-      this.info_x.textContent = this.x;
-      this.info_y = this.row.insertCell(3);
-      this.info_y.textContent = this.y;
+      color_selector_cell = this.row.insertCell(1);
+      color_selector_cell.appendChild(this.color_selector_el);
+      this.info_x_cell = this.row.insertCell(2);
+      this.info_y_cell = this.row.insertCell(3);
       this.move_perc_cell = this.row.insertCell(4);
-      this.move_perc_cell.textContent = this.move_perc.toFixed(2);
-      this.move_per_range_el = document.createElement('input');
-      this.move_per_range_el.type = 'range';
-      this.move_per_range_el.min = 0;
-      this.move_per_range_el.max = 1;
-      this.move_per_range_el.step = 0.05;
-      this.move_per_range_el.value = this.move_perc;
-      this.move_per_range_el.addEventListener('input', this.on_move_per_range_input);
+      this.option = {
+        x: NumberUIOption.create(this.info_x_cell, this.info_x_id + "_option", this.x, this.on_x_change),
+        y: NumberUIOption.create(this.info_y_cell, this.info_y_id + "_option", this.y, this.on_y_change),
+        move_perc: NumberUIOption.create(this.move_perc_cell, "point_" + this.el_id + "_move_perc_option", this.move_perc * 100, this.on_move_perc_option_change)
+      };
+      this.move_perc_range_el = APP.create_input_element('range');
+      this.move_perc_range_el_init();
       move_perc_adj_cell = this.row.insertCell(5);
-      return move_perc_adj_cell.appendChild(this.move_per_range_el);
+      move_perc_adj_cell.appendChild(this.move_perc_range_el);
+      move_mode_cell = this.row.insertCell(6);
+      move_mode_cell.classList.add('move_mode');
+      return this.option.move_perc_mode = BoolUIOption.create(move_mode_cell, "point_" + name + "_move_mode", this.move_perc_mode, this.on_move_perc_mode_change);
+    };
+
+    PointWidget.prototype.on_x_change = function(value) {
+      this.set_x(value);
+      return APP.resumable_reset();
+    };
+
+    PointWidget.prototype.on_y_change = function(value) {
+      this.set_y(value);
+      return APP.resumable_reset();
+    };
+
+    PointWidget.prototype.on_move_perc_mode_change = function(value) {
+      this.move_perc_mode = value;
+      return APP.resumable_reset();
+    };
+
+    PointWidget.prototype.update_text = function() {
+      this.option.x.set(this.ix);
+      return this.option.y.set(this.iy);
     };
 
     PointWidget.prototype.set_name = function(name) {
@@ -1231,18 +1228,6 @@ td.blank {
     PointWidget.prototype.on_color_change = function(event) {
       this.set_color(event.target.value);
       return APP.resumable_reset();
-    };
-
-    PointWidget.prototype.on_move_per_range_input = function(event) {
-      this.set_move_perc(event.target.value);
-      return APP.resumable_reset();
-    };
-
-    PointWidget.prototype.set_move_perc = function(newvalue) {
-      this.move_perc = parseFloat(newvalue);
-      if (this.move_perc_cell) {
-        return this.move_perc_cell.textContent = this.move_perc.toFixed(2);
-      }
     };
 
     PointWidget.prototype.highlight = function() {
@@ -1284,12 +1269,14 @@ td.blank {
         name: this.name,
         x: this.x,
         y: this.y,
-        move_perc: this.move_perc,
+        move_perc: this.option.move_perc.get(),
+        move_mode: this.move_perc_mode ? 'percent' : 'absolute',
         color: this.color
       };
     };
 
     PointWidget.prototype.load = function(opt) {
+      var ref;
       if (opt.name != null) {
         this.set_name(opt.name);
       }
@@ -1297,7 +1284,19 @@ td.blank {
         this.move(opt.x, opt.y);
       }
       if (opt.move_perc != null) {
+        if ((0.0 < (ref = opt.move_perc) && ref < 1.0)) {
+          opt.move_perc *= 100;
+        }
         this.set_move_perc(opt.move_perc);
+      }
+      if (opt.move_mode != null) {
+        switch (opt.move_mode) {
+          case 'percent':
+            this.set_move_perc_mode(true);
+            break;
+          case 'absolute':
+            this.set_move_perc_mode(false);
+        }
       }
       if (opt.color != null) {
         this.set_color(opt.color);
@@ -1305,17 +1304,22 @@ td.blank {
       return APP.resumable_reset();
     };
 
+    PointWidget.prototype.load_default_state = function() {
+      this.set_move_perc(APP.DEFAULT.move_perc * 100);
+      return this.set_move_perc_mode(true);
+    };
+
     PointWidget.prototype.destroy = function() {
-      var idx;
-      idx = PointWidget.widgets.indexOf(this);
-      if (idx > -1) {
-        PointWidget.widgets.splice(idx, 1);
-        PointWidget.update_widget_list_metadata();
+      var opt, opt_name, ref;
+      APP.detach_point(this);
+      ref = this.option;
+      for (opt_name in ref) {
+        opt = ref[opt_name];
+        opt.destroy();
       }
       this.color_selector_el.remove();
-      this.move_per_range_el.remove();
-      this.row.remove();
-      return APP.resumable_reset();
+      this.move_perc_range_el.remove();
+      return this.row.remove();
     };
 
     return PointWidget;
@@ -1325,13 +1329,65 @@ td.blank {
   DrawPoint = (function(superClass) {
     extend(DrawPoint, superClass);
 
-    function DrawPoint(name, draw_style) {
+    DrawPoint.prototype.prev_target = [null, null, null];
+
+    DrawPoint.prototype.restricted = {
+      single_origin: [],
+      double_origin: []
+    };
+
+    function DrawPoint(name) {
+      this.on_imgmask_file_change = bind(this.on_imgmask_file_change, this);
+      this.on_imgmask_img_load = bind(this.on_imgmask_img_load, this);
+      this.on_imgmask_padding_blur = bind(this.on_imgmask_padding_blur, this);
+      this.on_imgmask_padding_focus = bind(this.on_imgmask_padding_focus, this);
+      this.on_imgmask_padding_change = bind(this.on_imgmask_padding_change, this);
+      this.on_imgmask_threshold_change = bind(this.on_imgmask_threshold_change, this);
+      this.on_imgmask_enabled_change = bind(this.on_imgmask_enabled_change, this);
+      this.set_draw_style = bind(this.set_draw_style, this);
+      this.set_data_source = bind(this.set_data_source, this);
+      this.on_set_all_points = bind(this.on_set_all_points, this);
       DrawPoint.__super__.constructor.call(this, '0', name);
-      this.info_x = APP.context.getElementById(this.info_x_id);
-      this.info_y = APP.context.getElementById(this.info_y_id);
+      this.movement_from_origin = true;
+      this.restrictions = new TargetRestriction(APP.context);
       this.set_color('#000000');
-      this.set_draw_style(draw_style);
+      this.set_draw_style(this.option.draw_style.get());
+      this.set_data_source('dest');
     }
+
+    DrawPoint.prototype.build = function() {
+      this.info_x_cell = APP.context.getElementById(this.info_x_id);
+      this.info_y_cell = APP.context.getElementById(this.info_y_id);
+      this.btn_set_all_points = APP.context.getElementById('set_all_points');
+      this.move_perc_range_el = APP.context.getElementById('all_points_move_perc_range');
+      this.move_perc_range_el_init();
+      this.imgmask_img_box = APP.context.getElementById('imgmask_img_box');
+      this.imgmask_file = APP.context.getElementById('imgmask_file');
+      this.imgmask_img = APP.context.getElementById('imgmask_img');
+      this.imgmask_bitmap = APP.context.getElementById('imgmask_bitmap');
+      this.imgmask_bitmap_ctx = this.imgmask_bitmap.getContext('2d', {
+        alpha: false
+      });
+      this.imgmask_img_ready = false;
+      this.option = {
+        imgmask_enabled: new BoolUIOption('imgmask_enabled', APP.DEFAULT.imgmask.enabled, this.on_imgmask_enabled_change),
+        imgmask_padding: new NumberUIOption('imgmask_padding', APP.DEFAULT.imgmask.padding, this.on_imgmask_padding_change),
+        imgmask_threshold: new NumberUIOption('imgmask_threshold', APP.DEFAULT.imgmask.threshold, this.on_imgmask_threshold_change),
+        move_perc: new NumberUIOption('all_points_move_perc_option', this.move_perc * 100, this.on_move_perc_option_change),
+        draw_style: new EnumUIOption('draw_style', APP.DEFAULT.cursor.draw_style, this.set_draw_style),
+        data_source: new EnumUIOption('movement_data_source', APP.DEFAULT.cursor.data_source, this.set_data_source)
+      };
+      this.option.imgmask_padding.interaction_callbacks(this.on_imgmask_padding_focus, this.on_imgmask_padding_blur);
+      this.on_imgmask_enabled_change();
+      this.btn_set_all_points.addEventListener('click', this.on_set_all_points);
+      this.imgmask_img.addEventListener('load', this.on_imgmask_img_load);
+      return this.imgmask_file.addEventListener('change', this.on_imgmask_file_change);
+    };
+
+    DrawPoint.prototype.on_set_all_points = function(event) {
+      APP.set_all_points_move_perc(this.move_perc * 100);
+      return APP.resumable_reset();
+    };
 
     DrawPoint.prototype.reset_color_cache = function() {
       this.color_avg = {};
@@ -1356,8 +1412,8 @@ td.blank {
 
     DrawPoint.prototype.get_color_blend_prev1 = function() {
       var a, b, base1, name;
-      b = PointWidget.prev_target[1];
-      a = PointWidget.prev_target[0];
+      b = this.prev_target[1];
+      a = this.prev_target[0];
       if (b == null) {
         return a.color_alpha;
       }
@@ -1374,9 +1430,45 @@ td.blank {
       return c;
     };
 
+    DrawPoint.prototype.set_data_source = function(src) {
+      this.option.data_source.set(src);
+      this.set_single_step_func();
+      return APP.resumable_reset();
+    };
+
+    DrawPoint.prototype.set_single_step_func = function() {
+      var ref;
+      if (((ref = this.option) != null ? ref.data_source : void 0) == null) {
+        return this.single = this.single_step_destinaion;
+      }
+      return this.single_step = (function() {
+        var ref1;
+        if (((ref1 = this.option) != null ? ref1.imgmask_enabled.value : void 0) && this.imgmask_img_ready) {
+          switch (this.option.data_source.get()) {
+            case 'dest':
+              return this.single_step_destination_imgmask;
+            case 'orig':
+              return this.single_step_origin_imgmask;
+            default:
+              return this.single_step_destination_imgmask;
+          }
+        } else {
+          switch (this.option.data_source.get()) {
+            case 'dest':
+              return this.single_step_destination;
+            case 'orig':
+              return this.single_step_origin;
+            default:
+              return this.single_step_destination;
+          }
+        }
+      }).call(this);
+    };
+
     DrawPoint.prototype.set_draw_style = function(mode) {
+      this.option.draw_style.set(mode);
       return this.get_current_color = (function() {
-        switch (mode) {
+        switch (this.option.draw_style.get()) {
           case 'mono':
             return this.get_color_mono;
           case 'color_target':
@@ -1397,11 +1489,268 @@ td.blank {
       return DrawPoint.__super__.set_opacity.call(this, opacity);
     };
 
+    DrawPoint.prototype.on_imgmask_enabled_change = function() {
+      var ref;
+      if (((ref = this.option) != null ? ref.imgmask_enabled : void 0) != null) {
+        this.set_single_step_func();
+        if (this.option.imgmask_enabled.value) {
+          return this.enable_imgmask();
+        } else {
+          return this.disable_imgmask();
+        }
+      }
+    };
+
+    DrawPoint.prototype.on_imgmask_threshold_change = function() {
+      if (this.imgmask_img_ready) {
+        this.imgmask_convert_img_to_bitmap();
+        if (this.option.imgmask_enabled.value) {
+          return APP.resumable_reset();
+        }
+      }
+    };
+
+    DrawPoint.prototype.on_imgmask_padding_change = function() {
+      if (APP.show_imgmask_overlay) {
+        return APP.redraw_ui();
+      }
+    };
+
+    DrawPoint.prototype.on_imgmask_padding_focus = function() {
+      APP.show_imgmask_overlay = true;
+      return APP.redraw_ui();
+    };
+
+    DrawPoint.prototype.on_imgmask_padding_blur = function() {
+      APP.show_imgmask_overlay = false;
+      return APP.redraw_ui();
+    };
+
+    DrawPoint.prototype.imgmask_convert_img_to_bitmap = function() {
+      var d, h, i, image_data, j, ref, threshold, w, x, y;
+      w = this.imgmask_img.width;
+      h = this.imgmask_img.height;
+      this.imgmask_bitmap.width = w;
+      this.imgmask_bitmap.height = h;
+      this.imgmask_bitmap_ctx.drawImage(this.imgmask_img, 0, 0, w, h);
+      image_data = this.imgmask_bitmap_ctx.getImageData(0, 0, w, h);
+      d = image_data.data;
+      threshold = this.option.imgmask_threshold.value / 255.0;
+      for (i = j = 0, ref = d.length; j < ref; i = j += 4) {
+        y = Color.srgb_to_luminance(d[i], d[i + 1], d[i + 2]);
+        x = y < threshold ? 0 : 1;
+        d[i + 2] = d[i + 1] = d[i] = Math.floor(x * 255);
+      }
+      return this.imgmask_bitmap_ctx.putImageData(image_data, 0, 0);
+    };
+
+    DrawPoint.prototype.set_imgmask_img_ready = function(newvalue) {
+      this.imgmask_img_ready = newvalue;
+      return this.set_single_step_func();
+    };
+
+    DrawPoint.prototype.on_imgmask_img_load = function() {
+      this.imgmask_convert_img_to_bitmap();
+      return this.set_imgmask_img_ready(true);
+    };
+
+    DrawPoint.prototype.on_imgmask_file_change = function() {
+      var file, reader;
+      if (this.imgmask_file.files.length < 1) {
+        return;
+      }
+      file = this.imgmask_file.files[0];
+      if (!file.type.startsWith('image/')) {
+        return;
+      }
+      this.set_imgmask_img_ready(false);
+      reader = new FileReader();
+      reader.onload = (function(_this) {
+        return function(event) {
+          return _this.imgmask_img.src = event.target.result;
+        };
+      })(this);
+      reader.readAsDataURL(file);
+      return this.imgmask_img_box.classList.remove('hidden');
+    };
+
+    DrawPoint.prototype.enable_imgmask = function() {
+      this.option.imgmask_padding.enable();
+      this.option.imgmask_threshold.enable();
+      return this.imgmask_file.disabled = false;
+    };
+
+    DrawPoint.prototype.disable_imgmask = function() {
+      this.option.imgmask_padding.disable();
+      this.option.imgmask_threshold.disable();
+      return this.imgmask_file.disabled = true;
+    };
+
+    DrawPoint.prototype.target_chosen_twice = function() {
+      return this.prev_target[0] === this.prev_target[1];
+    };
+
+    DrawPoint.prototype.current_restricted_choices = function() {
+      if (this.restrictions.using_double() && this.target_chosen_twice()) {
+        return this.restricted.double_origin;
+      } else {
+        return this.restricted.single_origin;
+      }
+    };
+
+    DrawPoint.prototype.filtered_choices = function(type) {
+      var choices, last, len, n, neighbor, num_points, p, ref, value_getter;
+      value_getter = "value_" + type;
+      len = num_points = APP.points.length;
+      last = len - 1;
+      choices = [];
+      if (!this.restrictions.option.self[value_getter]) {
+        choices.push(0);
+      }
+      len -= 1;
+      if (len % 2 === 1) {
+        len -= 1;
+        if (!this.restrictions.option.opposite[value_getter]) {
+          choices.push(parseInt(last / 2) + 1);
+        }
+      }
+      neighbor = 1;
+      while (len >= 2) {
+        ref = this.restrictions.neighbor(neighbor), p = ref[0], n = ref[1];
+        if (!p[value_getter]) {
+          choices.push(p.offset + num_points);
+        }
+        if (!n[value_getter]) {
+          choices.push(n.offset);
+        }
+        len -= 2;
+        neighbor += 1;
+      }
+      return choices;
+    };
+
+    DrawPoint.prototype.update_point_list_metadata = function() {
+      if (APP.points.length < 3) {
+        return;
+      }
+      this.restrictions.set_enabled(APP.points.length);
+      this.restricted.single_origin = this.filtered_choices('single');
+      this.restricted.double_origin = this.filtered_choices('double');
+      return this.prev_target[0] = this.prev_target[1] = APP.points[0];
+    };
+
+    DrawPoint.prototype.random_point = function() {
+      var choice, choices, idx, p, prev_idx;
+      choices = this.current_restricted_choices();
+      choice = choices[parseInt(Math.random() * choices.length)];
+      prev_idx = APP.points.indexOf(this.prev_target[0]);
+      idx = (choice + prev_idx) % APP.points.length;
+      p = APP.points[idx];
+      this.prev_target[2] = this.prev_target[1];
+      this.prev_target[1] = this.prev_target[0];
+      this.prev_target[0] = p;
+      return p;
+    };
+
     DrawPoint.prototype.draw_graph = function(target) {
       var ctx;
       ctx = APP.graph_ctx;
       ctx.fillStyle = this.get_current_color(target);
-      return ctx.fillRect(this.x, this.y, 1, 1);
+      ctx.fillRect(this.x, this.y, 1, 1);
+      return null;
+    };
+
+    DrawPoint.prototype.single_step_origin = function() {
+      var origin, target;
+      target = this.random_point();
+      if (target == null) {
+        return false;
+      }
+      origin = this.prev_target[1];
+      if (origin.move_perc_mode) {
+        this.move_perc_towards_no_text_update(target, origin.move_perc);
+      } else {
+        this.move_absolute_towards_no_text_update(target, origin.move_perc);
+      }
+      this.draw_graph(target);
+      return true;
+    };
+
+    DrawPoint.prototype.single_step_destination = function() {
+      var target;
+      target = this.random_point();
+      if (target == null) {
+        return false;
+      }
+      if (target.move_perc_mode) {
+        this.move_perc_towards_no_text_update(target, target.move_perc);
+      } else {
+        this.move_absolute_towards_no_text_update(target, target.move_perc);
+      }
+      this.draw_graph(target);
+      return true;
+    };
+
+    DrawPoint.prototype.single_step_origin_imgmask = function() {
+      var coords, origin, target;
+      target = this.random_point();
+      if (target == null) {
+        return false;
+      }
+      origin = this.prev_target[1];
+      coords = origin.move_perc_mode ? this.coords_after_move_perc_towards_target(target, origin.move_perc) : this.coords_after_move_absolute_towards_target(target, origin.move_perc);
+      if (this.collides_with_bitmap.apply(this, coords)) {
+        return false;
+      }
+      this.move_no_text_update_array(coords);
+      this.draw_graph(target);
+      return true;
+    };
+
+    DrawPoint.prototype.single_step_destination_imgmask = function() {
+      var coords, target;
+      target = this.random_point();
+      if (target == null) {
+        return false;
+      }
+      coords = target.move_perc_mode ? this.coords_after_move_perc_towards_target(target, target.move_perc) : this.coords_after_move_absolute_towards_target(target, target.move_perc);
+      if (this.collides_with_bitmap.apply(this, coords)) {
+        return false;
+      }
+      this.move_no_text_update_array(coords);
+      this.draw_graph(target);
+      return true;
+    };
+
+    DrawPoint.prototype.collides_with_bitmap = function(x, y) {
+      var ch, cw, imgheight, imgstartx, imgstarty, imgwidth, padheight, padheight2, padperc, padwidth, padwidth2, pixel, testx, testy;
+      cw = APP.graph_ui_canvas.width;
+      ch = APP.graph_ui_canvas.height;
+      padperc = this.option.imgmask_padding.value / 100;
+      padwidth = padperc * cw;
+      if (x < padwidth) {
+        return false;
+      }
+      padheight = padperc * ch;
+      if (y < padheight) {
+        return false;
+      }
+      padwidth2 = 2 * padwidth;
+      if (x >= padwidth2) {
+        return false;
+      }
+      padheight2 = 2 * padheight;
+      if (y >= padheight2) {
+        return false;
+      }
+      imgwidth = cw - padwidth2;
+      imgheight = ch - padwidth2;
+      imgstartx = (cw / 2) - (imgwidth / 2);
+      imgstarty = (ch / 2) - (imgheight / 2);
+      testx = Math.floor(((x - imgstartx) / imgwidth) * imgwidth);
+      testy = Math.floor(((y - imgstarty) / imgheight) * imgheight);
+      pixel = this.imgmask_bitmap_ctx.getImageData(testx, testy, 1, 1);
+      return pixel.data[0] < 128;
     };
 
     return DrawPoint;
@@ -1456,15 +1805,13 @@ td.blank {
     TargetRestrictionOption.prototype.set_single = function(value) {
       this.value_single = value;
       this.checkbox_single.checked = this.value_single;
-      PointWidget.update_widget_list_metadata();
-      return APP.resumable_reset();
+      return APP.update_metadata_and_reset();
     };
 
     TargetRestrictionOption.prototype.set_double = function(value) {
       this.value_double = value;
       this.checkbox_double.checked = this.value_double;
-      PointWidget.update_widget_list_metadata();
-      return APP.resumable_reset();
+      return APP.update_metadata_and_reset();
     };
 
     TargetRestrictionOption.prototype.on_change_single = function(event) {
@@ -1595,46 +1942,60 @@ td.blank {
           }
         }
       }
-      PointWidget.update_widget_list_metadata();
-      return APP.resumable_reset();
+      return APP.update_metadata_and_reset();
+    };
+
+    TargetRestriction.prototype.load_default_state = function() {
+      var j, len1, o, ref, results;
+      ref = this.options;
+      results = [];
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        o = ref[j];
+        results.push(o.reset());
+      }
+      return results;
     };
 
     return TargetRestriction;
 
   })();
 
-  OtherOption = (function() {
-    function OtherOption(id, _default, on_change_callback) {
-      this.id = id;
+  UIOption = (function() {
+    function UIOption(id1, _default, on_change_callback) {
+      this.id = id1;
       this["default"] = _default;
-      this.on_change_callback = on_change_callback != null ? on_change_callback : null;
+      this.on_change_callback = on_change_callback;
       this.on_mouseleave = bind(this.on_mouseleave, this);
       this.on_mouseenter = bind(this.on_mouseenter, this);
       this.on_blur = bind(this.on_blur, this);
       this.on_focus = bind(this.on_focus, this);
       this.on_change = bind(this.on_change, this);
-      this.context = APP.context;
-      this.el = this.context.getElementById(this.id);
+      if (this.id instanceof Element) {
+        this.el = this.id;
+        this.id = this.el.id;
+      } else {
+        this.el = APP.context.getElementById(this.id);
+      }
       this.set(this["default"]);
       this.el.addEventListener('change', this.on_change);
     }
 
-    OtherOption.prototype.on_change = function(event) {
+    UIOption.prototype.on_change = function(event) {
       this.set(this.get(event.target));
       if (this.on_change_callback != null) {
         return this.on_change_callback(this.value);
       }
     };
 
-    OtherOption.prototype.enable = function() {
+    UIOption.prototype.enable = function() {
       return this.el.disabled = false;
     };
 
-    OtherOption.prototype.disable = function() {
+    UIOption.prototype.disable = function() {
       return this.el.disabled = true;
     };
 
-    OtherOption.prototype.interaction_callbacks = function(focus_callback, blur_callback) {
+    UIOption.prototype.interaction_callbacks = function(focus_callback, blur_callback) {
       this.focus_callback = focus_callback;
       this.blur_callback = blur_callback;
       if (this.interaction_events_captured == null) {
@@ -1648,7 +2009,7 @@ td.blank {
       }
     };
 
-    OtherOption.prototype.on_focus = function() {
+    UIOption.prototype.on_focus = function() {
       this.have_focus = true;
       if (this.focus_callback != null) {
         if (!this.have_mouse) {
@@ -1657,7 +2018,7 @@ td.blank {
       }
     };
 
-    OtherOption.prototype.on_blur = function() {
+    UIOption.prototype.on_blur = function() {
       this.have_focus = false;
       if (this.blur_callback != null) {
         if (!this.have_mouse) {
@@ -1666,7 +2027,7 @@ td.blank {
       }
     };
 
-    OtherOption.prototype.on_mouseenter = function() {
+    UIOption.prototype.on_mouseenter = function() {
       this.have_mouse = true;
       if (this.focus_callback != null) {
         if (!this.have_focus) {
@@ -1675,7 +2036,7 @@ td.blank {
       }
     };
 
-    OtherOption.prototype.on_mouseleave = function() {
+    UIOption.prototype.on_mouseleave = function() {
       this.have_mouse = false;
       if (this.blur_callback != null) {
         if (!this.have_focus) {
@@ -1684,71 +2045,113 @@ td.blank {
       }
     };
 
-    return OtherOption;
+    UIOption.prototype.destroy = function() {
+      if (this.el != null) {
+        this.el.remove();
+      }
+      return this.el = null;
+    };
+
+    return UIOption;
 
   })();
 
-  BoolOtherOption = (function(superClass) {
-    extend(BoolOtherOption, superClass);
+  BoolUIOption = (function(superClass) {
+    extend(BoolUIOption, superClass);
 
-    function BoolOtherOption() {
-      return BoolOtherOption.__super__.constructor.apply(this, arguments);
+    function BoolUIOption() {
+      return BoolUIOption.__super__.constructor.apply(this, arguments);
     }
 
-    BoolOtherOption.prototype.get = function(element) {
+    BoolUIOption.create = function() {
+      var id1, opt, parent, rest;
+      parent = arguments[0], id1 = arguments[1], rest = 3 <= arguments.length ? slice.call(arguments, 2) : [];
+      this.id = id1;
+      opt = (function(func, args, ctor) {
+        ctor.prototype = func.prototype;
+        var child = new ctor, result = func.apply(child, args);
+        return Object(result) === result ? result : child;
+      })(BoolUIOption, [APP.create_input_element('checkbox', this.id)].concat(slice.call(rest)), function(){});
+      parent.appendChild(opt.el);
+      return opt;
+    };
+
+    BoolUIOption.prototype.get = function(element) {
       if (element == null) {
         element = this.el;
       }
       return element.checked;
     };
 
-    BoolOtherOption.prototype.set = function(bool_value) {
+    BoolUIOption.prototype.set = function(bool_value) {
       this.value = !!bool_value;
       return this.el.checked = this.value;
     };
 
-    return BoolOtherOption;
+    return BoolUIOption;
 
-  })(OtherOption);
+  })(UIOption);
 
-  NumberOtherOption = (function(superClass) {
-    extend(NumberOtherOption, superClass);
+  NumberUIOption = (function(superClass) {
+    extend(NumberUIOption, superClass);
 
-    function NumberOtherOption() {
-      return NumberOtherOption.__super__.constructor.apply(this, arguments);
+    function NumberUIOption() {
+      return NumberUIOption.__super__.constructor.apply(this, arguments);
     }
 
-    NumberOtherOption.prototype.get = function(element) {
+    NumberUIOption.create = function() {
+      var id1, opt, parent, rest;
+      parent = arguments[0], id1 = arguments[1], rest = 3 <= arguments.length ? slice.call(arguments, 2) : [];
+      this.id = id1;
+      opt = (function(func, args, ctor) {
+        ctor.prototype = func.prototype;
+        var child = new ctor, result = func.apply(child, args);
+        return Object(result) === result ? result : child;
+      })(NumberUIOption, [APP.create_input_element('number', this.id)].concat(slice.call(rest)), function(){});
+      parent.appendChild(opt.el);
+      return opt;
+    };
+
+    NumberUIOption.prototype.get = function(element) {
       if (element == null) {
         element = this.el;
       }
       return element.value;
     };
 
-    NumberOtherOption.prototype.set = function(number_value) {
+    NumberUIOption.prototype.set = function(number_value) {
       this.value = parseInt(number_value);
       return this.el.value = this.value;
     };
 
-    return NumberOtherOption;
+    NumberUIOption.prototype.set_range = function(min, max, step) {
+      if (step == null) {
+        step = 1;
+      }
+      this.el.min = min;
+      this.el.max = max;
+      return this.el.step = step;
+    };
 
-  })(OtherOption);
+    return NumberUIOption;
 
-  EnumOtherOption = (function(superClass) {
-    extend(EnumOtherOption, superClass);
+  })(UIOption);
 
-    function EnumOtherOption() {
-      return EnumOtherOption.__super__.constructor.apply(this, arguments);
+  EnumUIOption = (function(superClass) {
+    extend(EnumUIOption, superClass);
+
+    function EnumUIOption() {
+      return EnumUIOption.__super__.constructor.apply(this, arguments);
     }
 
-    EnumOtherOption.prototype.get = function(element) {
+    EnumUIOption.prototype.get = function(element) {
       if (element == null) {
         element = this.el;
       }
       return element.value;
     };
 
-    EnumOtherOption.prototype.find_option_by_value = function(enum_value) {
+    EnumUIOption.prototype.find_option_by_value = function(enum_value) {
       var j, len1, opt, ref;
       ref = this.el.options;
       for (j = 0, len1 = ref.length; j < len1; j++) {
@@ -1760,7 +2163,7 @@ td.blank {
       return null;
     };
 
-    EnumOtherOption.prototype.set = function(enum_value) {
+    EnumUIOption.prototype.set = function(enum_value) {
       var opt;
       opt = this.find_option_by_value(enum_value);
       if (opt != null) {
@@ -1769,13 +2172,47 @@ td.blank {
       return this.value = this.el.value;
     };
 
-    return EnumOtherOption;
+    return EnumUIOption;
 
-  })(OtherOption);
+  })(UIOption);
 
   StochasticSierpinski = (function() {
+    StochasticSierpinski.prototype.MIN_POINTS = 3;
+
+    StochasticSierpinski.prototype.MAX_POINTS = 8;
+
+    StochasticSierpinski.prototype.REG_POLYGON_MARGIN = 10;
+
+    StochasticSierpinski.prototype.NEARBY_RADIUS = 8;
+
+    StochasticSierpinski.prototype.DEFAULT = {
+      graph: {
+        width: 420,
+        height: 420
+      },
+      draw_opacity: 35,
+      move_range_min: 0,
+      move_range_max: 100,
+      move_perc: 0.5,
+      cursor: {
+        draw_style: 'color_blend_prev_color',
+        data_source: 'dest'
+      },
+      imgmask: {
+        enabled: false,
+        padding: 33,
+        threshold: 1
+      }
+    };
+
+    StochasticSierpinski.prototype.points = [];
+
+    StochasticSierpinski.prototype.move_absolute_magnitude = 100;
+
     function StochasticSierpinski(context) {
       this.context = context;
+      this.load_from_cookie = bind(this.load_from_cookie, this);
+      this.on_hashchange = bind(this.on_hashchange, this);
       this.on_keydown = bind(this.on_keydown, this);
       this.update = bind(this.update, this);
       this.redraw_ui = bind(this.redraw_ui, this);
@@ -1804,24 +2241,19 @@ td.blank {
       this.on_create_png = bind(this.on_create_png, this);
       this.on_steps_per_frame_input = bind(this.on_steps_per_frame_input, this);
       this.on_num_points_input = bind(this.on_num_points_input, this);
-      this.on_canvas_hw_change = bind(this.on_canvas_hw_change, this);
+      this.on_canvas_height_change = bind(this.on_canvas_height_change, this);
+      this.on_canvas_width_change = bind(this.on_canvas_width_change, this);
       this.on_graph_wrapper_mutate = bind(this.on_graph_wrapper_mutate, this);
       this.on_mouseleave = bind(this.on_mouseleave, this);
       this.on_mouseenter = bind(this.on_mouseenter, this);
       this.on_draw_opacity_change = bind(this.on_draw_opacity_change, this);
-      this.on_draw_style_change = bind(this.on_draw_style_change, this);
-      this.on_locbit_file_change = bind(this.on_locbit_file_change, this);
-      this.on_locbit_img_load = bind(this.on_locbit_img_load, this);
-      this.on_locbit_padding_blur = bind(this.on_locbit_padding_blur, this);
-      this.on_locbit_padding_focus = bind(this.on_locbit_padding_focus, this);
-      this.on_locbit_padding_change = bind(this.on_locbit_padding_change, this);
-      this.on_locbit_threshold_change = bind(this.on_locbit_threshold_change, this);
-      this.on_locbit_enabled_change = bind(this.on_locbit_enabled_change, this);
+      this.on_move_range_change = bind(this.on_move_range_change, this);
     }
 
     StochasticSierpinski.prototype.init = function() {
       var i, j, k, r, ref, ref1, s;
       this.running = false;
+      this.show_imgmask_overlay = false;
       this.step_count = 0;
       this.steps_per_frame_el = this.context.getElementById('steps_per_frame');
       this.graph_wrapper = this.context.getElementById('graph_wrapper');
@@ -1843,60 +2275,23 @@ td.blank {
       this.btn_load = this.context.getElementById('button_load');
       this.total_steps_cell = this.context.getElementById('total_steps');
       this.point_pos_table = this.context.getElementById('point_pos_table');
+      this.num_points_el = this.context.getElementById('num_points');
       this.btn_move_all_reg_polygon = this.context.getElementById('move_all_reg_polygon');
       this.btn_move_all_random = this.context.getElementById('move_all_random');
-      this.locbit_img_box = this.context.getElementById('locbit_img_box');
-      this.locbit_file = this.context.getElementById('locbit_file');
-      this.locbit_img = this.context.getElementById('locbit_img');
-      this.locbit_bitmap = this.context.getElementById('locbit_bitmap');
-      this.locbit_bitmap_ctx = this.locbit_bitmap.getContext('2d', {
-        alpha: false
-      });
       this.option = {
-        locbit_enabled: new BoolOtherOption('locbit_enabled', false, this.on_locbit_enabled_change),
-        locbit_padding: new NumberOtherOption('locbit_padding', 33, this.on_locbit_padding_change),
-        locbit_threshold: new NumberOtherOption('locbit_threshold', 1, this.on_locbit_threshold_change),
-        canvas_width: new NumberOtherOption('canvas_width', 420, this.on_canvas_hw_change),
-        canvas_height: new NumberOtherOption('canvas_height', 320, this.on_canvas_hw_change),
-        draw_style: new EnumOtherOption('draw_style', 'color_blend_prev_color', this.on_draw_style_change),
-        draw_opacity: new NumberOtherOption('draw_opacity', 35, this.on_draw_opacity_change)
+        canvas_width: new NumberUIOption('canvas_width', APP.DEFAULT.graph.width, this.on_canvas_width_change),
+        canvas_height: new NumberUIOption('canvas_height', APP.DEFAULT.graph.height, this.on_canvas_height_change),
+        draw_opacity: new NumberUIOption('draw_opacity', APP.DEFAULT.draw_opacity, this.on_draw_opacity_change),
+        move_range_min: new NumberUIOption('move_range_min', APP.DEFAULT.move_range_min, this.on_move_range_change),
+        move_range_max: new NumberUIOption('move_range_max', APP.DEFAULT.move_range_max, this.on_move_range_change)
       };
-      this.locbit_img_ready = false;
-      this.on_locbit_enabled_change();
-      this.option.locbit_padding.interaction_callbacks(this.on_locbit_padding_focus, this.on_locbit_padding_blur);
       this.serializebox = this.context.getElementById('serializebox');
       this.serializebox_title = this.context.getElementById('serializebox_title');
       this.serializebox_text = this.context.getElementById('serializebox_text');
       this.serializebox_action = this.context.getElementById('serializebox_action');
       this.serializebox_cancel = this.context.getElementById('serializebox_cancel');
-      PointWidget.restrictions = new TargetRestriction(this.context);
-      this.cur = new DrawPoint('Cur', this.option.draw_style.value);
-      PointWidget.set_ngon(3);
-      this.set_steps_per_frame(100);
-      this.num_points_el = this.context.getElementById('num_points');
-      this.num_points_el.value = PointWidget.widgets.length;
-      this.num_points_el.addEventListener('input', this.on_num_points_input);
-      this.steps_per_frame_el.addEventListener('input', this.on_steps_per_frame_input);
-      this.btn_reset.addEventListener('click', this.on_reset);
-      this.btn_step.addEventListener('click', this.on_ste);
-      this.btn_multistep.addEventListener('click', this.on_multistep);
-      this.btn_run.addEventListener('click', this.on_run);
-      this.context.addEventListener('keydown', this.on_keydown);
-      this.btn_create_png.addEventListener('click', this.on_create_png);
-      this.btn_save_url.addEventListener('click', this.on_save_url);
-      this.btn_save.addEventListener('click', this.on_save);
-      this.btn_load.addEventListener('click', this.on_load);
-      this.btn_move_all_reg_polygon.addEventListener('click', this.on_move_all_reg_polygon);
-      this.btn_move_all_random.addEventListener('click', this.on_move_all_random);
-      this.locbit_img.addEventListener('load', this.on_locbit_img_load);
-      this.locbit_file.addEventListener('change', this.on_locbit_file_change);
-      this.serializebox_action.addEventListener('click', this.on_serializebox_action);
-      this.serializebox_cancel.addEventListener('click', this.on_serializebox_cancel);
-      this.graph_ui_canvas.addEventListener('mousedown', this.on_mousedown);
-      this.graph_ui_canvas.addEventListener('mouseup', this.on_mouseup);
-      this.graph_ui_canvas.addEventListener('mousemove', this.on_mousemove);
       this.graph_wrapper.addEventListener('mouseenter', this.on_mouseenter);
-      this.graph_wrapper.addEventListener('mouseleave', this.on_mouseleave);
+      this.graph_wrapper.addEventListener('mouseleave', this.on_mouseleav);
       for (i = j = 0, ref = document.styleSheets.length; 0 <= ref ? j <= ref : j >= ref; i = 0 <= ref ? ++j : --j) {
         s = document.styleSheets[i];
         if ((s != null ? s.title : void 0) === 'app_stylesheet') {
@@ -1919,166 +2314,112 @@ td.blank {
           });
         }
       }
+      this.resize_graph(this.option.canvas_width.get(), this.option.canvas_height.get());
+      this.cur = new DrawPoint('Cur');
+      this.load_default_state();
+      this.set_steps_per_frame(100, false);
+      this.num_points_el.addEventListener('input', this.on_num_points_input);
+      this.steps_per_frame_el.addEventListener('input', this.on_steps_per_frame_input);
+      this.btn_reset.addEventListener('click', this.on_reset);
+      this.btn_step.addEventListener('click', this.on_step);
+      this.btn_multistep.addEventListener('click', this.on_multistep);
+      this.btn_run.addEventListener('click', this.on_run);
+      this.context.addEventListener('keydown', this.on_keydown);
+      this.btn_create_png.addEventListener('click', this.on_create_png);
+      this.btn_save_url.addEventListener('click', this.on_save_url);
+      this.btn_save.addEventListener('click', this.on_save);
+      this.btn_load.addEventListener('click', this.on_load);
+      this.btn_move_all_reg_polygon.addEventListener('click', this.on_move_all_reg_polygon);
+      this.btn_move_all_random.addEventListener('click', this.on_move_all_random);
+      this.serializebox_action.addEventListener('click', this.on_serializebox_action);
+      this.serializebox_cancel.addEventListener('click', this.on_serializebox_cancel);
+      this.graph_ui_canvas.addEventListener('mousedown', this.on_mousedown);
+      this.graph_ui_canvas.addEventListener('mouseup', this.on_mouseup);
+      this.graph_ui_canvas.addEventListener('mousemove', this.on_mousemove);
+      window.addEventListener('hashchange', this.on_hashchange);
       return this.clear_update_and_draw();
     };
 
-    StochasticSierpinski.prototype.on_locbit_enabled_change = function() {
-      if (this.option.locbit_enabled.value) {
-        return this.enable_locbit();
-      } else {
-        return this.disable_locbit();
+    StochasticSierpinski.prototype.load_default_state = function() {
+      var j, k, len1, len2, p, r, ref, ref1, results;
+      this.set_ngon(3);
+      this.option.canvas_width.set(APP.DEFAULT.graph.width);
+      this.option.canvas_height.set(APP.DEFAULT.graph.height);
+      this.option.draw_opacity.set(APP.DEFAULT.draw_opacity);
+      this.option.move_range_min.set(APP.DEFAULT.move_range_min);
+      this.option.move_range_max.set(APP.DEFAULT.move_range_max);
+      this.set_move_range();
+      this.cur.set_move_perc(APP.DEFAULT.move_perc * 100);
+      this.cur.set_draw_style(APP.DEFAULT.cursor.draw_style);
+      this.cur.set_data_source(APP.DEFAULT.cursor.data_source);
+      ref = this.points;
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        p = ref[j];
+        p.load_default_state();
       }
-    };
-
-    StochasticSierpinski.prototype.on_locbit_threshold_change = function() {
-      if (this.locbit_img_ready) {
-        this.locbit_convert_img_to_bitmap();
-        if (this.option.locbit_enabled.value) {
-          return this.resumable_reset();
-        }
+      ref1 = this.cur.restrictions;
+      results = [];
+      for (k = 0, len2 = ref1.length; k < len2; k++) {
+        r = ref1[k];
+        results.push(r.load_default_state());
       }
+      return results;
     };
 
-    StochasticSierpinski.prototype.on_locbit_padding_change = function() {
-      if (this.show_locbit_overlay) {
-        return this.redraw_ui();
+    StochasticSierpinski.prototype.create_element = function(name, id) {
+      var el;
+      if (id == null) {
+        id = null;
       }
-    };
-
-    StochasticSierpinski.prototype.on_locbit_padding_focus = function() {
-      this.show_locbit_overlay = true;
-      return this.redraw_ui();
-    };
-
-    StochasticSierpinski.prototype.on_locbit_padding_blur = function() {
-      this.show_locbit_overlay = false;
-      return this.redraw_ui();
-    };
-
-    StochasticSierpinski.prototype.render_locbit_overlay = function() {
-      var ch, cw, img_region, imgheight, imgwidth, oldalpha, padheight, padperc, padwidth;
-      cw = this.graph_ui_canvas.width;
-      ch = this.graph_ui_canvas.height;
-      padperc = this.option.locbit_padding.value / 100;
-      padwidth = padperc * cw;
-      padheight = padperc * ch;
-      imgwidth = cw - (2 * padwidth);
-      imgheight = ch - (2 * padheight);
-      this.graph_ui_ctx.save();
-      img_region = new Path2D();
-      img_region.rect(padwidth, padheight, imgwidth, imgheight);
-      img_region.rect(0, 0, cw, ch);
-      this.graph_ui_ctx.clip(img_region, 'evenodd');
-      this.graph_ui_ctx.fillStyle = 'rgba(255, 65, 2, 0.3)';
-      this.graph_ui_ctx.fillRect(0, 0, cw, ch);
-      this.graph_ui_ctx.restore();
-      if (this.locbit_img_ready) {
-        oldalpha = this.graph_ui_ctx.globalAlpha;
-        this.graph_ui_ctx.globalAlpha = 0.5;
-        this.graph_ui_ctx.drawImage(this.locbit_bitmap, padwidth, padheight, imgwidth, imgheight);
-        return this.graph_ui_ctx.globalAlpha = oldalpha;
+      el = this.context.createElement(name);
+      if (id != null) {
+        el.id = id;
       }
+      return el;
     };
 
-    StochasticSierpinski.prototype.collides_with_bitmap = function(x, y) {
-      var ch, cw, imgheight, imgstartx, imgstarty, imgwidth, padheight, padheight2, padperc, padwidth, padwidth2, pixel, testx, testy;
-      cw = this.graph_ui_canvas.width;
-      ch = this.graph_ui_canvas.height;
-      padperc = this.option.locbit_padding.value / 100;
-      padwidth = padperc * cw;
-      if (x < padwidth) {
-        return false;
+    StochasticSierpinski.prototype.create_input_element = function(type, id) {
+      var el;
+      if (id == null) {
+        id = null;
       }
-      padheight = padperc * ch;
-      if (y < padheight) {
-        return false;
-      }
-      padwidth2 = 2 * padwidth;
-      if (x >= padwidth2) {
-        return false;
-      }
-      padheight2 = 2 * padheight;
-      if (y >= padheight2) {
-        return false;
-      }
-      imgwidth = cw - padwidth2;
-      imgheight = ch - padwidth2;
-      imgstartx = (cw / 2) - (imgwidth / 2);
-      imgstarty = (ch / 2) - (imgheight / 2);
-      testx = Math.floor(((x - imgstartx) / imgwidth) * imgwidth);
-      testy = Math.floor(((y - imgstarty) / imgheight) * imgheight);
-      pixel = this.locbit_bitmap_ctx.getImageData(testx, testy, 1, 1);
-      return pixel.data[0] < 128;
+      el = this.create_element('input', id);
+      el.type = type;
+      return el;
     };
 
-    StochasticSierpinski.prototype.locbit_convert_img_to_bitmap = function() {
-      var d, h, i, image_data, j, ref, threshold, w, x, y;
-      w = this.locbit_img.width;
-      h = this.locbit_img.height;
-      this.locbit_bitmap.width = w;
-      this.locbit_bitmap.height = h;
-      this.locbit_bitmap_ctx.drawImage(this.locbit_img, 0, 0, w, h);
-      image_data = this.locbit_bitmap_ctx.getImageData(0, 0, w, h);
-      d = image_data.data;
-      threshold = this.option.locbit_threshold.value / 255.0;
-      for (i = j = 0, ref = d.length; j < ref; i = j += 4) {
-        y = Color.srgb_to_luminance(d[i], d[i + 1], d[i + 2]);
-        x = y < threshold ? 0 : 1;
-        d[i + 2] = d[i + 1] = d[i] = Math.floor(x * 255);
+    StochasticSierpinski.prototype.on_move_range_change = function() {
+      this.set_move_range(this.option.move_range_min.get(), this.option.move_range_max.get());
+      return this.resumable_reset();
+    };
+
+    StochasticSierpinski.prototype.set_move_range = function(min, max) {
+      var j, len1, p, ref, results;
+      if (min == null) {
+        min = APP.DEFAULT.move_range_min;
       }
-      return this.locbit_bitmap_ctx.putImageData(image_data, 0, 0);
-    };
-
-    StochasticSierpinski.prototype.on_locbit_img_load = function() {
-      this.locbit_img_ready = true;
-      return this.locbit_convert_img_to_bitmap();
-    };
-
-    StochasticSierpinski.prototype.on_locbit_file_change = function() {
-      var file, reader;
-      if (this.locbit_file.files.length < 1) {
-        return;
+      if (max == null) {
+        max = APP.DEFAULT.move_range_max;
       }
-      file = this.locbit_file.files[0];
-      if (!file.type.startsWith('image/')) {
-        return;
+      this.cur.set_move_range(min, max);
+      ref = this.points;
+      results = [];
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        p = ref[j];
+        results.push(p.set_move_range(min, max));
       }
-      this.locbit_img_ready = false;
-      reader = new FileReader();
-      reader.onload = (function(_this) {
-        return function(event) {
-          return _this.locbit_img.src = event.target.result;
-        };
-      })(this);
-      reader.readAsDataURL(file);
-      return this.locbit_img_box.classList.remove('hidden');
-    };
-
-    StochasticSierpinski.prototype.enable_locbit = function() {
-      this.option.locbit_padding.enable();
-      this.option.locbit_threshold.enable();
-      return this.locbit_file.disabled = false;
-    };
-
-    StochasticSierpinski.prototype.disable_locbit = function() {
-      this.option.locbit_padding.disable();
-      this.option.locbit_threshold.disable();
-      return this.locbit_file.disabled = true;
-    };
-
-    StochasticSierpinski.prototype.on_draw_style_change = function() {
-      return this.cur.set_draw_style(this.option.draw_style.value);
+      return results;
     };
 
     StochasticSierpinski.prototype.on_draw_opacity_change = function() {
-      var j, len1, o, ref, results, w;
+      var j, len1, o, p, ref, results;
       o = this.option.draw_opacity.value;
       this.cur.set_opacity(o);
-      ref = PointWidget.widgets;
+      ref = this.points;
       results = [];
       for (j = 0, len1 = ref.length; j < len1; j++) {
-        w = ref[j];
-        results.push(w.set_opacity(o));
+        p = ref[j];
+        results.push(p.set_opacity(o));
       }
       return results;
     };
@@ -2099,36 +2440,188 @@ td.blank {
 
     StochasticSierpinski.prototype.on_graph_wrapper_mutate = function(event) {
       if (this.graph_wrapper.offsetWidth !== this.graph_ui_canvas.width || this.graph_wrapper.offsetHeight !== this.graph_ui_canvas.height) {
-        return this.resize_graph(this.graph_wrapper.offsetWidth, this.graph_wrapper.offsetHeight);
+        this.resize_graph(this.graph_wrapper.offsetWidth, this.graph_wrapper.offsetHeight);
+        return APP.resumable_reset();
       }
     };
 
-    StochasticSierpinski.prototype.resize_graph = function(w, h) {
+    StochasticSierpinski.prototype.clamp_points_to_canvas = function() {
+      var height, j, len1, p, ref, ref1, results, width;
+      ref = APP.max_xy(), width = ref[0], height = ref[1];
+      ref1 = APP.points;
+      results = [];
+      for (j = 0, len1 = ref1.length; j < len1; j++) {
+        p = ref1[j];
+        if (p.x < 0) {
+          p.x = 0;
+        }
+        if (p.y < 0) {
+          p.y = 0;
+        }
+        if (p.x >= width) {
+          p.x = width - 1;
+        }
+        if (p.y >= height) {
+          results.push(p.y = height - 1);
+        } else {
+          results.push(void 0);
+        }
+      }
+      return results;
+    };
+
+    StochasticSierpinski.prototype.resize_graph_width = function(w) {
+      var j, len1, p, ref, scale, style_width;
+      scale = w / this.graph_canvas.width;
+      ref = this.points;
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        p = ref[j];
+        p.scale_width(scale);
+      }
+      style_width = w + "px";
       this.graph_canvas.width = w;
-      this.graph_canvas.height = h;
       this.graph_ui_canvas.width = w;
+      this.graph_wrapper.style.width = style_width;
+      this.canvas_size_rule.style.width = style_width;
+      return this.option.canvas_width.set(w);
+    };
+
+    StochasticSierpinski.prototype.resize_graph_height = function(h) {
+      var j, len1, p, ref, scale, style_height;
+      scale = h / this.graph_canvas.height;
+      ref = this.points;
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        p = ref[j];
+        p.scale_height(scale);
+      }
+      style_height = h + "px";
+      this.graph_canvas.height = h;
       this.graph_ui_canvas.height = h;
-      this.canvas_size_rule.style.width = w + "px";
-      this.canvas_size_rule.style.height = h + "px";
-      this.option.canvas_width.set(w);
-      this.option.canvas_height.set(h);
-      PointWidget.clamp_widgets_to_canvas();
+      this.graph_wrapper.style.height = style_height;
+      this.canvas_size_rule.style.height = style_height;
+      return this.option.canvas_height.set(h);
+    };
+
+    StochasticSierpinski.prototype.resize_graph = function(w, h) {
+      this.resize_graph_width(w);
+      return this.resize_graph_height(h);
+    };
+
+    StochasticSierpinski.prototype.on_canvas_width_change = function() {
+      this.resize_graph_width(this.option.canvas_width.value);
       return this.resumable_reset();
     };
 
-    StochasticSierpinski.prototype.on_canvas_hw_change = function() {
-      return this.resize_graph(this.option.canvas_width.value, this.option.canvas_height.value);
+    StochasticSierpinski.prototype.on_canvas_height_change = function() {
+      this.resize_graph_height(this.option.canvas_height.value);
+      return this.resumable_reset();
+    };
+
+    StochasticSierpinski.prototype.attach_point = function(point) {
+      this.points.push(point);
+      return this.cur.update_point_list_metadata();
+    };
+
+    StochasticSierpinski.prototype.detach_point = function(point) {
+      var idx;
+      idx = this.points.indexOf(point);
+      if (idx > -1) {
+        this.points.splice(idx, 1);
+        this.cur.update_point_list_metadata();
+      }
+      return APP.resumable_reset();
+    };
+
+    StochasticSierpinski.prototype.add_point = function() {
+      if (this.points.length < APP.MAX_POINTS) {
+        PointWidget.create();
+        return this.resumable_reset();
+      }
+    };
+
+    StochasticSierpinski.prototype.remove_point = function() {
+      var len;
+      len = this.points.length;
+      if (len > APP.MIN_POINTS) {
+        return this.points[len - 1].destroy();
+      }
+    };
+
+    StochasticSierpinski.prototype.set_num_points = function(n) {
+      var diff, j, k, ref, ref1;
+      if (!(n >= this.MIN_POINTS && n <= this.MAX_POINTS)) {
+        return;
+      }
+      diff = n - this.points.length;
+      if (diff > 0) {
+        for (j = 0, ref = diff; 0 <= ref ? j < ref : j > ref; 0 <= ref ? j++ : j--) {
+          this.add_point();
+        }
+      }
+      diff = this.points.length - n;
+      if (diff > 0) {
+        for (k = 0, ref1 = diff; 0 <= ref1 ? k < ref1 : k > ref1; 0 <= ref1 ? k++ : k--) {
+          this.remove_point();
+        }
+      }
+      return this.num_points_el.value = this.points.length;
+    };
+
+    StochasticSierpinski.prototype.recolor_periodic_hue = function(step, start) {
+      var hue, j, len1, p, ref, results;
+      if (start == null) {
+        start = 0.0;
+      }
+      hue = start;
+      ref = this.points;
+      results = [];
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        p = ref[j];
+        p.set_color_hue(hue);
+        results.push(hue += step);
+      }
+      return results;
+    };
+
+    StochasticSierpinski.prototype.recolor_equidistant_hue = function() {
+      return this.recolor_periodic_hue(360.0 / this.points.length);
+    };
+
+    StochasticSierpinski.prototype.set_ngon = function(n, recolor) {
+      if (recolor == null) {
+        recolor = true;
+      }
+      this.set_num_points(n);
+      this.on_move_all_reg_polygon();
+      if (recolor) {
+        return this.recolor_equidistant_hue();
+      }
     };
 
     StochasticSierpinski.prototype.on_num_points_input = function(event) {
-      return PointWidget.set_ngon(event.target.value);
+      return this.set_ngon(event.target.value);
+    };
+
+    StochasticSierpinski.prototype.set_all_points_move_perc = function(value) {
+      var j, len1, p, ref, results;
+      ref = this.points;
+      results = [];
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        p = ref[j];
+        results.push(p.set_move_perc(value));
+      }
+      return results;
     };
 
     StochasticSierpinski.prototype.on_steps_per_frame_input = function(event) {
       return this.set_steps_per_frame(event.target.value);
     };
 
-    StochasticSierpinski.prototype.set_steps_per_frame = function(int_value) {
+    StochasticSierpinski.prototype.set_steps_per_frame = function(int_value, save_to_cookie) {
+      if (save_to_cookie == null) {
+        save_to_cookie = true;
+      }
+      this.old_steps_per_frame = this.steps_per_frame;
       this.steps_per_frame = parseInt(int_value);
       if (this.steps_per_frame < 1) {
         this.steps_per_frame = 1;
@@ -2136,10 +2629,15 @@ td.blank {
       this.btn_multistep.textContent = "Step " + this.steps_per_frame + "x";
       if (this.steps_per_frame === 1) {
         this.steps_per_frame_el.value = 0;
-        return this.btn_multistep.disabled = true;
+        this.btn_multistep.disabled = true;
       } else {
         this.steps_per_frame_el.value = this.steps_per_frame;
-        return this.btn_multistep.disabled = false;
+        this.btn_multistep.disabled = false;
+      }
+      if (save_to_cookie) {
+        if (this.old_steps_per_frame !== this.steps_per_frame) {
+          return this.serialize_cookie('steps_per_frame', this.steps_per_frame);
+        }
       }
     };
 
@@ -2186,17 +2684,22 @@ td.blank {
     StochasticSierpinski.prototype.serialize = function() {
       var opt;
       opt = {
-        points: PointWidget.widgets.map(function(x) {
+        points: this.points.map(function(x) {
           return x.save();
         }),
-        restrictions: PointWidget.restrictions.save(),
+        restrictions: this.cur.restrictions.save(),
         options: {
           canvas_width: this.option.canvas_width.value,
           canvas_height: this.option.canvas_height.value,
-          locbit_enabled: this.option.locbit_enabled.value,
-          locbit_padding: this.option.locbit_padding.value,
-          draw_style: this.option.draw_style.value,
-          draw_opacity: this.option.draw_opacity.value
+          draw_opacity: this.option.draw_opacity.value,
+          draw_style: this.cur.option.draw_style.get(),
+          data_source: this.cur.option.data_source.get(),
+          all_points_move_perc: this.cur.option.move_perc.get(),
+          move_absolute_magnitude: this.move_absolute_magnitude,
+          move_range_min: this.option.move_range_min.get(),
+          move_range_max: this.option.move_range_max.get(),
+          imgmask_enabled: this.cur.option.imgmask_enabled.get(),
+          imgmask_padding: this.cur.option.imgmask_padding.get()
         }
       };
       return JSON.stringify(opt);
@@ -2209,30 +2712,47 @@ td.blank {
         if ((opt.options.canvas_width != null) && (opt.options.canvas_width != null)) {
           this.resize_graph(opt.options.canvas_width, opt.options.canvas_width);
         }
-        if (opt.options.locbit_enabled != null) {
-          this.option.locbit_enabled.set(opt.options.locbit_enabled);
-        }
-        if (opt.options.locbit_padding != null) {
-          this.option.locbit_padding.set(opt.options.locbit_padding);
-        }
-        if (opt.options.draw_style != null) {
-          this.option.draw_style.set(opt.options.draw_style);
-        }
         if (opt.options.draw_opacity != null) {
           this.option.draw_opacity.set(opt.options.draw_opacity);
         }
+        if (opt.options.draw_style != null) {
+          this.cur.set_draw_style(opt.options.draw_style);
+        }
+        if (opt.options.data_source != null) {
+          this.cur.set_data_source(opt.options.data_source);
+        }
+        if (opt.options.move_range_min != null) {
+          this.option.move_range_min.set(opt.options.move_range_min);
+        }
+        if (opt.options.move_range_max != null) {
+          this.option.move_range_max.set(opt.options.move_range_max);
+        }
+        if ((opt.options.move_range_min != null) || (opt.options.move_range_max != null)) {
+          this.on_move_range_change();
+        }
+        if (opt.options.all_points_move_perc != null) {
+          this.cur.set_move_perc(opt.options.all_points_move_perc);
+        }
+        if (opt.options.move_absolute_magnitude != null) {
+          this.move_absolute_magnitude = opt.options.move_absolute_magnitude;
+        }
+        if (opt.options.imgmask_enabled != null) {
+          this.cur.option.imgmask_enabled.set(opt.options.imgmask_enabled);
+        }
+        if (opt.options.imgmask_padding != null) {
+          this.cur.option.imgmask_padding.set(opt.options.imgmask_padding);
+        }
       }
       if (opt.points != null) {
-        this.num_points_el.valueAsNumber = PointWidget.widgets.length;
-        PointWidget.set_num_widgets(opt.points.length);
+        this.set_num_points(opt.points.length);
         ref = opt.points;
         for (i = j = 0, len1 = ref.length; j < len1; i = ++j) {
           p = ref[i];
-          PointWidget.widgets[i].load(p);
+          this.points[i].load(p);
         }
       }
       if (opt.restrictions != null) {
-        return PointWidget.restrictions.load(opt.restrictions);
+        return this.cur.restrictions.load(opt.restrictions);
       }
     };
 
@@ -2251,11 +2771,46 @@ td.blank {
     };
 
     StochasticSierpinski.prototype.on_move_all_reg_polygon = function() {
-      return PointWidget.move_all_reg_polygon();
+      var cx, cy, height, i, j, len, len1, maxx, maxy, mincxy, minside, p, r, ref, ref1, rotate, side, theta, tri_adj, x, y;
+      len = this.points.length;
+      ref = this.max_xy(), maxx = ref[0], maxy = ref[1];
+      minside = Math.min(maxx, maxy);
+      cx = maxx / 2;
+      cy = maxy / 2;
+      mincxy = Math.min(cx, cy);
+      r = mincxy - this.REG_POLYGON_MARGIN;
+      theta = (Math.PI * 2) / len;
+      rotate = -Math.PI / 2;
+      switch (len) {
+        case 3:
+          side = minside - (2 * this.REG_POLYGON_MARGIN);
+          height = side * (Math.sqrt(3) / 2);
+          tri_adj = (minside - height) / 2;
+          cy += tri_adj * 1.5;
+          r *= 1.12;
+          break;
+        case 4:
+          rotate += Math.PI / 4;
+          r = Math.sqrt((r * r) * 2);
+      }
+      ref1 = this.points;
+      for (i = j = 0, len1 = ref1.length; j < len1; i = ++j) {
+        p = ref1[i];
+        x = parseInt(r * Math.cos(rotate + theta * i));
+        y = parseInt(r * Math.sin(rotate + theta * i));
+        p.move(cx + x, cy + y);
+      }
+      return this.resumable_reset();
     };
 
     StochasticSierpinski.prototype.on_move_all_random = function() {
-      return PointWidget.move_all_random();
+      var j, len1, p, ref;
+      ref = this.points;
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        p = ref[j];
+        p.move(this.random_x(), this.random_y());
+      }
+      return this.resumable_reset();
     };
 
     StochasticSierpinski.prototype.random_x = function() {
@@ -2288,14 +2843,45 @@ td.blank {
       return ((0 <= (ref = loc.x) && ref <= this.graph_ui_canvas.width)) && ((0 <= (ref1 = loc.y) && ref1 <= this.graph_ui_canvas.height));
     };
 
+    StochasticSierpinski.prototype.nearby_points = function(loc) {
+      return this.points.filter((function(_this) {
+        return function(p) {
+          return p.distance(loc) < _this.NEARBY_RADIUS;
+        };
+      })(this));
+    };
+
+    StochasticSierpinski.prototype.first_nearby_point = function(loc) {
+      var nearlist;
+      nearlist = this.nearby_points(loc);
+      if (nearlist != null) {
+        return nearlist[0];
+      } else {
+        return null;
+      }
+    };
+
+    StochasticSierpinski.prototype.unhighlight_all = function() {
+      var changed, j, len1, p, ref;
+      changed = false;
+      ref = this.points;
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        p = ref[j];
+        if (p.unhighlight()) {
+          changed = true;
+        }
+      }
+      return changed;
+    };
+
     StochasticSierpinski.prototype.on_mousedown = function(event) {
-      var loc, w;
-      PointWidget.unhighlight_all();
+      var loc, p;
+      this.unhighlight_all();
       loc = this.event_to_canvas_loc(event);
-      w = PointWidget.first_nearby_widget(loc);
-      if (w != null) {
-        this.dnd_target = w;
-        return w.highlight();
+      p = this.first_nearby_point(loc);
+      if (p != null) {
+        this.dnd_target = p;
+        return p.highlight();
       }
     };
 
@@ -2313,7 +2899,7 @@ td.blank {
     };
 
     StochasticSierpinski.prototype.on_mousemove = function(event) {
-      var loc, redraw, w;
+      var loc, p, redraw;
       loc = this.event_to_canvas_loc(event);
       if (this.dnd_target != null) {
         if (this.is_inside_ui(loc)) {
@@ -2322,10 +2908,10 @@ td.blank {
           return this.resumable_reset();
         }
       } else {
-        redraw = PointWidget.unhighlight_all();
-        w = PointWidget.first_nearby_widget(loc);
-        if (w != null) {
-          if (w.highlight()) {
+        redraw = this.unhighlight_all();
+        p = this.first_nearby_point(loc);
+        if (p != null) {
+          if (p.highlight()) {
             redraw = true;
           }
         }
@@ -2336,6 +2922,14 @@ td.blank {
     };
 
     StochasticSierpinski.prototype.resumable_reset = function() {
+      return this.on_reset(true);
+    };
+
+    StochasticSierpinski.prototype.update_metadata_and_reset = function() {
+      var ref;
+      if ((ref = this.cur) != null) {
+        ref.update_point_list_metadata();
+      }
       return this.on_reset(true);
     };
 
@@ -2403,20 +2997,10 @@ td.blank {
     };
 
     StochasticSierpinski.prototype.single_step = function() {
-      var newx, newy, target;
-      target = PointWidget.random_widget();
-      if (target != null) {
-        if (this.option.locbit_enabled.value && this.locbit_img_ready) {
-          newx = this.cur.x + ((target.x - this.cur.x) * target.move_perc);
-          newy = this.cur.y + ((target.y - this.cur.y) * target.move_perc);
-          if (this.collides_with_bitmap(newx, newy)) {
-            return;
-          }
-        }
-        this.cur.move_towards_no_text_update(target);
-        this.cur.draw_graph(target);
-        return this.step_count += 1;
+      if (this.cur.single_step()) {
+        this.step_count += 1;
       }
+      return null;
     };
 
     StochasticSierpinski.prototype.step = function(num_steps) {
@@ -2428,11 +3012,38 @@ td.blank {
         this.single_step();
       }
       this.update_info_elements();
-      return this.redraw_ui();
+      this.redraw_ui();
+      return null;
     };
 
     StochasticSierpinski.prototype.multistep = function() {
-      return this.step(this.steps_per_frame);
+      this.step(this.steps_per_frame);
+      return null;
+    };
+
+    StochasticSierpinski.prototype.render_imgmask_overlay = function() {
+      var ch, cw, img_region, imgheight, imgwidth, oldalpha, padheight, padperc, padwidth;
+      cw = this.graph_ui_canvas.width;
+      ch = this.graph_ui_canvas.height;
+      padperc = this.cur.option.imgmask_padding.value / 100;
+      padwidth = padperc * cw;
+      padheight = padperc * ch;
+      imgwidth = cw - (2 * padwidth);
+      imgheight = ch - (2 * padheight);
+      this.graph_ui_ctx.save();
+      img_region = new Path2D();
+      img_region.rect(padwidth, padheight, imgwidth, imgheight);
+      img_region.rect(0, 0, cw, ch);
+      this.graph_ui_ctx.clip(img_region, 'evenodd');
+      this.graph_ui_ctx.fillStyle = 'rgba(255, 65, 2, 0.3)';
+      this.graph_ui_ctx.fillRect(0, 0, cw, ch);
+      this.graph_ui_ctx.restore();
+      if (this.cur.imgmask_img_ready) {
+        oldalpha = this.graph_ui_ctx.globalAlpha;
+        this.graph_ui_ctx.globalAlpha = 0.5;
+        this.graph_ui_ctx.drawImage(this.cur.imgmask_bitmap, padwidth, padheight, imgwidth, imgheight);
+        return this.graph_ui_ctx.globalAlpha = oldalpha;
+      }
     };
 
     StochasticSierpinski.prototype.redraw_ui = function() {
@@ -2441,29 +3052,32 @@ td.blank {
       if ((ref = this.cur) != null) {
         ref.draw_ui();
       }
-      ref1 = PointWidget.widgets;
+      ref1 = this.points;
       for (j = 0, len1 = ref1.length; j < len1; j++) {
         p = ref1[j];
         p.draw_ui();
       }
-      if (this.show_locbit_overlay) {
-        return this.render_locbit_overlay();
+      if (this.show_imgmask_overlay) {
+        this.render_imgmask_overlay();
       }
+      return null;
     };
 
     StochasticSierpinski.prototype.update = function() {
       this.frame_is_scheduled = false;
       this.multistep();
       if (this.running) {
-        return this.schedule_next_frame();
+        this.schedule_next_frame();
       }
+      return null;
     };
 
     StochasticSierpinski.prototype.schedule_next_frame = function() {
       if (!this.frame_is_scheduled) {
         this.frame_is_scheduled = true;
-        return window.requestAnimationFrame(this.update);
+        window.requestAnimationFrame(this.update);
       }
+      return null;
     };
 
     StochasticSierpinski.prototype.on_keydown = function(event) {
@@ -2488,18 +3102,47 @@ td.blank {
       }
     };
 
+    StochasticSierpinski.prototype.on_hashchange = function() {
+      var ref;
+      if (((ref = document.location.hash) != null ? ref.length : void 0) > 1) {
+        return this.deserialize(document.location.hash.slice(1));
+      } else {
+        return this.load_default_state();
+      }
+    };
+
+    StochasticSierpinski.prototype.serialize_cookie = function(key, value) {
+      return document.cookie = key + "=" + value;
+    };
+
+    StochasticSierpinski.prototype.deserialize_cookie = function(key, value) {
+      switch (key) {
+        case 'steps_per_frame':
+          return this.set_steps_per_frame(value);
+      }
+    };
+
+    StochasticSierpinski.prototype.load_from_cookie = function() {
+      var cookie, j, len1, ref, results;
+      ref = document.cookie.split('; ');
+      results = [];
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        cookie = ref[j];
+        results.push(this.deserialize_cookie.apply(this, cookie.split('=')));
+      }
+      return results;
+    };
+
     return StochasticSierpinski;
 
   })();
 
   document.addEventListener('DOMContentLoaded', (function(_this) {
     return function() {
-      var ref;
       APP = new StochasticSierpinski(document);
       APP.init();
-      if (((ref = document.location.hash) != null ? ref.length : void 0) > 1) {
-        return APP.deserialize(document.location.hash.slice(1));
-      }
+      APP.on_hashchange();
+      return APP.load_from_cookie();
     };
   })(this));
 
