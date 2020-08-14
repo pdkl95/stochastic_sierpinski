@@ -699,7 +699,10 @@ class DrawPoint extends UIPoint
     APP.redraw_ui()
 
   imgmask_prepare_bitmap: ->
-    @imgmask_bitmap.remove() if @imgmask_bitmap?
+    if @imgmask_bitmap?
+      @imgmask_image_data = null
+      @imgmask_bitmap.remove()
+
     @imgmask_bitmap = document.createElement('canvas')
 
     @imgmask_oversample = @option.imgmask_oversample.value
@@ -743,8 +746,10 @@ class DrawPoint extends UIPoint
       0, 0, @imgmask_img_width, @imgmask_img_height,
       @imgmask_pad_width + @imgmask_offset_x, @imgmask_pad_height + @imgmask_offset_y, @imgmask_dst_img_width, @imgmask_dst_img_height)
 
-    image_data = @imgmask_bitmap_ctx.getImageData(@imgmask_pad_width, @imgmask_pad_height, @imgmask_dst_img_width, @imgmask_dst_img_width)
-    d = image_data.data
+    #@imgmask_image_data = @imgmask_bitmap_ctx.getImageData(@imgmask_pad_width, @imgmask_pad_height, @imgmask_dst_img_width, @imgmask_dst_img_width)
+    @imgmask_image_data = @imgmask_bitmap_ctx.getImageData(0, 0, @imgmask_bitmap.width, @imgmask_bitmap.height)
+    console.log('image_data', 'len', @imgmask_image_data.data.length, 'width', @imgmask_image_data.width, 'height', @imgmask_image_data.height)
+    d = @imgmask_image_data.data
     threshold = @option.imgmask_threshold.value / 255.0
 
     for i in [0...(d.length)] by 4
@@ -754,7 +759,7 @@ class DrawPoint extends UIPoint
       d[i + 1] = x
       d[i + 2] = x
 
-    @imgmask_bitmap_ctx.putImageData(image_data, @imgmask_pad_width, @imgmask_pad_height)
+    @imgmask_bitmap_ctx.putImageData(@imgmask_image_data, @imgmask_pad_width, @imgmask_pad_height)
 
   set_imgmask_img_ready: (newvalue) ->
     @imgmask_img_ready = newvalue
@@ -965,8 +970,12 @@ class DrawPoint extends UIPoint
 
     testx = Math.floor(x * @canvas_width_to_bitmap_width)
     testy = Math.floor(y * @canvas_height_to_bitmap_height)
-    pixel = @imgmask_bitmap_ctx.getImageData(testx, testy, 1, 1)
-    return (pixel.data[0]) < 128
+
+    offset = ((testy * @imgmask_bitmap.width) + testx) * 4
+    return (@imgmask_image_data.data[offset]) < 128
+
+    #pixel = @imgmask_bitmap_ctx.getImageData(testx, testy, 1, 1)
+    #return (pixel.data[0]) < 128
 
 
 class TargetRestrictionOption

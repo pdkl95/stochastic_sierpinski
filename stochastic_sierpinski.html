@@ -1726,6 +1726,7 @@ td.move_mode {
     DrawPoint.prototype.imgmask_prepare_bitmap = function() {
       var canvas_height, canvas_width, ref;
       if (this.imgmask_bitmap != null) {
+        this.imgmask_image_data = null;
         this.imgmask_bitmap.remove();
       }
       this.imgmask_bitmap = document.createElement('canvas');
@@ -1747,7 +1748,7 @@ td.move_mode {
     };
 
     DrawPoint.prototype.imgmask_convert_img_to_bitmap = function() {
-      var d, h, hh, hw, i, image_data, j, ref, threshold, w, x, y;
+      var d, h, hh, hw, i, j, ref, threshold, w, x, y;
       w = this.imgmask_bitmap.width;
       h = this.imgmask_bitmap.height;
       hw = w / 2;
@@ -1763,8 +1764,9 @@ td.move_mode {
       this.imgmask_bitmap_ctx.fillStyle = 'rgb(255,255,255)';
       this.imgmask_bitmap_ctx.fillRect(0, 0, w, h);
       this.imgmask_bitmap_ctx.drawImage(this.imgmask_img, 0, 0, this.imgmask_img_width, this.imgmask_img_height, this.imgmask_pad_width + this.imgmask_offset_x, this.imgmask_pad_height + this.imgmask_offset_y, this.imgmask_dst_img_width, this.imgmask_dst_img_height);
-      image_data = this.imgmask_bitmap_ctx.getImageData(this.imgmask_pad_width, this.imgmask_pad_height, this.imgmask_dst_img_width, this.imgmask_dst_img_width);
-      d = image_data.data;
+      this.imgmask_image_data = this.imgmask_bitmap_ctx.getImageData(0, 0, this.imgmask_bitmap.width, this.imgmask_bitmap.height);
+      console.log('image_data', 'len', this.imgmask_image_data.data.length, 'width', this.imgmask_image_data.width, 'height', this.imgmask_image_data.height);
+      d = this.imgmask_image_data.data;
       threshold = this.option.imgmask_threshold.value / 255.0;
       for (i = j = 0, ref = d.length; j < ref; i = j += 4) {
         y = Color.srgb_to_luminance(d[i], d[i + 1], d[i + 2]);
@@ -1773,7 +1775,7 @@ td.move_mode {
         d[i + 1] = x;
         d[i + 2] = x;
       }
-      return this.imgmask_bitmap_ctx.putImageData(image_data, this.imgmask_pad_width, this.imgmask_pad_height);
+      return this.imgmask_bitmap_ctx.putImageData(this.imgmask_image_data, this.imgmask_pad_width, this.imgmask_pad_height);
     };
 
     DrawPoint.prototype.set_imgmask_img_ready = function(newvalue) {
@@ -2022,11 +2024,11 @@ td.move_mode {
     };
 
     DrawPoint.prototype.collides_with_bitmap = function(x, y) {
-      var pixel, testx, testy;
+      var offset, testx, testy;
       testx = Math.floor(x * this.canvas_width_to_bitmap_width);
       testy = Math.floor(y * this.canvas_height_to_bitmap_height);
-      pixel = this.imgmask_bitmap_ctx.getImageData(testx, testy, 1, 1);
-      return pixel.data[0] < 128;
+      offset = ((testy * this.imgmask_bitmap.width) + testx) * 4;
+      return this.imgmask_image_data.data[offset] < 128;
     };
 
     return DrawPoint;
@@ -2034,10 +2036,10 @@ td.move_mode {
   })(UIPoint);
 
   TargetRestrictionOption = (function() {
-    function TargetRestrictionOption(context, offset, name1) {
+    function TargetRestrictionOption(context, offset1, name1) {
       var double_selector, selector, single_selector;
       this.context = context;
-      this.offset = offset;
+      this.offset = offset1;
       this.name = name1;
       this.on_change_double = bind(this.on_change_double, this);
       this.on_change_single = bind(this.on_change_single, this);
