@@ -537,10 +537,6 @@ td.move_mode {
             <th>Total Steps</th>
             <td id="total_steps" colspan=2></td>
           </tr>
-          <tr>
-            <th>Last Choice</th>
-            <td id="last_choice"></td>
-          </tr>
         </table>
         <table id="point_pos_table">
           <tr>
@@ -795,6 +791,13 @@ td.move_mode {
       return result;
     };
   }
+
+  Array.prototype.shuffle = function() {
+    return this.slice(0).reduceRight((function(r, _, __, s) {
+      r.push(s.splice(0 | Math.random() * s.length, 1)[0]);
+      return r;
+    }), []);
+  };
 
   if (Math.TAU == null) {
     Math.TAU = 2 * Math.PI;
@@ -1453,7 +1456,6 @@ td.move_mode {
       var changefunc;
       this.info_x_cell = APP.context.getElementById(this.info_x_id);
       this.info_y_cell = APP.context.getElementById(this.info_y_id);
-      this.last_choice_cell = APP.context.getElementById('last_choice');
       this.btn_set_all_points = APP.context.getElementById('set_all_points');
       this.move_perc_range_el = APP.context.getElementById('all_points_move_perc_range');
       this.move_perc_range_el_init();
@@ -1499,40 +1501,40 @@ td.move_mode {
     DrawPoint.prototype.save_imgmask = function() {
       var opt;
       return opt = {
-        enabled: this.cur.option.imgmask_enabled.get(),
-        threshold: this.cur.option.imgmask_threshold.get(),
-        oversample: this.cur.option.imgmask_oversample.get(),
+        enabled: this.option.imgmask_enabled.get(),
+        threshold: this.option.imgmask_threshold.get(),
+        oversample: this.option.imgmask_oversample.get(),
         padding: {
-          width: this.cur.option.imgmask_padding_width.get(),
-          height: this.cur.option.imgmask_padding_height.get()
+          width: this.option.imgmask_padding_width.get(),
+          height: this.option.imgmask_padding_height.get()
         },
         offset: {
-          x: this.cur.option.imgmask_offset_x.get(),
-          y: this.cur.option.imgmask_offset_y.get()
+          x: this.option.imgmask_offset_x.get(),
+          y: this.option.imgmask_offset_y.get()
         }
       };
     };
 
     DrawPoint.prototype.load_imgmask = function(opt) {
       if (opt.enabled != null) {
-        this.cur.option.imgmask_enabled.set(opt.enabled);
+        this.option.imgmask_enabled.set(opt.enabled);
       }
       if (opt.threshold != null) {
-        this.cur.option.imgmask_threshold.set(opt.threshold);
+        this.option.imgmask_threshold.set(opt.threshold);
       }
       if (opt.oversample != null) {
-        this.cur.option.imgmask_oversample.set(opt.oversample);
+        this.option.imgmask_oversample.set(opt.oversample);
       }
       if (opt.padding != null) {
         if ((opt.padding.width != null) && (opt.padding.height != null)) {
-          this.cur.option.imgmask_padding_width.set(opt.padding.width);
-          this.cur.option.imgmask_padding_height.set(opt.padding.height);
+          this.option.imgmask_padding_width.set(opt.padding.width);
+          this.option.imgmask_padding_height.set(opt.padding.height);
         }
       }
       if (opt.offset != null) {
         if ((opt.offset.x != null) && (opt.offset.y != null)) {
-          this.cur.option.imgmask_offset_x.set(opt.offset.x);
-          return this.cur.option.imgmask_offset_y.set(opt.offset.y);
+          this.option.imgmask_offset_x.set(opt.offset.x);
+          return this.option.imgmask_offset_y.set(opt.offset.y);
         }
       }
     };
@@ -1722,6 +1724,7 @@ td.move_mode {
     };
 
     DrawPoint.prototype.imgmask_prepare_bitmap = function() {
+      var canvas_height, canvas_width, ref;
       if (this.imgmask_bitmap != null) {
         this.imgmask_bitmap.remove();
       }
@@ -1729,6 +1732,9 @@ td.move_mode {
       this.imgmask_oversample = this.option.imgmask_oversample.value;
       this.imgmask_bitmap.width = this.imgmask_img_width * this.imgmask_oversample;
       this.imgmask_bitmap.height = this.imgmask_img_height * this.imgmask_oversample;
+      ref = APP.max_xy(), canvas_width = ref[0], canvas_height = ref[1];
+      this.canvas_width_to_bitmap_width = this.imgmask_bitmap.width / canvas_width;
+      this.canvas_height_to_bitmap_height = this.imgmask_bitmap.height / canvas_height;
       this.imgmask_img_size_width.textContent = '' + this.imgmask_img_width;
       this.imgmask_img_size_height.textContent = '' + this.imgmask_img_height;
       this.imgmask_bitmap_size_width.textContent = '' + this.imgmask_bitmap.width;
@@ -1899,23 +1905,19 @@ td.move_mode {
     };
 
     DrawPoint.prototype.random_point = function() {
-      var choice, choices, idx, p, prev_idx;
+      var choice, choices, idx, prev_idx;
       choices = this.current_restricted_choices();
       choice = choices[parseInt(Math.random() * choices.length)];
       prev_idx = APP.points.indexOf(this.prev_target[0]);
       idx = (choice + prev_idx) % APP.points.length;
-      p = APP.points[idx];
-      this.prev_target[2] = this.prev_target[1];
-      this.prev_target[1] = this.prev_target[0];
-      this.prev_target[0] = p;
-      return p;
+      return APP.points[idx];
     };
 
     DrawPoint.prototype.draw_graph = function(target) {
       var ctx;
-      if (this.last_choice_cell != null) {
-        this.last_choice_cell.textContent = target.name;
-      }
+      this.prev_target[2] = this.prev_target[1];
+      this.prev_target[1] = this.prev_target[0];
+      this.prev_target[0] = target;
       ctx = APP.graph_ctx;
       ctx.fillStyle = this.get_current_color(target);
       ctx.fillRect(this.x, this.y, 1, 1);
@@ -1928,7 +1930,7 @@ td.move_mode {
       if (target == null) {
         return false;
       }
-      origin = this.prev_target[1];
+      origin = this.prev_target[0];
       if (origin.move_perc_mode) {
         this.move_perc_towards_no_text_update(target, origin.move_perc);
       } else {
@@ -1954,52 +1956,75 @@ td.move_mode {
     };
 
     DrawPoint.prototype.single_step_origin_imgmask = function() {
-      var coords, origin, target;
-      target = this.random_point();
-      if (target == null) {
-        return false;
-      }
-      origin = this.prev_target[1];
-      coords = origin.move_perc_mode ? this.coords_after_move_perc_towards_target(target, origin.move_perc) : this.coords_after_move_absolute_towards_target(target, origin.move_perc);
-      if (this.collides_with_bitmap.apply(this, coords)) {
-        if (this.last_choice_cell != null) {
-          this.last_choice_cell.textContent = "HIT! (" + (Math.floor(coords[0])) + ", " + (Math.floor(coords[1])) + ")";
+      var choice, coords, idx, j, len1, origin, prev_idx, ref, target, tries;
+      origin = this.prev_target[0];
+      tries = [];
+      ref = this.current_restricted_choices().shuffle();
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        choice = ref[j];
+        prev_idx = APP.points.indexOf(origin);
+        idx = (choice + prev_idx) % APP.points.length;
+        target = APP.points[idx];
+        coords = origin.move_perc_mode ? this.coords_after_move_perc_towards_target(target, origin.move_perc) : this.coords_after_move_absolute_towards_target(target, origin.move_perc);
+        if (this.collides_with_bitmap.apply(this, coords)) {
+          tries.push({
+            target: target,
+            coords: coords
+          });
+          continue;
         }
-        return false;
+        this.move_no_text_update_array(coords);
+        this.draw_graph(target);
+        return true;
       }
-      this.move_no_text_update_array(coords);
-      this.draw_graph(target);
-      return true;
+      this.log_all_targets_collide(tries);
+      return false;
     };
 
     DrawPoint.prototype.single_step_destination_imgmask = function() {
-      var coords, target;
-      target = this.random_point();
-      if (target == null) {
-        return false;
-      }
-      coords = target.move_perc_mode ? this.coords_after_move_perc_towards_target(target, target.move_perc) : this.coords_after_move_absolute_towards_target(target, target.move_perc);
-      if (this.collides_with_bitmap.apply(this, coords)) {
-        if (this.last_choice_cell != null) {
-          this.last_choice_cell.textContent = "HIT! (" + (Math.floor(coords[0])) + ", " + (Math.floor(coords[1])) + ")";
+      var choice, coords, idx, j, len1, prev_idx, ref, target, tries;
+      tries = [];
+      ref = this.current_restricted_choices().shuffle();
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        choice = ref[j];
+        prev_idx = APP.points.indexOf(this.prev_target[0]);
+        idx = (choice + prev_idx) % APP.points.length;
+        target = APP.points[idx];
+        coords = target.move_perc_mode ? this.coords_after_move_perc_towards_target(target, target.move_perc) : this.coords_after_move_absolute_towards_target(target, target.move_perc);
+        if (this.collides_with_bitmap.apply(this, coords)) {
+          tries.push({
+            target: target,
+            coords: coords
+          });
+          continue;
         }
-        return false;
+        this.move_no_text_update_array(coords);
+        this.draw_graph(target);
+        return true;
       }
-      this.move_no_text_update_array(coords);
-      this.draw_graph(target);
-      return true;
+      this.log_all_targets_collide(tries);
+      return false;
+    };
+
+    DrawPoint.prototype.log_all_targets_collide = function(tries) {
+      var coords, idx, j, len1, results, t, target;
+      APP.redraw_ui();
+      console.log('All moves collide with the bitmap');
+      console.log('Current location xy', this.x, this.y);
+      results = [];
+      for (idx = j = 0, len1 = tries.length; j < len1; idx = ++j) {
+        t = tries[idx];
+        target = t.target;
+        coords = t.coords;
+        results.push(console.log(" * Try #" + idx + ": target '" + target.name + "' at xy", target.x, target.y, 'coords xy', coords[0], coords[1]));
+      }
+      return results;
     };
 
     DrawPoint.prototype.collides_with_bitmap = function(x, y) {
       var pixel, testx, testy;
-      if (!((this.imgmask_pad_width < x && x < this.imgmask_rpad_edge_x))) {
-        return false;
-      }
-      if (!((this.imgmask_pad_height < y && y < this.imgmask_rpad_edge_y))) {
-        return false;
-      }
-      testx = Math.floor(x * this.imgmask_oversample);
-      testy = Math.floor(y * this.imgmask_oversample);
+      testx = Math.floor(x * this.canvas_width_to_bitmap_width);
+      testy = Math.floor(y * this.canvas_height_to_bitmap_height);
       pixel = this.imgmask_bitmap_ctx.getImageData(testx, testy, 1, 1);
       return pixel.data[0] < 128;
     };
@@ -3258,8 +3283,10 @@ td.move_mode {
     StochasticSierpinski.prototype.single_step = function() {
       if (this.cur.single_step()) {
         this.step_count += 1;
+        return true;
+      } else {
+        return false;
       }
-      return null;
     };
 
     StochasticSierpinski.prototype.step = function() {
@@ -3270,14 +3297,16 @@ td.move_mode {
     };
 
     StochasticSierpinski.prototype.multistep = function() {
-      var j, ref, save_last_choice_cell;
-      save_last_choice_cell = this.cur.last_choice_cell;
-      this.cur.last_choice_cell = null;
-      for (j = 1, ref = this.steps_per_frame; 1 <= ref ? j < ref : j > ref; 1 <= ref ? j++ : j--) {
-        this.single_step();
+      var j, ref;
+      for (j = 0, ref = this.steps_per_frame; 0 <= ref ? j < ref : j > ref; 0 <= ref ? j++ : j--) {
+        if (!this.single_step()) {
+          if (this.running) {
+            this.stop();
+          }
+          console.log('forced stop!');
+          break;
+        }
       }
-      this.cur.last_choice_cell = save_last_choice_cell;
-      this.single_step();
       this.update_info_elements();
       this.redraw_ui();
       return null;

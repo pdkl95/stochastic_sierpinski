@@ -62,10 +62,6 @@ undivert(`style.css')
             <th>Total Steps</th>
             <td id="total_steps" colspan=2></td>
           </tr>
-          <tr>
-            <th>Last Choice</th>
-            <td id="last_choice"></td>
-          </tr>
         </table>
         <table id="point_pos_table">
           <tr>

@@ -9,6 +9,13 @@ Array::flatten ?= () ->
       result.push(el)
   result
 
+Array::shuffle = () ->
+  this.slice(0).reduceRight(
+    ((r,_,__,s) ->
+      r.push(s.splice(0|Math.random()*s.length,1)[0])
+      r),
+    [])
+
 Math.TAU ?= 2 * Math.PI
 
 Object.values ?= (obj) ->
@@ -484,8 +491,6 @@ class DrawPoint extends UIPoint
     @info_x_cell = APP.context.getElementById(@info_x_id)
     @info_y_cell = APP.context.getElementById(@info_y_id)
 
-    @last_choice_cell = APP.context.getElementById('last_choice')
-
     @btn_set_all_points = APP.context.getElementById('set_all_points')
     @move_perc_range_el = APP.context.getElementById('all_points_move_perc_range')
     @move_perc_range_el_init()
@@ -535,35 +540,35 @@ class DrawPoint extends UIPoint
 
   save_imgmask: ->
     opt =
-      enabled: @cur.option.imgmask_enabled.get()
-      threshold:  @cur.option.imgmask_threshold.get()
-      oversample: @cur.option.imgmask_oversample.get()
+      enabled: @option.imgmask_enabled.get()
+      threshold:  @option.imgmask_threshold.get()
+      oversample: @option.imgmask_oversample.get()
       padding:
-        width:  @cur.option.imgmask_padding_width.get()
-        height: @cur.option.imgmask_padding_height.get()
+        width:  @option.imgmask_padding_width.get()
+        height: @option.imgmask_padding_height.get()
       offset:
-        x: @cur.option.imgmask_offset_x.get()
-        y: @cur.option.imgmask_offset_y.get()
+        x: @option.imgmask_offset_x.get()
+        y: @option.imgmask_offset_y.get()
 
   load_imgmask: (opt) ->
     if opt.enabled?
-      @cur.option.imgmask_enabled.set(opt.enabled)
+      @option.imgmask_enabled.set(opt.enabled)
 
     if opt.threshold?
-      @cur.option.imgmask_threshold.set(opt.threshold)
+      @option.imgmask_threshold.set(opt.threshold)
 
     if opt.oversample?
-      @cur.option.imgmask_oversample.set(opt.oversample)
+      @option.imgmask_oversample.set(opt.oversample)
 
     if opt.padding?
       if opt.padding.width? and opt.padding.height?
-        @cur.option.imgmask_padding_width.set(opt.padding.width)
-        @cur.option.imgmask_padding_height.set(opt.padding.height)
+        @option.imgmask_padding_width.set(opt.padding.width)
+        @option.imgmask_padding_height.set(opt.padding.height)
 
     if opt.offset?
       if opt.offset.x? and opt.offset.y?
-        @cur.option.imgmask_offset_x.set(opt.offset.x)
-        @cur.option.imgmask_offset_y.set(opt.offset.y)
+        @option.imgmask_offset_x.set(opt.offset.x)
+        @option.imgmask_offset_y.set(opt.offset.y)
 
   on_set_all_points: (event) =>
     APP.set_all_points_move_perc(@move_perc * 100)
@@ -700,6 +705,10 @@ class DrawPoint extends UIPoint
     @imgmask_oversample = @option.imgmask_oversample.value
     @imgmask_bitmap.width  = @imgmask_img_width  * @imgmask_oversample
     @imgmask_bitmap.height = @imgmask_img_height * @imgmask_oversample
+
+    [canvas_width, canvas_height] = APP.max_xy()
+    @canvas_width_to_bitmap_width   = @imgmask_bitmap.width / canvas_width
+    @canvas_height_to_bitmap_height = @imgmask_bitmap.height / canvas_height
 
     @imgmask_img_size_width.textContent     = '' + @imgmask_img_width
     @imgmask_img_size_height.textContent    = '' + @imgmask_img_height
@@ -853,15 +862,12 @@ class DrawPoint extends UIPoint
     prev_idx = APP.points.indexOf(@prev_target[0])
     idx = (choice + prev_idx) % APP.points.length
 
-    p = APP.points[idx]
-    @prev_target[2] = @prev_target[1]
-    @prev_target[1] = @prev_target[0]
-    @prev_target[0] = p
-    p
+    APP.points[idx]
 
   draw_graph: (target) ->
-    if @last_choice_cell?
-      @last_choice_cell.textContent = target.name
+    @prev_target[2] = @prev_target[1]
+    @prev_target[1] = @prev_target[0]
+    @prev_target[0] = target
 
     ctx = APP.graph_ctx
     ctx.fillStyle = @get_current_color(target)
@@ -871,7 +877,7 @@ class DrawPoint extends UIPoint
   single_step_origin: ->
     target = @random_point()
     return false unless target?
-    origin = @prev_target[1]
+    origin = @prev_target[0]
 
     if origin.move_perc_mode
       @move_perc_towards_no_text_update(target, origin.move_perc)
@@ -894,50 +900,71 @@ class DrawPoint extends UIPoint
     return true
 
   single_step_origin_imgmask: ->
-    target = @random_point()
-    return false unless target?
-    origin = @prev_target[1]
+    origin = @prev_target[0]
+    tries = []
 
-    coords = if origin.move_perc_mode
-      @coords_after_move_perc_towards_target(target, origin.move_perc)
-    else
-      @coords_after_move_absolute_towards_target(target, origin.move_perc)
+    for choice in @current_restricted_choices().shuffle()
+      prev_idx = APP.points.indexOf(origin)
+      idx = (choice + prev_idx) % APP.points.length
+      target = APP.points[idx]
 
-    if @collides_with_bitmap(coords...)
-      if @last_choice_cell?
-        @last_choice_cell.textContent = "HIT! (#{Math.floor(coords[0])}, #{Math.floor(coords[1])})"
-      return false
+      coords = if origin.move_perc_mode
+        @coords_after_move_perc_towards_target(target, origin.move_perc)
+      else
+        @coords_after_move_absolute_towards_target(target, origin.move_perc)
 
-    @move_no_text_update_array(coords)
+      if @collides_with_bitmap(coords...)
+        tries.push( target: target, coords: coords )
+        continue
 
-    @draw_graph(target)
-    return true
+      @move_no_text_update_array(coords)
+
+      @draw_graph(target)
+      return true
+
+    @log_all_targets_collide(tries)
+    return false
 
   single_step_destination_imgmask: ->
-    target = @random_point()
-    return false unless target?
+    tries = []
+    for choice in @current_restricted_choices().shuffle()
+      prev_idx = APP.points.indexOf(@prev_target[0])
+      idx = (choice + prev_idx) % APP.points.length
+      target = APP.points[idx]
 
-    coords = if target.move_perc_mode
-      @coords_after_move_perc_towards_target(target, target.move_perc)
-    else
-      @coords_after_move_absolute_towards_target(target, target.move_perc)
+      coords = if target.move_perc_mode
+        @coords_after_move_perc_towards_target(target, target.move_perc)
+      else
+        @coords_after_move_absolute_towards_target(target, target.move_perc)
 
-    if @collides_with_bitmap(coords...)
-      if @last_choice_cell?
-        @last_choice_cell.textContent = "HIT! (#{Math.floor(coords[0])}, #{Math.floor(coords[1])})"
-      return false
+      if @collides_with_bitmap(coords...)
+        tries.push( target: target, coords: coords )
+        continue
 
-    @move_no_text_update_array(coords)
+      @move_no_text_update_array(coords)
 
-    @draw_graph(target)
-    return true
+      @draw_graph(target)
+      return true
+
+    @log_all_targets_collide(tries)
+    return false
+
+  log_all_targets_collide: (tries) ->
+    APP.redraw_ui()
+    console.log('All moves collide with the bitmap')
+    console.log('Current location xy', @x, @y)
+
+    for t, idx in tries
+      target = t.target
+      coords = t.coords
+      console.log(" * Try ##{idx}: target '#{target.name}' at xy", target.x, target.y, 'coords xy', coords[0], coords[1])
 
   collides_with_bitmap: (x, y) ->
-    return false unless @imgmask_pad_width  < x < @imgmask_rpad_edge_x
-    return false unless @imgmask_pad_height < y < @imgmask_rpad_edge_y
+    #return false unless @imgmask_pad_width  < x < @imgmask_rpad_edge_x
+    #return false unless @imgmask_pad_height < y < @imgmask_rpad_edge_y
 
-    testx = Math.floor(x * @imgmask_oversample)
-    testy = Math.floor(y * @imgmask_oversample)
+    testx = Math.floor(x * @canvas_width_to_bitmap_width)
+    testy = Math.floor(y * @canvas_height_to_bitmap_height)
     pixel = @imgmask_bitmap_ctx.getImageData(testx, testy, 1, 1)
     return (pixel.data[0]) < 128
 
@@ -1771,7 +1798,9 @@ class StochasticSierpinski
   single_step: ->
     if @cur.single_step()
       @step_count += 1
-    return null
+      return true
+    else
+      return false
 
   step: =>
     @single_step()
@@ -1781,14 +1810,11 @@ class StochasticSierpinski
     return null
 
   multistep: ->
-    save_last_choice_cell = @cur.last_choice_cell
-    @cur.last_choice_cell = null
-
-    @single_step() for [1...@steps_per_frame]
-
-    @cur.last_choice_cell = save_last_choice_cell
-
-    @single_step()
+    for [0...@steps_per_frame]
+      unless @single_step()
+        @stop() if @running
+        console.log('forced stop!')
+        break
 
     @update_info_elements()
     @redraw_ui()
