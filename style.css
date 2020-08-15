@@ -214,12 +214,12 @@ td.blank {
   background-color: #ccc;
 }
 
-#imgmask_padding_width ~ label {
+#imgmask_scale_width ~ label {
   margin-left: 1em;
 }
 
-#imgmask_padding_width,
-#imgmask_padding_height,
+#imgmask_scale_width,
+#imgmask_scale_height,
 #imgmask_offset_x,
 #imgmask_offset_y,
 #imgmask_oversample,

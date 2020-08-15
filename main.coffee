@@ -511,27 +511,22 @@ class DrawPoint extends UIPoint
       imgmask_enabled:    new BoolUIOption(  'imgmask_enabled',    APP.DEFAULT.imgmask.enabled,    @on_imgmask_enabled_change)
       imgmask_threshold:  new NumberUIOption('imgmask_threshold',  APP.DEFAULT.imgmask.threshold,  @on_imgmask_threshold_change)
       imgmask_oversample: new NumberUIOption('imgmask_oversample', APP.DEFAULT.imgmask.oversample, @on_imgmask_oversample_change)
-      imgmask_padding_width:  new NumberUIOption('imgmask_padding_width',  APP.DEFAULT.imgmask.padding.width,  @on_imgmask_padding_change)
-      imgmask_padding_height: new NumberUIOption('imgmask_padding_height', APP.DEFAULT.imgmask.padding.height, @on_imgmask_padding_change)
+      imgmask_scale_width:  new NumberUIOption('imgmask_scale_width',  APP.DEFAULT.imgmask.scale.width,  @on_imgmask_scale_change)
+      imgmask_scale_height: new NumberUIOption('imgmask_scale_height', APP.DEFAULT.imgmask.scale.height, @on_imgmask_scale_change)
       imgmask_offset_x: new NumberUIOption('imgmask_offset_x', APP.DEFAULT.imgmask.offset.x, @on_imgmask_offset_change)
       imgmask_offset_y: new NumberUIOption('imgmask_offset_y', APP.DEFAULT.imgmask.offset.y, @on_imgmask_offset_change)
       move_perc:   new NumberUIOption('all_points_move_perc_option',  @move_perc * 100, @on_move_perc_option_change)
       draw_style:  new EnumUIOption('draw_style',           APP.DEFAULT.cursor.draw_style,  @set_draw_style)
       data_source: new EnumUIOption('movement_data_source', APP.DEFAULT.cursor.data_source, @set_data_source)
 
-    @imgmask_overlay_state =
-      imgmask_padding_width: false
-      imgmask_padding_height: false
-      imgmask_offset_x: false
-      imgmask_offset_y: false
-
+    @imgmask_overlay_state = {}
     changefunc = @on_imgmask_overlay_change
-    @option.imgmask_padding_width.interaction_callbacks('imgmask_padding_width', changefunc, changefunc)
-    @option.imgmask_padding_height.interaction_callbacks('imgmask_padding_height', changefunc, changefunc)
-    @option.imgmask_offset_x.interaction_callbacks('imgmask_offset_x', changefunc, changefunc)
-    @option.imgmask_offset_y.interaction_callbacks('imgmask_offset_y', changefunc, changefunc)
 
-    @update_imgmask_padding()
+    for varname in ['imgmask_scale_width', 'imgmask_scale_height', 'imgmask_offset_x', 'imgmask_offset_y']
+      @imgmask_overlay_state[varname] = false
+      @option[varname].interaction_callbacks(varname, changefunc, changefunc)
+
+    @update_imgmask_scale()
     @update_imgmask_offset()
     @on_imgmask_enabled_change()
     @imgmask_file.addEventListener 'change', @on_imgmask_file_change
@@ -543,9 +538,9 @@ class DrawPoint extends UIPoint
       enabled: @option.imgmask_enabled.get()
       threshold:  @option.imgmask_threshold.get()
       oversample: @option.imgmask_oversample.get()
-      padding:
-        width:  @option.imgmask_padding_width.get()
-        height: @option.imgmask_padding_height.get()
+      scale:
+        width:  @option.imgmask_scale_width.get()
+        height: @option.imgmask_scale_height.get()
       offset:
         x: @option.imgmask_offset_x.get()
         y: @option.imgmask_offset_y.get()
@@ -560,10 +555,10 @@ class DrawPoint extends UIPoint
     if opt.oversample?
       @option.imgmask_oversample.set(opt.oversample)
 
-    if opt.padding?
-      if opt.padding.width? and opt.padding.height?
-        @option.imgmask_padding_width.set(opt.padding.width)
-        @option.imgmask_padding_height.set(opt.padding.height)
+    if opt.scale?
+      if opt.scale.width? and opt.scale.height?
+        @option.imgmask_scale_width.set(opt.scale.width)
+        @option.imgmask_scale_height.set(opt.scale.height)
 
     if opt.offset?
       if opt.offset.x? and opt.offset.y?
@@ -662,16 +657,16 @@ class DrawPoint extends UIPoint
       if @option.imgmask_enabled.value
         APP.resumable_reset()
 
-  update_imgmask_padding: ->
-    @imgmask_padperc_width  = @option.imgmask_padding_width.value / 100
-    @imgmask_padperc_height = @option.imgmask_padding_height.value / 100
+  update_imgmask_scale: ->
+    @imgmask_scaleperc_width  = @option.imgmask_scale_width.value  / 100
+    @imgmask_scaleperc_height = @option.imgmask_scale_height.value / 100
 
   update_imgmask_offset: ->
     @imgmask_offset_x = @option.imgmask_offset_x.value
     @imgmask_offset_y = @option.imgmask_offset_y.value
 
-  on_imgmask_padding_change: =>
-    @update_imgmask_padding()
+  on_imgmask_scale_change: =>
+    @update_imgmask_scale()
     @update_imgmask_bitmap()
 
   on_imgmask_offset_change: =>
@@ -729,26 +724,26 @@ class DrawPoint extends UIPoint
     hw = w / 2
     hh = h / 2
 
-    @imgmask_pad_width  = Math.floor(hw * @imgmask_padperc_width)
-    @imgmask_pad_height = Math.floor(hh * @imgmask_padperc_height)
-    @imgmask_dst_img_width  = w - (2 * @imgmask_pad_width)
-    @imgmask_dst_img_height = h - (2 * @imgmask_pad_height)
-    @imgmask_rpad_edge_x = @imgmask_pad_width + @imgmask_dst_img_width
-    @imgmask_rpad_edge_y = @imgmask_pad_height + @imgmask_dst_img_height
+    @imgmask_scale_width  = Math.floor(hw * @imgmask_scaleperc_width)
+    @imgmask_scale_height = Math.floor(hh * @imgmask_scaleperc_height)
+    @imgmask_dst_img_width  = w - (2 * @imgmask_scale_width)
+    @imgmask_dst_img_height = h - (2 * @imgmask_scale_height)
+    @imgmask_img_redge_x = @imgmask_scale_width + @imgmask_dst_img_width
+    @imgmask_img_redge_y = @imgmask_scale_height + @imgmask_dst_img_height
 
-    @imgmask_overlay_margin_x = Math.ceil(hw * @imgmask_padperc_width ) - @imgmask_pad_width
-    @imgmask_overlay_margin_y = Math.ceil(hh * @imgmask_padperc_height) - @imgmask_pad_height
+    @imgmask_overlay_margin_x = Math.ceil(hw * @imgmask_scaleperc_width ) - @imgmask_scale_width
+    @imgmask_overlay_margin_y = Math.ceil(hh * @imgmask_scaleperc_height) - @imgmask_scale_height
 
     @imgmask_bitmap_ctx.fillStyle = 'rgb(255,255,255)'
     @imgmask_bitmap_ctx.fillRect(0, 0, w, h)
 
     @imgmask_bitmap_ctx.drawImage(@imgmask_img,
       0, 0, @imgmask_img_width, @imgmask_img_height,
-      @imgmask_pad_width + @imgmask_offset_x, @imgmask_pad_height + @imgmask_offset_y, @imgmask_dst_img_width, @imgmask_dst_img_height)
+      @imgmask_scale_width + @imgmask_offset_x, @imgmask_scale_height + @imgmask_offset_y, @imgmask_dst_img_width, @imgmask_dst_img_height)
 
-    #@imgmask_image_data = @imgmask_bitmap_ctx.getImageData(@imgmask_pad_width, @imgmask_pad_height, @imgmask_dst_img_width, @imgmask_dst_img_width)
+    #@imgmask_image_data = @imgmask_bitmap_ctx.getImageData(@imgmask_scale_width, @imgmask_scale_height, @imgmask_dst_img_width, @imgmask_dst_img_width)
     @imgmask_image_data = @imgmask_bitmap_ctx.getImageData(0, 0, @imgmask_bitmap.width, @imgmask_bitmap.height)
-    console.log('image_data', 'len', @imgmask_image_data.data.length, 'width', @imgmask_image_data.width, 'height', @imgmask_image_data.height)
+    #console.log('image_data', 'len', @imgmask_image_data.data.length, 'width', @imgmask_image_data.width, 'height', @imgmask_image_data.height)
     d = @imgmask_image_data.data
     threshold = @option.imgmask_threshold.value / 255.0
 
@@ -759,7 +754,7 @@ class DrawPoint extends UIPoint
       d[i + 1] = x
       d[i + 2] = x
 
-    @imgmask_bitmap_ctx.putImageData(@imgmask_image_data, @imgmask_pad_width, @imgmask_pad_height)
+    @imgmask_bitmap_ctx.putImageData(@imgmask_image_data, @imgmask_scale_width, @imgmask_scale_height)
 
   set_imgmask_img_ready: (newvalue) ->
     @imgmask_img_ready = newvalue
@@ -796,8 +791,8 @@ class DrawPoint extends UIPoint
     reader.readAsDataURL(file)
 
   enable_imgmask: ->
-    @option.imgmask_padding_width.enable()
-    @option.imgmask_padding_height.enable()
+    @option.imgmask_scale_width.enable()
+    @option.imgmask_scale_height.enable()
     @option.imgmask_offset_x.enable()
     @option.imgmask_offset_y.enable()
     @option.imgmask_threshold.enable()
@@ -805,8 +800,8 @@ class DrawPoint extends UIPoint
     @imgmask_file.disabled = false
 
   disable_imgmask: ->
-    @option.imgmask_padding_width.disable()
-    @option.imgmask_padding_height.disable()
+    @option.imgmask_scale_width.disable()
+    @option.imgmask_scale_height.disable()
     @option.imgmask_offset_x.disable()
     @option.imgmask_offset_y.disable()
     @option.imgmask_threshold.disable()
@@ -965,8 +960,8 @@ class DrawPoint extends UIPoint
       console.log(" * Try ##{idx}: target '#{target.name}' at xy", target.x, target.y, 'coords xy', coords[0], coords[1])
 
   collides_with_bitmap: (x, y) ->
-    #return false unless @imgmask_pad_width  < x < @imgmask_rpad_edge_x
-    #return false unless @imgmask_pad_height < y < @imgmask_rpad_edge_y
+    #return false unless @imgmask_scale_width  < x < @imgmask_img_redge_x
+    #return false unless @imgmask_scale_height < y < @imgmask_img_redge_y
 
     testx = Math.floor(x * @canvas_width_to_bitmap_width)
     testy = Math.floor(y * @canvas_height_to_bitmap_height)
@@ -1229,14 +1224,14 @@ class StochasticSierpinski
       data_source: 'dest'
     imgmask:
       enabled: false
-      padding:
+      scale:
         width:  50
         height: 50
       offset:
         x: 0
         y: 0
       threshold: 1
-      oversample: 2
+      oversample: 1
 
   points: []
   move_absolute_magnitude: 100
@@ -1835,8 +1830,8 @@ class StochasticSierpinski
     hcw = cw / 2
     hch = ch / 2
 
-    padwidth  = @cur.imgmask_pad_width      / @cur.imgmask_oversample
-    padheight = @cur.imgmask_pad_height     / @cur.imgmask_oversample
+    scalewidth  = @cur.imgmask_scale_width    / @cur.imgmask_oversample
+    scaleheight = @cur.imgmask_scale_height   / @cur.imgmask_oversample
     imgwidth  = @cur.imgmask_dst_img_width  / @cur.imgmask_oversample
     imgheight = @cur.imgmask_dst_img_height / @cur.imgmask_oversample
     offset_x  = @cur.imgmask_offset_x       / @cur.imgmask_oversample
@@ -1857,7 +1852,7 @@ class StochasticSierpinski
 
     @graph_ui_ctx.save()
     img_region = new Path2D()
-    img_region.rect(padwidth + offset_x, padheight + offset_y, imgwidth, imgheight)
+    img_region.rect(scalewidth + offset_x, scaleheight + offset_y, imgwidth, imgheight)
     img_region.rect(0, 0, cw, ch)
     @graph_ui_ctx.clip(img_region, 'evenodd')
     @graph_ui_ctx.fillStyle = 'rgba(255, 65, 2, 0.3)'

@@ -181,16 +181,16 @@ undivert(`style.css')
               <td></td>
             </tr>
             <tr>
-              <th>Border Padding</th>
+              <th>Bitmap Size</th>
               <td>
-                <label for="imgmask_padding_width">L/R</label>
-                <input id="imgmask_padding_width"
-                       name="imgmask_padding_width"
+                <label for="imgmask_scale_width">L/R</label>
+                <input id="imgmask_scale_width"
+                       name="imgmask_scale_width"
                        type="number" value="50"
                        min="0" max="99" step="1">&nbsp;%
-                <label for="imgmask_padding_height">T/B</label>
-                <input id="imgmask_padding_height"
-                       name="imgmask_padding_height"
+                <label for="imgmask_scale_height">T/B</label>
+                <input id="imgmask_scale_height"
+                       name="imgmask_scale_height"
                        type="number" value="50"
                        min="0" max="99" step="1">&nbsp;%
               </td>
@@ -211,7 +211,7 @@ undivert(`style.css')
             <tr>
               <th>Bitmap Oversampling</th>
               <td><input id="imgmask_oversample" type="number"
-                         value="2" min="1" max="4" step="1">&nbsp;x
+                         value="1" min="1" max="4" step="1">&nbsp;x
               <td>
               </td>
             </tr>
