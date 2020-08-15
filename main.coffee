@@ -640,7 +640,9 @@ class DrawPoint extends UIPoint
   on_imgmask_enabled_change: =>
     if @option?.imgmask_enabled?
       @set_single_step_func()
-      if @option.imgmask_enabled.value
+      val = @option.imgmask_enabled.value
+      APP.imgmask_enabled = val
+      if val
         @enable_imgmask()
       else
         @disable_imgmask()
@@ -660,10 +662,12 @@ class DrawPoint extends UIPoint
   update_imgmask_scale: ->
     @imgmask_scaleperc_width  = @option.imgmask_scale_width.value  / 100
     @imgmask_scaleperc_height = @option.imgmask_scale_height.value / 100
+    APP.prepare_imgmask_overlay()
 
   update_imgmask_offset: ->
     @imgmask_offset_x = @option.imgmask_offset_x.value
     @imgmask_offset_y = @option.imgmask_offset_y.value
+    APP.prepare_imgmask_overlay()
 
   on_imgmask_scale_change: =>
     @update_imgmask_scale()
@@ -691,6 +695,7 @@ class DrawPoint extends UIPoint
   on_imgmask_overlay_change: (name, has_focus) =>
     @imgmask_overlay_state[name] = has_focus
     APP.show_imgmask_overlay = @any_imgmask_overlay_state_focused()
+    APP.prepare_imgmask_overlay()
     APP.redraw_ui()
 
   imgmask_prepare_bitmap: ->
@@ -724,26 +729,24 @@ class DrawPoint extends UIPoint
     hw = w / 2
     hh = h / 2
 
-    @imgmask_scale_width  = Math.floor(hw * @imgmask_scaleperc_width)
-    @imgmask_scale_height = Math.floor(hh * @imgmask_scaleperc_height)
-    @imgmask_dst_img_width  = w - (2 * @imgmask_scale_width)
-    @imgmask_dst_img_height = h - (2 * @imgmask_scale_height)
-    @imgmask_img_redge_x = @imgmask_scale_width + @imgmask_dst_img_width
-    @imgmask_img_redge_y = @imgmask_scale_height + @imgmask_dst_img_height
+    @imgmask_dstimg_half_width  = Math.floor(hw * @imgmask_scaleperc_width)
+    @imgmask_dstimg_half_height = Math.floor(hh * @imgmask_scaleperc_height)
+    @imgmask_dstimg_width  = 2 * @imgmask_dstimg_half_width
+    @imgmask_dstimg_height = 2 * @imgmask_dstimg_half_height
 
-    @imgmask_overlay_margin_x = Math.ceil(hw * @imgmask_scaleperc_width ) - @imgmask_scale_width
-    @imgmask_overlay_margin_y = Math.ceil(hh * @imgmask_scaleperc_height) - @imgmask_scale_height
+    @imgmask_dstimg_edge_x = hw - @imgmask_dstimg_half_width
+    @imgmask_dstimg_edge_y = hh - @imgmask_dstimg_half_height
+    @imgmask_dstimg_redge_x = @imgmask_dstimg_edge_x + @imgmask_dstimg_width
+    @imgmask_dstimg_redge_y = @imgmask_dstimg_edge_y + @imgmask_dstimg_height
 
     @imgmask_bitmap_ctx.fillStyle = 'rgb(255,255,255)'
     @imgmask_bitmap_ctx.fillRect(0, 0, w, h)
 
     @imgmask_bitmap_ctx.drawImage(@imgmask_img,
       0, 0, @imgmask_img_width, @imgmask_img_height,
-      @imgmask_scale_width + @imgmask_offset_x, @imgmask_scale_height + @imgmask_offset_y, @imgmask_dst_img_width, @imgmask_dst_img_height)
+      @imgmask_dstimg_edge_x, @imgmask_dstimg_edge_y, @imgmask_dstimg_width, @imgmask_dstimg_height)
 
-    #@imgmask_image_data = @imgmask_bitmap_ctx.getImageData(@imgmask_scale_width, @imgmask_scale_height, @imgmask_dst_img_width, @imgmask_dst_img_width)
     @imgmask_image_data = @imgmask_bitmap_ctx.getImageData(0, 0, @imgmask_bitmap.width, @imgmask_bitmap.height)
-    #console.log('image_data', 'len', @imgmask_image_data.data.length, 'width', @imgmask_image_data.width, 'height', @imgmask_image_data.height)
     d = @imgmask_image_data.data
     threshold = @option.imgmask_threshold.value / 255.0
 
@@ -754,7 +757,7 @@ class DrawPoint extends UIPoint
       d[i + 1] = x
       d[i + 2] = x
 
-    @imgmask_bitmap_ctx.putImageData(@imgmask_image_data, @imgmask_scale_width, @imgmask_scale_height)
+    @imgmask_bitmap_ctx.putImageData(@imgmask_image_data, 0, 0)
 
   set_imgmask_img_ready: (newvalue) ->
     @imgmask_img_ready = newvalue
@@ -1241,7 +1244,10 @@ class StochasticSierpinski
   init: () ->
     @running = false
 
+    @mouse_over_graph = false
     @show_imgmask_overlay = false
+    @imgmask_enabled = false
+    @imgmask_overlay_highlight = null
 
     @step_count = 0
 
@@ -1286,7 +1292,7 @@ class StochasticSierpinski
     @serializebox_cancel = @context.getElementById('serializebox_cancel')
 
     @graph_wrapper.addEventListener 'mouseenter', @on_mouseenter
-    @graph_wrapper.addEventListener 'mouseleave', @on_mouseleav
+    @graph_wrapper.addEventListener 'mouseleave', @on_mouseleave
 
     for i in [0..document.styleSheets.length]
       s = document.styleSheets[i]
@@ -1390,9 +1396,13 @@ class StochasticSierpinski
 
   on_mouseenter: =>
     @graph_wrapper.classList.add('resizable')
+    @mouse_over_graph = true
+    @redraw_ui()
 
   on_mouseleave: =>
     @graph_wrapper.classList.remove('resizable')
+    @mouse_over_graph = false
+    @redraw_ui()
 
   on_graph_wrapper_mutate: (event) =>
     if @graph_wrapper.offsetWidth != @graph_ui_canvas.width or @graph_wrapper.offsetHeight != @graph_ui_canvas.height
@@ -1418,6 +1428,7 @@ class StochasticSierpinski
     @graph_wrapper.style.width = style_width
     @canvas_size_rule.style.width = style_width
     @option.canvas_width.set(w)
+    APP.prepare_imgmask_overlay()
 
   resize_graph_height: (h) ->
     scale = h / @graph_canvas.height
@@ -1430,6 +1441,7 @@ class StochasticSierpinski
     @graph_wrapper.style.height = style_height
     @canvas_size_rule.style.height = style_height
     @option.canvas_height.set(h)
+    APP.prepare_imgmask_overlay()
 
   resize_graph: (w, h) ->
     @resize_graph_width(w)
@@ -1726,6 +1738,7 @@ class StochasticSierpinski
 
   on_mousemove: (event) =>
     loc = @event_to_canvas_loc(event)
+    @find_nearby_imgmask_highlight(loc.x, loc.y)
     if @dnd_target?
       if @is_inside_ui(loc)
         @dnd_target.move(loc.x, loc.y)
@@ -1739,6 +1752,24 @@ class StochasticSierpinski
         redraw = true if p.highlight()
 
       @redraw_ui() if redraw
+
+  find_nearby_imgmask_highlight: (mx, my) ->
+    oldhighlight = @imgmask_overlay_highlight
+    esize = 6
+
+    if      @image_edge_x < mx < @image_faredge_x and (@image_edge_y - esize) < my < (@image_edge_y + esize)
+      @imgmask_overlay_highlight = 'top'
+    else if @image_edge_y < my < @image_faredge_y and (@image_edge_x - esize) < mx < (@image_edge_x + esize)
+      @imgmask_overlay_highlight = 'left'
+    else if @image_edge_x < mx < @image_faredge_x and (@image_faredge_y - esize) < my < (@image_faredge_y + esize)
+      @imgmask_overlay_highlight = 'bottom'
+    else if @image_edge_y < my < @image_faredge_y and (@image_faredge_x - esize) < mx < (@image_faredge_x + esize)
+      @imgmask_overlay_highlight = 'right'
+    else
+      @imgmask_overlay_highlight = null
+
+    if oldhighlight isnt @imgmask_overlay_highlight
+      @redraw_ui()
 
   resumable_reset: () =>
     @on_reset(true)
@@ -1824,21 +1855,31 @@ class StochasticSierpinski
     @redraw_ui()
     return null
 
-  render_imgmask_overlay: ->
+  prepare_imgmask_overlay: =>
+    return unless @cur?
     cw = @graph_ui_canvas.width
     ch = @graph_ui_canvas.height
     hcw = cw / 2
     hch = ch / 2
 
-    scalewidth  = @cur.imgmask_scale_width    / @cur.imgmask_oversample
-    scaleheight = @cur.imgmask_scale_height   / @cur.imgmask_oversample
-    imgwidth  = @cur.imgmask_dst_img_width  / @cur.imgmask_oversample
-    imgheight = @cur.imgmask_dst_img_height / @cur.imgmask_oversample
-    offset_x  = @cur.imgmask_offset_x       / @cur.imgmask_oversample
-    offset_y  = @cur.imgmask_offset_y       / @cur.imgmask_oversample
+    scaled_half_width  = Math.floor(hcw * @cur.imgmask_scaleperc_width)
+    scaled_half_height = Math.floor(hch * @cur.imgmask_scaleperc_height)
 
-    offset_x -= @cur.imgmask_overlay_margin_x
-    offset_y -= @cur.imgmask_overlay_margin_y
+    @image_width  = 2 * scaled_half_width
+    @image_height = 2 * scaled_half_height
+    @image_edge_x = hcw - scaled_half_width
+    @image_edge_y = hch - scaled_half_height
+
+    @image_edge_x += @cur.imgmask_offset_x
+    @image_edge_y += @cur.imgmask_offset_y
+
+    @image_faredge_x = @image_edge_x + @image_width
+    @image_faredge_y = @image_edge_y + @image_height
+
+  render_imgmask_overlay: ->
+    @prepare_imgmask_overlay()
+    cw = @graph_ui_canvas.width
+    ch = @graph_ui_canvas.height
 
     if @cur.imgmask_img_ready
       @graph_ui_ctx.save()
@@ -1852,12 +1893,47 @@ class StochasticSierpinski
 
     @graph_ui_ctx.save()
     img_region = new Path2D()
-    img_region.rect(scalewidth + offset_x, scaleheight + offset_y, imgwidth, imgheight)
+    img_region.rect(@image_edge_x, @image_edge_y, @image_width, @image_height)
     img_region.rect(0, 0, cw, ch)
     @graph_ui_ctx.clip(img_region, 'evenodd')
-    @graph_ui_ctx.fillStyle = 'rgba(255, 65, 2, 0.3)'
+    @graph_ui_ctx.fillStyle = 'rgba(255, 65, 2, 0.2)'
     @graph_ui_ctx.fillRect(0, 0, cw, ch)
     @graph_ui_ctx.restore()
+
+    if @imgmask_overlay_highlight?
+      @graph_ui_ctx.save()
+      @graph_ui_ctx.beginPath()
+
+      switch @imgmask_overlay_highlight
+        when 'top'
+          @graph_ui_ctx.moveTo(@image_edge_x,    @image_edge_y)
+          @graph_ui_ctx.lineTo(@image_faredge_x, @image_edge_y)
+        when 'left'
+          @graph_ui_ctx.moveTo(@image_edge_x,    @image_edge_y)
+          @graph_ui_ctx.lineTo(@image_edge_x,    @image_faredge_y)
+        when 'bottom'
+          @graph_ui_ctx.moveTo(@image_edge_x,    @image_faredge_y)
+          @graph_ui_ctx.lineTo(@image_faredge_x, @image_faredge_y)
+        when 'right'
+          @graph_ui_ctx.moveTo(@image_faredge_x, @image_edge_y)
+          @graph_ui_ctx.lineTo(@image_faredge_x, @image_faredge_y)
+        else
+          return
+
+      linewidth = 3
+
+      @graph_ui_ctx.lineCap = 'round'
+      @graph_ui_ctx.strokeStyle = '#000'
+      @graph_ui_ctx.lineWidth = linewidth + 4
+      @graph_ui_ctx.stroke()
+
+      @graph_ui_ctx.lineCap = 'none'
+      @graph_ui_ctx.strokeStyle = '#FFFF00'
+      @graph_ui_ctx.lineWidth = linewidth
+      @graph_ui_ctx.setLineDash([3, 5])
+      @graph_ui_ctx.stroke()
+
+      @graph_ui_ctx.restore()
 
   redraw_ui: =>
     @graph_ui_ctx.clearRect(0, 0, @graph_ui_canvas.width, @graph_ui_canvas.height)
@@ -1867,7 +1943,8 @@ class StochasticSierpinski
     for p in @points
       p.draw_ui()
 
-    @render_imgmask_overlay() if @show_imgmask_overlay
+    if @show_imgmask_overlay or (@mouse_over_graph and @imgmask_enabled)
+      @render_imgmask_overlay()
 
     return null
 

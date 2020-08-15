@@ -1642,10 +1642,12 @@ td.move_mode {
     };
 
     DrawPoint.prototype.on_imgmask_enabled_change = function() {
-      var ref;
+      var ref, val;
       if (((ref = this.option) != null ? ref.imgmask_enabled : void 0) != null) {
         this.set_single_step_func();
-        if (this.option.imgmask_enabled.value) {
+        val = this.option.imgmask_enabled.value;
+        APP.imgmask_enabled = val;
+        if (val) {
           return this.enable_imgmask();
         } else {
           return this.disable_imgmask();
@@ -1673,12 +1675,14 @@ td.move_mode {
 
     DrawPoint.prototype.update_imgmask_scale = function() {
       this.imgmask_scaleperc_width = this.option.imgmask_scale_width.value / 100;
-      return this.imgmask_scaleperc_height = this.option.imgmask_scale_height.value / 100;
+      this.imgmask_scaleperc_height = this.option.imgmask_scale_height.value / 100;
+      return APP.prepare_imgmask_overlay();
     };
 
     DrawPoint.prototype.update_imgmask_offset = function() {
       this.imgmask_offset_x = this.option.imgmask_offset_x.value;
-      return this.imgmask_offset_y = this.option.imgmask_offset_y.value;
+      this.imgmask_offset_y = this.option.imgmask_offset_y.value;
+      return APP.prepare_imgmask_overlay();
     };
 
     DrawPoint.prototype.on_imgmask_scale_change = function() {
@@ -1717,6 +1721,7 @@ td.move_mode {
     DrawPoint.prototype.on_imgmask_overlay_change = function(name, has_focus) {
       this.imgmask_overlay_state[name] = has_focus;
       APP.show_imgmask_overlay = this.any_imgmask_overlay_state_focused();
+      APP.prepare_imgmask_overlay();
       return APP.redraw_ui();
     };
 
@@ -1750,17 +1755,17 @@ td.move_mode {
       h = this.imgmask_bitmap.height;
       hw = w / 2;
       hh = h / 2;
-      this.imgmask_scale_width = Math.floor(hw * this.imgmask_scaleperc_width);
-      this.imgmask_scale_height = Math.floor(hh * this.imgmask_scaleperc_height);
-      this.imgmask_dst_img_width = w - (2 * this.imgmask_scale_width);
-      this.imgmask_dst_img_height = h - (2 * this.imgmask_scale_height);
-      this.imgmask_img_redge_x = this.imgmask_scale_width + this.imgmask_dst_img_width;
-      this.imgmask_img_redge_y = this.imgmask_scale_height + this.imgmask_dst_img_height;
-      this.imgmask_overlay_margin_x = Math.ceil(hw * this.imgmask_scaleperc_width) - this.imgmask_scale_width;
-      this.imgmask_overlay_margin_y = Math.ceil(hh * this.imgmask_scaleperc_height) - this.imgmask_scale_height;
+      this.imgmask_dstimg_half_width = Math.floor(hw * this.imgmask_scaleperc_width);
+      this.imgmask_dstimg_half_height = Math.floor(hh * this.imgmask_scaleperc_height);
+      this.imgmask_dstimg_width = 2 * this.imgmask_dstimg_half_width;
+      this.imgmask_dstimg_height = 2 * this.imgmask_dstimg_half_height;
+      this.imgmask_dstimg_edge_x = hw - this.imgmask_dstimg_half_width;
+      this.imgmask_dstimg_edge_y = hh - this.imgmask_dstimg_half_height;
+      this.imgmask_dstimg_redge_x = this.imgmask_dstimg_edge_x + this.imgmask_dstimg_width;
+      this.imgmask_dstimg_redge_y = this.imgmask_dstimg_edge_y + this.imgmask_dstimg_height;
       this.imgmask_bitmap_ctx.fillStyle = 'rgb(255,255,255)';
       this.imgmask_bitmap_ctx.fillRect(0, 0, w, h);
-      this.imgmask_bitmap_ctx.drawImage(this.imgmask_img, 0, 0, this.imgmask_img_width, this.imgmask_img_height, this.imgmask_scale_width + this.imgmask_offset_x, this.imgmask_scale_height + this.imgmask_offset_y, this.imgmask_dst_img_width, this.imgmask_dst_img_height);
+      this.imgmask_bitmap_ctx.drawImage(this.imgmask_img, 0, 0, this.imgmask_img_width, this.imgmask_img_height, this.imgmask_dstimg_edge_x, this.imgmask_dstimg_edge_y, this.imgmask_dstimg_width, this.imgmask_dstimg_height);
       this.imgmask_image_data = this.imgmask_bitmap_ctx.getImageData(0, 0, this.imgmask_bitmap.width, this.imgmask_bitmap.height);
       d = this.imgmask_image_data.data;
       threshold = this.option.imgmask_threshold.value / 255.0;
@@ -1771,7 +1776,7 @@ td.move_mode {
         d[i + 1] = x;
         d[i + 2] = x;
       }
-      return this.imgmask_bitmap_ctx.putImageData(this.imgmask_image_data, this.imgmask_scale_width, this.imgmask_scale_height);
+      return this.imgmask_bitmap_ctx.putImageData(this.imgmask_image_data, 0, 0);
     };
 
     DrawPoint.prototype.set_imgmask_img_ready = function(newvalue) {
@@ -2499,6 +2504,7 @@ td.move_mode {
       this.on_keydown = bind(this.on_keydown, this);
       this.update = bind(this.update, this);
       this.redraw_ui = bind(this.redraw_ui, this);
+      this.prepare_imgmask_overlay = bind(this.prepare_imgmask_overlay, this);
       this.step = bind(this.step, this);
       this.stop = bind(this.stop, this);
       this.start = bind(this.start, this);
@@ -2536,7 +2542,10 @@ td.move_mode {
     StochasticSierpinski.prototype.init = function() {
       var i, j, k, r, ref, ref1, s;
       this.running = false;
+      this.mouse_over_graph = false;
       this.show_imgmask_overlay = false;
+      this.imgmask_enabled = false;
+      this.imgmask_overlay_highlight = null;
       this.step_count = 0;
       this.steps_per_frame_el = this.context.getElementById('steps_per_frame');
       this.graph_wrapper = this.context.getElementById('graph_wrapper');
@@ -2574,7 +2583,7 @@ td.move_mode {
       this.serializebox_action = this.context.getElementById('serializebox_action');
       this.serializebox_cancel = this.context.getElementById('serializebox_cancel');
       this.graph_wrapper.addEventListener('mouseenter', this.on_mouseenter);
-      this.graph_wrapper.addEventListener('mouseleave', this.on_mouseleav);
+      this.graph_wrapper.addEventListener('mouseleave', this.on_mouseleave);
       for (i = j = 0, ref = document.styleSheets.length; 0 <= ref ? j <= ref : j >= ref; i = 0 <= ref ? ++j : --j) {
         s = document.styleSheets[i];
         if ((s != null ? s.title : void 0) === 'app_stylesheet') {
@@ -2714,11 +2723,15 @@ td.move_mode {
     };
 
     StochasticSierpinski.prototype.on_mouseenter = function() {
-      return this.graph_wrapper.classList.add('resizable');
+      this.graph_wrapper.classList.add('resizable');
+      this.mouse_over_graph = true;
+      return this.redraw_ui();
     };
 
     StochasticSierpinski.prototype.on_mouseleave = function() {
-      return this.graph_wrapper.classList.remove('resizable');
+      this.graph_wrapper.classList.remove('resizable');
+      this.mouse_over_graph = false;
+      return this.redraw_ui();
     };
 
     StochasticSierpinski.prototype.on_graph_wrapper_mutate = function(event) {
@@ -2766,7 +2779,8 @@ td.move_mode {
       this.graph_ui_canvas.width = w;
       this.graph_wrapper.style.width = style_width;
       this.canvas_size_rule.style.width = style_width;
-      return this.option.canvas_width.set(w);
+      this.option.canvas_width.set(w);
+      return APP.prepare_imgmask_overlay();
     };
 
     StochasticSierpinski.prototype.resize_graph_height = function(h) {
@@ -2782,7 +2796,8 @@ td.move_mode {
       this.graph_ui_canvas.height = h;
       this.graph_wrapper.style.height = style_height;
       this.canvas_size_rule.style.height = style_height;
-      return this.option.canvas_height.set(h);
+      this.option.canvas_height.set(h);
+      return APP.prepare_imgmask_overlay();
     };
 
     StochasticSierpinski.prototype.resize_graph = function(w, h) {
@@ -3183,6 +3198,7 @@ td.move_mode {
     StochasticSierpinski.prototype.on_mousemove = function(event) {
       var loc, p, redraw;
       loc = this.event_to_canvas_loc(event);
+      this.find_nearby_imgmask_highlight(loc.x, loc.y);
       if (this.dnd_target != null) {
         if (this.is_inside_ui(loc)) {
           this.dnd_target.move(loc.x, loc.y);
@@ -3200,6 +3216,26 @@ td.move_mode {
         if (redraw) {
           return this.redraw_ui();
         }
+      }
+    };
+
+    StochasticSierpinski.prototype.find_nearby_imgmask_highlight = function(mx, my) {
+      var esize, oldhighlight;
+      oldhighlight = this.imgmask_overlay_highlight;
+      esize = 6;
+      if ((this.image_edge_x < mx && mx < this.image_faredge_x) && ((this.image_edge_y - esize) < my && my < (this.image_edge_y + esize))) {
+        this.imgmask_overlay_highlight = 'top';
+      } else if ((this.image_edge_y < my && my < this.image_faredge_y) && ((this.image_edge_x - esize) < mx && mx < (this.image_edge_x + esize))) {
+        this.imgmask_overlay_highlight = 'left';
+      } else if ((this.image_edge_x < mx && mx < this.image_faredge_x) && ((this.image_faredge_y - esize) < my && my < (this.image_faredge_y + esize))) {
+        this.imgmask_overlay_highlight = 'bottom';
+      } else if ((this.image_edge_y < my && my < this.image_faredge_y) && ((this.image_faredge_x - esize) < mx && mx < (this.image_faredge_x + esize))) {
+        this.imgmask_overlay_highlight = 'right';
+      } else {
+        this.imgmask_overlay_highlight = null;
+      }
+      if (oldhighlight !== this.imgmask_overlay_highlight) {
+        return this.redraw_ui();
       }
     };
 
@@ -3310,20 +3346,32 @@ td.move_mode {
       return null;
     };
 
-    StochasticSierpinski.prototype.render_imgmask_overlay = function() {
-      var ch, cw, hch, hcw, img_region, imgheight, imgwidth, offset_x, offset_y, oldalpha, scaleheight, scalewidth;
+    StochasticSierpinski.prototype.prepare_imgmask_overlay = function() {
+      var ch, cw, hch, hcw, scaled_half_height, scaled_half_width;
+      if (this.cur == null) {
+        return;
+      }
       cw = this.graph_ui_canvas.width;
       ch = this.graph_ui_canvas.height;
       hcw = cw / 2;
       hch = ch / 2;
-      scalewidth = this.cur.imgmask_scale_width / this.cur.imgmask_oversample;
-      scaleheight = this.cur.imgmask_scale_height / this.cur.imgmask_oversample;
-      imgwidth = this.cur.imgmask_dst_img_width / this.cur.imgmask_oversample;
-      imgheight = this.cur.imgmask_dst_img_height / this.cur.imgmask_oversample;
-      offset_x = this.cur.imgmask_offset_x / this.cur.imgmask_oversample;
-      offset_y = this.cur.imgmask_offset_y / this.cur.imgmask_oversample;
-      offset_x -= this.cur.imgmask_overlay_margin_x;
-      offset_y -= this.cur.imgmask_overlay_margin_y;
+      scaled_half_width = Math.floor(hcw * this.cur.imgmask_scaleperc_width);
+      scaled_half_height = Math.floor(hch * this.cur.imgmask_scaleperc_height);
+      this.image_width = 2 * scaled_half_width;
+      this.image_height = 2 * scaled_half_height;
+      this.image_edge_x = hcw - scaled_half_width;
+      this.image_edge_y = hch - scaled_half_height;
+      this.image_edge_x += this.cur.imgmask_offset_x;
+      this.image_edge_y += this.cur.imgmask_offset_y;
+      this.image_faredge_x = this.image_edge_x + this.image_width;
+      return this.image_faredge_y = this.image_edge_y + this.image_height;
+    };
+
+    StochasticSierpinski.prototype.render_imgmask_overlay = function() {
+      var ch, cw, img_region, linewidth, oldalpha;
+      this.prepare_imgmask_overlay();
+      cw = this.graph_ui_canvas.width;
+      ch = this.graph_ui_canvas.height;
       if (this.cur.imgmask_img_ready) {
         this.graph_ui_ctx.save();
         oldalpha = this.graph_ui_ctx.globalAlpha;
@@ -3334,12 +3382,47 @@ td.move_mode {
       }
       this.graph_ui_ctx.save();
       img_region = new Path2D();
-      img_region.rect(scalewidth + offset_x, scaleheight + offset_y, imgwidth, imgheight);
+      img_region.rect(this.image_edge_x, this.image_edge_y, this.image_width, this.image_height);
       img_region.rect(0, 0, cw, ch);
       this.graph_ui_ctx.clip(img_region, 'evenodd');
-      this.graph_ui_ctx.fillStyle = 'rgba(255, 65, 2, 0.3)';
+      this.graph_ui_ctx.fillStyle = 'rgba(255, 65, 2, 0.2)';
       this.graph_ui_ctx.fillRect(0, 0, cw, ch);
-      return this.graph_ui_ctx.restore();
+      this.graph_ui_ctx.restore();
+      if (this.imgmask_overlay_highlight != null) {
+        this.graph_ui_ctx.save();
+        this.graph_ui_ctx.beginPath();
+        switch (this.imgmask_overlay_highlight) {
+          case 'top':
+            this.graph_ui_ctx.moveTo(this.image_edge_x, this.image_edge_y);
+            this.graph_ui_ctx.lineTo(this.image_faredge_x, this.image_edge_y);
+            break;
+          case 'left':
+            this.graph_ui_ctx.moveTo(this.image_edge_x, this.image_edge_y);
+            this.graph_ui_ctx.lineTo(this.image_edge_x, this.image_faredge_y);
+            break;
+          case 'bottom':
+            this.graph_ui_ctx.moveTo(this.image_edge_x, this.image_faredge_y);
+            this.graph_ui_ctx.lineTo(this.image_faredge_x, this.image_faredge_y);
+            break;
+          case 'right':
+            this.graph_ui_ctx.moveTo(this.image_faredge_x, this.image_edge_y);
+            this.graph_ui_ctx.lineTo(this.image_faredge_x, this.image_faredge_y);
+            break;
+          default:
+            return;
+        }
+        linewidth = 3;
+        this.graph_ui_ctx.lineCap = 'round';
+        this.graph_ui_ctx.strokeStyle = '#000';
+        this.graph_ui_ctx.lineWidth = linewidth + 4;
+        this.graph_ui_ctx.stroke();
+        this.graph_ui_ctx.lineCap = 'none';
+        this.graph_ui_ctx.strokeStyle = '#FFFF00';
+        this.graph_ui_ctx.lineWidth = linewidth;
+        this.graph_ui_ctx.setLineDash([3, 5]);
+        this.graph_ui_ctx.stroke();
+        return this.graph_ui_ctx.restore();
+      }
     };
 
     StochasticSierpinski.prototype.redraw_ui = function() {
@@ -3353,7 +3436,7 @@ td.move_mode {
         p = ref1[j];
         p.draw_ui();
       }
-      if (this.show_imgmask_overlay) {
+      if (this.show_imgmask_overlay || (this.mouse_over_graph && this.imgmask_enabled)) {
         this.render_imgmask_overlay();
       }
       return null;
