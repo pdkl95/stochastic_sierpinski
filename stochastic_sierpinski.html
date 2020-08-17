@@ -767,7 +767,7 @@ td.move_mode {
 
     <script type="text/javascript">
 (function() {
-  var APP, BoolUIOption, Color, DrawPoint, EnumUIOption, NumberUIOption, Point, PointWidget, StochasticSierpinski, TargetRestriction, TargetRestrictionOption, UIOption, UIPoint, base,
+  var APP, BoolUIOption, Color, DNDHandler, DrawPoint, EnumUIOption, MultiDNDHandler, NumberUIOption, OffsetDNDHandler, Point, PointWidget, ScaleDNDHandler, ScaleHeightDNDHandler, ScaleWidthDNDHandler, StochasticSierpinski, TargetRestriction, TargetRestrictionOption, UIOption, UIPoint, XOffsetDNDHandler, YOffsetDNDHandler, base,
     slice = [].slice,
     bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
@@ -1446,6 +1446,8 @@ td.move_mode {
       this.on_set_all_points = bind(this.on_set_all_points, this);
       DrawPoint.__super__.constructor.call(this, '0', name);
       this.movement_from_origin = true;
+      this.imgmask_defer_convert_img_to_bitmap = false;
+      this.have_deferred_imgmask_bitmap_update = false;
       this.restrictions = new TargetRestriction(APP.context);
       this.set_color('#000000');
       this.set_draw_style(this.option.draw_style.get());
@@ -1675,14 +1677,12 @@ td.move_mode {
 
     DrawPoint.prototype.update_imgmask_scale = function() {
       this.imgmask_scaleperc_width = this.option.imgmask_scale_width.value / 100;
-      this.imgmask_scaleperc_height = this.option.imgmask_scale_height.value / 100;
-      return APP.prepare_imgmask_overlay();
+      return this.imgmask_scaleperc_height = this.option.imgmask_scale_height.value / 100;
     };
 
     DrawPoint.prototype.update_imgmask_offset = function() {
       this.imgmask_offset_x = this.option.imgmask_offset_x.value;
-      this.imgmask_offset_y = this.option.imgmask_offset_y.value;
-      return APP.prepare_imgmask_overlay();
+      return this.imgmask_offset_y = this.option.imgmask_offset_y.value;
     };
 
     DrawPoint.prototype.on_imgmask_scale_change = function() {
@@ -1695,15 +1695,30 @@ td.move_mode {
       return this.update_imgmask_bitmap();
     };
 
+    DrawPoint.prototype.real_update_imgmask_bitmap = function() {
+      this.imgmask_convert_img_to_bitmap();
+      if (this.option.imgmask_enabled.value) {
+        return APP.resumable_reset();
+      } else {
+        if (APP.show_imgmask_overlay) {
+          return APP.redraw_ui();
+        }
+      }
+    };
+
+    DrawPoint.prototype.run_pending_imgmask_bitmap_update = function() {
+      if (this.have_deferred_imgmask_bitmap_update) {
+        this.have_deferred_imgmask_bitmap_update = false;
+        return this.real_update_imgmask_bitmap();
+      }
+    };
+
     DrawPoint.prototype.update_imgmask_bitmap = function() {
       if (this.imgmask_img_ready) {
-        this.imgmask_convert_img_to_bitmap();
-        if (this.option.imgmask_enabled.value) {
-          return APP.resumable_reset();
+        if (this.imgmask_defer_convert_img_to_bitmap) {
+          return this.have_deferred_imgmask_bitmap_update = true;
         } else {
-          if (APP.show_imgmask_overlay) {
-            return APP.redraw_ui();
-          }
+          return this.real_update_imgmask_bitmap();
         }
       } else {
         if (APP.show_imgmask_overlay) {
@@ -2010,14 +2025,14 @@ td.move_mode {
     };
 
     DrawPoint.prototype.log_all_targets_collide = function(tries) {
-      var coords, idx, j, len1, results, t, target;
+      var G, coords, idx, j, len1, results, t;
       APP.redraw_ui();
       console.log('All moves collide with the bitmap');
       console.log('Current location xy', this.x, this.y);
       results = [];
       for (idx = j = 0, len1 = tries.length; j < len1; idx = ++j) {
         t = tries[idx];
-        target = t.target;
+        target(G = t.target);
         coords = t.coords;
         results.push(console.log(" * Try #" + idx + ": target '" + target.name + "' at xy", target.x, target.y, 'coords xy', coords[0], coords[1]));
       }
@@ -2035,6 +2050,162 @@ td.move_mode {
     return DrawPoint;
 
   })(UIPoint);
+
+  DNDHandler = (function() {
+    function DNDHandler(optname, defer_bitmap_updates) {
+      this.optname = optname;
+      this.defer_bitmap_updates = defer_bitmap_updates != null ? defer_bitmap_updates : true;
+      this.option = APP.cur.option[this.optname];
+      this.oldvalue = this.option.get();
+      this.newvalue = this.oldvalue;
+      if (this.defer_bitmap_updates) {
+        APP.cur.imgmask_defer_convert_img_to_bitmap = true;
+      }
+    }
+
+    DNDHandler.prototype.move = function(x, y) {
+      this.newvalue = this.loc_to_value(x, y);
+      this.option.set(this.newvalue);
+      return APP.redraw_ui(false);
+    };
+
+    DNDHandler.prototype.commit = function() {
+      if (this.defer_bitmap_updates) {
+        APP.cur.imgmask_defer_convert_img_to_bitmap = false;
+        APP.cur.run_pending_imgmask_bitmap_update();
+      }
+      if (this.newvalue !== this.oldvalue) {
+        if (this.on_change != null) {
+          return this.on_change();
+        }
+      }
+    };
+
+    return DNDHandler;
+
+  })();
+
+  OffsetDNDHandler = (function(superClass) {
+    extend(OffsetDNDHandler, superClass);
+
+    function OffsetDNDHandler() {
+      return OffsetDNDHandler.__super__.constructor.apply(this, arguments);
+    }
+
+    OffsetDNDHandler.prototype.on_change = function() {
+      return APP != null ? APP.cur.on_imgmask_offset_change() : void 0;
+    };
+
+    return OffsetDNDHandler;
+
+  })(DNDHandler);
+
+  XOffsetDNDHandler = (function(superClass) {
+    extend(XOffsetDNDHandler, superClass);
+
+    function XOffsetDNDHandler() {
+      return XOffsetDNDHandler.__super__.constructor.apply(this, arguments);
+    }
+
+    XOffsetDNDHandler.prototype.loc_to_value = function(x, y) {
+      var newvalue;
+      newvalue = x - APP.image_edge_x;
+      return newvalue;
+    };
+
+    return XOffsetDNDHandler;
+
+  })(OffsetDNDHandler);
+
+  YOffsetDNDHandler = (function(superClass) {
+    extend(YOffsetDNDHandler, superClass);
+
+    function YOffsetDNDHandler() {
+      return YOffsetDNDHandler.__super__.constructor.apply(this, arguments);
+    }
+
+    YOffsetDNDHandler.prototype.loc_to_value = function(x, y) {
+      var newvalue;
+      newvalue = y - APP.image_edge_y;
+      return newvalue;
+    };
+
+    return YOffsetDNDHandler;
+
+  })(OffsetDNDHandler);
+
+  ScaleDNDHandler = (function(superClass) {
+    extend(ScaleDNDHandler, superClass);
+
+    function ScaleDNDHandler() {
+      return ScaleDNDHandler.__super__.constructor.apply(this, arguments);
+    }
+
+    return ScaleDNDHandler;
+
+  })(DNDHandler);
+
+  ScaleWidthDNDHandler = (function(superClass) {
+    extend(ScaleWidthDNDHandler, superClass);
+
+    function ScaleWidthDNDHandler() {
+      return ScaleWidthDNDHandler.__super__.constructor.apply(this, arguments);
+    }
+
+    ScaleWidthDNDHandler.prototype.loc_to_value = function(x, y) {};
+
+    return ScaleWidthDNDHandler;
+
+  })(ScaleDNDHandler);
+
+  ScaleHeightDNDHandler = (function(superClass) {
+    extend(ScaleHeightDNDHandler, superClass);
+
+    function ScaleHeightDNDHandler() {
+      return ScaleHeightDNDHandler.__super__.constructor.apply(this, arguments);
+    }
+
+    ScaleHeightDNDHandler.prototype.loc_to_value = function(x, y) {};
+
+    return ScaleHeightDNDHandler;
+
+  })(ScaleDNDHandler);
+
+  MultiDNDHandler = (function() {
+    function MultiDNDHandler() {
+      var handlers;
+      handlers = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+      this.handlers = handlers;
+    }
+
+    MultiDNDHandler.prototype.move = function(x, y) {
+      var h, j, len1, ref, results;
+      APP.cur.imgmask_defer_convert_img_to_bitmap = true;
+      ref = this.handlers;
+      results = [];
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        h = ref[j];
+        results.push(h.move(x, y));
+      }
+      return results;
+    };
+
+    MultiDNDHandler.prototype.commit = function() {
+      var h, j, len1, ref, results;
+      APP.cur.imgmask_defer_convert_img_to_bitmap = false;
+      APP.cur.run_pending_imgmask_bitmap_update();
+      ref = this.handlers;
+      results = [];
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        h = ref[j];
+        results.push(h.commit());
+      }
+      return results;
+    };
+
+    return MultiDNDHandler;
+
+  })();
 
   TargetRestrictionOption = (function() {
     function TargetRestrictionOption(context, offset1, name1) {
@@ -3171,6 +3342,25 @@ td.move_mode {
       return changed;
     };
 
+    StochasticSierpinski.prototype.get_overlay_highlight_dnd_handler = function(side) {
+      switch (side) {
+        case 'left':
+          return new XOffsetDNDHandler('imgmask_offset_x');
+        case 'top':
+          return new YOffsetDNDHandler('imgmask_offset_y');
+        case 'right':
+          return new ScaleWidthDNDHandler('imgmask_scale_width');
+        case 'bottom':
+          return new ScaleHeightDNDHandler('imgmask_scale_height');
+        case 'TL':
+          return new MultiDNDHandler(new XOffsetDNDHandler('imgmask_offset_x', false), new YOffsetDNDHandler('imgmask_offset_y', false));
+        case 'BR':
+          return new MultiDNDHandler(new ScaleWidthDNDHandler('imgmask_scale_width', false), new ScaleHeightDNDHandler('imgmask_scale_height', false));
+        default:
+          return null;
+      }
+    };
+
     StochasticSierpinski.prototype.on_mousedown = function(event) {
       var loc, p;
       this.unhighlight_all();
@@ -3179,6 +3369,8 @@ td.move_mode {
       if (p != null) {
         this.dnd_target = p;
         return p.highlight();
+      } else if (this.imgmask_overlay_highlight != null) {
+        return this.dnd_target = this.get_overlay_highlight_dnd_handler(this.imgmask_overlay_highlight);
       }
     };
 
@@ -3188,6 +3380,9 @@ td.move_mode {
         loc = this.event_to_canvas_loc(event);
         if (this.is_inside_ui(loc)) {
           this.dnd_target.move(loc.x, loc.y);
+          if (this.dnd_target.commit != null) {
+            this.dnd_target.commit();
+          }
           this.redraw_ui();
           this.resumable_reset();
         }
@@ -3198,12 +3393,10 @@ td.move_mode {
     StochasticSierpinski.prototype.on_mousemove = function(event) {
       var loc, p, redraw;
       loc = this.event_to_canvas_loc(event);
-      this.find_nearby_imgmask_highlight(loc.x, loc.y);
       if (this.dnd_target != null) {
         if (this.is_inside_ui(loc)) {
           this.dnd_target.move(loc.x, loc.y);
-          this.redraw_ui();
-          return this.resumable_reset();
+          return this.redraw_ui(false);
         }
       } else {
         redraw = this.unhighlight_all();
@@ -3213,17 +3406,28 @@ td.move_mode {
             redraw = true;
           }
         }
+        if (this.find_nearby_imgmask_highlight(loc.x, loc.y, false)) {
+          redraw = true;
+        }
         if (redraw) {
           return this.redraw_ui();
         }
       }
     };
 
-    StochasticSierpinski.prototype.find_nearby_imgmask_highlight = function(mx, my) {
-      var esize, oldhighlight;
+    StochasticSierpinski.prototype.find_nearby_imgmask_highlight = function(mx, my, redraw_on_change) {
+      var bsize, esize, oldhighlight;
+      if (redraw_on_change == null) {
+        redraw_on_change = true;
+      }
       oldhighlight = this.imgmask_overlay_highlight;
       esize = 6;
-      if ((this.image_edge_x < mx && mx < this.image_faredge_x) && ((this.image_edge_y - esize) < my && my < (this.image_edge_y + esize))) {
+      bsize = 8;
+      if (((this.image_edge_x - bsize) < mx && mx < (this.image_edge_x + bsize)) && ((this.image_edge_y - bsize) < my && my < (this.image_edge_y + bsize))) {
+        this.imgmask_overlay_highlight = 'TL';
+      } else if (((this.image_faredge_x - bsize) < mx && mx < (this.image_faredge_x + bsize)) && ((this.image_faredge_y - bsize) < my && my < (this.image_faredge_y + bsize))) {
+        this.imgmask_overlay_highlight = 'BR';
+      } else if ((this.image_edge_x < mx && mx < this.image_faredge_x) && ((this.image_edge_y - esize) < my && my < (this.image_edge_y + esize))) {
         this.imgmask_overlay_highlight = 'top';
       } else if ((this.image_edge_y < my && my < this.image_faredge_y) && ((this.image_edge_x - esize) < mx && mx < (this.image_edge_x + esize))) {
         this.imgmask_overlay_highlight = 'left';
@@ -3235,7 +3439,12 @@ td.move_mode {
         this.imgmask_overlay_highlight = null;
       }
       if (oldhighlight !== this.imgmask_overlay_highlight) {
-        return this.redraw_ui();
+        if (redraw_on_change) {
+          this.redraw_ui();
+        }
+        return true;
+      } else {
+        return false;
       }
     };
 
@@ -3367,66 +3576,167 @@ td.move_mode {
       return this.image_faredge_y = this.image_edge_y + this.image_height;
     };
 
-    StochasticSierpinski.prototype.render_imgmask_overlay = function() {
-      var ch, cw, img_region, linewidth, oldalpha;
-      this.prepare_imgmask_overlay();
-      cw = this.graph_ui_canvas.width;
-      ch = this.graph_ui_canvas.height;
-      if (this.cur.imgmask_img_ready) {
-        this.graph_ui_ctx.save();
-        oldalpha = this.graph_ui_ctx.globalAlpha;
-        this.graph_ui_ctx.globalAlpha = 0.5;
-        this.graph_ui_ctx.drawImage(this.cur.imgmask_bitmap, 0, 0, this.cur.imgmask_bitmap.width, this.cur.imgmask_bitmap.height, 0, 0, cw, ch);
-        this.graph_ui_ctx.globalAlpha = oldalpha;
-        this.graph_ui_ctx.restore();
+    StochasticSierpinski.prototype.render_imgmask_overlay = function(render_bitmap_preview) {
+      if (render_bitmap_preview == null) {
+        render_bitmap_preview = true;
       }
-      this.graph_ui_ctx.save();
-      img_region = new Path2D();
-      img_region.rect(this.image_edge_x, this.image_edge_y, this.image_width, this.image_height);
-      img_region.rect(0, 0, cw, ch);
-      this.graph_ui_ctx.clip(img_region, 'evenodd');
-      this.graph_ui_ctx.fillStyle = 'rgba(255, 65, 2, 0.2)';
-      this.graph_ui_ctx.fillRect(0, 0, cw, ch);
-      this.graph_ui_ctx.restore();
+      this.prepare_imgmask_overlay();
+      if (this.cur.imgmask_img_ready && (render_bitmap_preview != null)) {
+        this.render_overlay_bitmap_preview();
+      }
+      this.render_overlay_margin_shading();
       if (this.imgmask_overlay_highlight != null) {
-        this.graph_ui_ctx.save();
-        this.graph_ui_ctx.beginPath();
-        switch (this.imgmask_overlay_highlight) {
-          case 'top':
-            this.graph_ui_ctx.moveTo(this.image_edge_x, this.image_edge_y);
-            this.graph_ui_ctx.lineTo(this.image_faredge_x, this.image_edge_y);
-            break;
-          case 'left':
-            this.graph_ui_ctx.moveTo(this.image_edge_x, this.image_edge_y);
-            this.graph_ui_ctx.lineTo(this.image_edge_x, this.image_faredge_y);
-            break;
-          case 'bottom':
-            this.graph_ui_ctx.moveTo(this.image_edge_x, this.image_faredge_y);
-            this.graph_ui_ctx.lineTo(this.image_faredge_x, this.image_faredge_y);
-            break;
-          case 'right':
-            this.graph_ui_ctx.moveTo(this.image_faredge_x, this.image_edge_y);
-            this.graph_ui_ctx.lineTo(this.image_faredge_x, this.image_faredge_y);
-            break;
-          default:
-            return;
-        }
-        linewidth = 3;
-        this.graph_ui_ctx.lineCap = 'round';
-        this.graph_ui_ctx.strokeStyle = '#000';
-        this.graph_ui_ctx.lineWidth = linewidth + 4;
-        this.graph_ui_ctx.stroke();
-        this.graph_ui_ctx.lineCap = 'none';
-        this.graph_ui_ctx.strokeStyle = '#FFFF00';
-        this.graph_ui_ctx.lineWidth = linewidth;
-        this.graph_ui_ctx.setLineDash([3, 5]);
-        this.graph_ui_ctx.stroke();
-        return this.graph_ui_ctx.restore();
+        return this.render_overlay_highlight();
       }
     };
 
-    StochasticSierpinski.prototype.redraw_ui = function() {
+    StochasticSierpinski.prototype.render_overlay_bitmap_preview = function() {
+      var oldalpha;
+      this.graph_ui_ctx.save();
+      oldalpha = this.graph_ui_ctx.globalAlpha;
+      this.graph_ui_ctx.globalAlpha = 0.5;
+      this.graph_ui_ctx.drawImage(this.cur.imgmask_bitmap, 0, 0, this.cur.imgmask_bitmap.width, this.cur.imgmask_bitmap.height, this.cur.imgmask_offset_x, this.cur.imgmask_offset_y, this.graph_ui_canvas.width, this.graph_ui_canvas.height);
+      this.graph_ui_ctx.globalAlpha = oldalpha;
+      return this.graph_ui_ctx.restore();
+    };
+
+    StochasticSierpinski.prototype.render_overlay_margin_shading = function() {
+      var img_region;
+      this.graph_ui_ctx.save();
+      img_region = new Path2D();
+      img_region.rect(this.image_edge_x, this.image_edge_y, this.image_width, this.image_height);
+      img_region.rect(0, 0, this.graph_ui_canvas.width, this.graph_ui_canvas.height);
+      this.graph_ui_ctx.clip(img_region, 'evenodd');
+      this.graph_ui_ctx.fillStyle = 'rgba(255, 65, 2, 0.2)';
+      this.graph_ui_ctx.fillRect(0, 0, this.graph_ui_canvas.width, this.graph_ui_canvas.height);
+      return this.graph_ui_ctx.restore();
+    };
+
+    StochasticSierpinski.prototype.render_overlay_highlight = function() {
+      var biglinewidth, cb_margin, cb_offset, cornerbox_size, draw, dx, dy, extralinewidth, hl_bottom, hl_left, hl_right, hl_top, linetrim, linewidth, min_delta;
+      this.graph_ui_ctx.save();
+      linewidth = 3;
+      extralinewidth = 2;
+      biglinewidth = linewidth + extralinewidth;
+      linetrim = biglinewidth + 4;
+      cornerbox_size = 2 * linetrim;
+      dx = this.image_faredge_x - this.image_edge_x;
+      dy = this.image_faredge_y - this.image_edge_y;
+      min_delta = Math.min(dx, dy);
+      if (linetrim > min_delta) {
+        linetrim = min_delta;
+      }
+      cb_offset = 8;
+      cb_margin = 3;
+      draw = null;
+      hl_top = false;
+      hl_left = false;
+      hl_bottom = false;
+      hl_right = false;
+      switch (this.imgmask_overlay_highlight) {
+        case 'TL':
+          draw = 'TL';
+          hl_top = true;
+          hl_left = true;
+          break;
+        case 'BR':
+          draw = 'BR';
+          hl_bottom = true;
+          hl_right = true;
+          break;
+        case 'top':
+          draw = 'TL';
+          hl_top = true;
+          break;
+        case 'left':
+          draw = 'TL';
+          hl_left = true;
+          break;
+        case 'bottom':
+          draw = 'BR';
+          hl_bottom = true;
+          break;
+        case 'right':
+          draw = 'BR';
+          hl_right = true;
+          break;
+        default:
+          this.graph_ui_ctx.restore();
+          return;
+      }
+      this.graph_ui_ctx.beginPath();
+      switch (draw) {
+        case 'TL':
+          this.graph_ui_ctx.moveTo(this.image_faredge_x - linetrim, this.image_edge_y);
+          this.graph_ui_ctx.lineTo(this.image_edge_x, this.image_edge_y);
+          this.graph_ui_ctx.lineTo(this.image_edge_x, this.image_faredge_y - linetrim);
+          break;
+        case 'BR':
+          this.graph_ui_ctx.moveTo(this.image_edge_x + linetrim, this.image_faredge_y);
+          this.graph_ui_ctx.lineTo(this.image_faredge_x, this.image_faredge_y);
+          this.graph_ui_ctx.lineTo(this.image_faredge_x, this.image_edge_y + linetrim);
+      }
+      this.graph_ui_ctx.lineCap = 'round';
+      this.graph_ui_ctx.lineJoin = 'round';
+      this.graph_ui_ctx.strokeStyle = '#000';
+      this.graph_ui_ctx.lineWidth = linewidth + extralinewidth;
+      this.graph_ui_ctx.stroke();
+      this.graph_ui_ctx.beginPath();
+      this.graph_ui_ctx.lineCap = 'none';
+      this.graph_ui_ctx.lineJoin = 'miter';
+      this.graph_ui_ctx.strokeStyle = '#FFFF00';
+      this.graph_ui_ctx.lineWidth = linewidth;
+      this.graph_ui_ctx.setLineDash([3, 5]);
+      if (hl_top) {
+        this.graph_ui_ctx.moveTo(this.image_faredge_x - linetrim, this.image_edge_y);
+        this.graph_ui_ctx.lineTo(this.image_edge_x + linetrim, this.image_edge_y);
+        this.graph_ui_ctx.stroke();
+      }
+      if (hl_left) {
+        this.graph_ui_ctx.moveTo(this.image_edge_x, this.image_faredge_y - linetrim);
+        this.graph_ui_ctx.lineTo(this.image_edge_x, this.image_edge_y + linetrim);
+        this.graph_ui_ctx.stroke();
+      }
+      if (hl_bottom) {
+        this.graph_ui_ctx.moveTo(this.image_edge_x + linetrim, this.image_faredge_y);
+        this.graph_ui_ctx.lineTo(this.image_faredge_x - linetrim, this.image_faredge_y);
+        this.graph_ui_ctx.stroke();
+      }
+      if (hl_right) {
+        this.graph_ui_ctx.moveTo(this.image_faredge_x, this.image_edge_y + linetrim);
+        this.graph_ui_ctx.lineTo(this.image_faredge_x, this.image_faredge_y - linetrim);
+        this.graph_ui_ctx.stroke();
+      }
+      this.render_overlay_cornerbox(draw, cornerbox_size, cb_offset, '#000');
+      if (this.imgmask_overlay_highlight === 'TL' || this.imgmask_overlay_highlight === 'BR') {
+        this.render_overlay_cornerbox(draw, cornerbox_size - (2 * cb_margin), cb_offset - cb_margin, '#FFFF00');
+      }
+      return this.graph_ui_ctx.restore();
+    };
+
+    StochasticSierpinski.prototype.render_overlay_cornerbox = function(draw, size, offset, style) {
+      var x, y;
+      this.graph_ui_ctx.beginPath();
+      switch (draw) {
+        case 'TL':
+          x = this.image_edge_x - offset;
+          y = this.image_edge_y - offset;
+          this.graph_ui_ctx.rect(x, y, size, size);
+          break;
+        case 'BR':
+          x = this.image_faredge_x + offset - size;
+          y = this.image_faredge_y + offset - size;
+          this.graph_ui_ctx.rect(x, y, size, size);
+      }
+      this.graph_ui_ctx.fillStyle = style;
+      return this.graph_ui_ctx.fill();
+    };
+
+    StochasticSierpinski.prototype.redraw_ui = function(render_bitmap_preview) {
       var j, len1, p, ref, ref1;
+      if (render_bitmap_preview == null) {
+        render_bitmap_preview = true;
+      }
       this.graph_ui_ctx.clearRect(0, 0, this.graph_ui_canvas.width, this.graph_ui_canvas.height);
       if ((ref = this.cur) != null) {
         ref.draw_ui();
@@ -3437,7 +3747,7 @@ td.move_mode {
         p.draw_ui();
       }
       if (this.show_imgmask_overlay || (this.mouse_over_graph && this.imgmask_enabled)) {
-        this.render_imgmask_overlay();
+        this.render_imgmask_overlay(render_bitmap_preview);
       }
       return null;
     };
@@ -3519,6 +3829,7 @@ td.move_mode {
   document.addEventListener('DOMContentLoaded', (function(_this) {
     return function() {
       APP = new StochasticSierpinski(document);
+      window.APP = APP;
       APP.init();
       APP.on_hashchange();
       return APP.load_from_cookie();

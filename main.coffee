@@ -287,6 +287,9 @@ class UIPoint extends Point
     @set_move_perc(value)
     APP.resumable_reset()
 
+
+
+
   on_move_per_range_input: (event) =>
     @set_move_perc(event.target.value)
     APP.resumable_reset()
@@ -480,6 +483,8 @@ class DrawPoint extends UIPoint
     super '0', name
 
     @movement_from_origin = true
+    @imgmask_defer_convert_img_to_bitmap = false
+    @have_deferred_imgmask_bitmap_update = false
 
     @restrictions = new TargetRestriction(APP.context)
 
@@ -662,12 +667,10 @@ class DrawPoint extends UIPoint
   update_imgmask_scale: ->
     @imgmask_scaleperc_width  = @option.imgmask_scale_width.value  / 100
     @imgmask_scaleperc_height = @option.imgmask_scale_height.value / 100
-    APP.prepare_imgmask_overlay()
 
   update_imgmask_offset: ->
     @imgmask_offset_x = @option.imgmask_offset_x.value
     @imgmask_offset_y = @option.imgmask_offset_y.value
-    APP.prepare_imgmask_overlay()
 
   on_imgmask_scale_change: =>
     @update_imgmask_scale()
@@ -677,14 +680,25 @@ class DrawPoint extends UIPoint
     @update_imgmask_offset()
     @update_imgmask_bitmap()
 
+  real_update_imgmask_bitmap: ->
+    @imgmask_convert_img_to_bitmap()
+
+    if @option.imgmask_enabled.value
+      APP.resumable_reset()
+    else
+      APP.redraw_ui() if APP.show_imgmask_overlay
+
+  run_pending_imgmask_bitmap_update: ->
+    if @have_deferred_imgmask_bitmap_update
+      @have_deferred_imgmask_bitmap_update = false
+      @real_update_imgmask_bitmap()
+
   update_imgmask_bitmap: ->
     if @imgmask_img_ready
-      @imgmask_convert_img_to_bitmap()
-
-      if @option.imgmask_enabled.value
-        APP.resumable_reset()
+      if @imgmask_defer_convert_img_to_bitmap
+        @have_deferred_imgmask_bitmap_update = true
       else
-       APP.redraw_ui() if APP.show_imgmask_overlay
+        @real_update_imgmask_bitmap()
 
     else
       APP.redraw_ui() if APP.show_imgmask_overlay
@@ -958,7 +972,7 @@ class DrawPoint extends UIPoint
     console.log('Current location xy', @x, @y)
 
     for t, idx in tries
-      target = t.target
+      target G= t.target
       coords = t.coords
       console.log(" * Try ##{idx}: target '#{target.name}' at xy", target.x, target.y, 'coords xy', coords[0], coords[1])
 
@@ -975,6 +989,67 @@ class DrawPoint extends UIPoint
     #pixel = @imgmask_bitmap_ctx.getImageData(testx, testy, 1, 1)
     #return (pixel.data[0]) < 128
 
+class DNDHandler
+  constructor: (@optname, @defer_bitmap_updates = true) ->
+    @option = APP.cur.option[@optname]
+    @oldvalue = @option.get()
+    @newvalue = @oldvalue
+
+    if @defer_bitmap_updates
+      APP.cur.imgmask_defer_convert_img_to_bitmap = true
+
+  move: (x, y) ->
+    @newvalue = @loc_to_value(x, y)
+    @option.set(@newvalue)
+    APP.redraw_ui(false)
+
+  commit: ->
+    if @defer_bitmap_updates
+      APP.cur.imgmask_defer_convert_img_to_bitmap = false
+      APP.cur.run_pending_imgmask_bitmap_update()
+
+    if @newvalue isnt @oldvalue
+      @on_change() if @on_change?
+
+class OffsetDNDHandler extends DNDHandler
+  on_change: ->
+    APP?.cur.on_imgmask_offset_change()
+
+class XOffsetDNDHandler extends OffsetDNDHandler
+  loc_to_value: (x, y) ->
+    newvalue = x - APP.image_edge_x
+    newvalue
+
+class YOffsetDNDHandler extends OffsetDNDHandler
+  loc_to_value: (x, y) ->
+    newvalue = y - APP.image_edge_y
+    newvalue
+
+class ScaleDNDHandler extends DNDHandler
+  on_change: ->
+    APP?.cur.on_imgmask_scale_change()
+
+class ScaleWidthDNDHandler extends ScaleDNDHandler
+  loc_to_value: (x, y) ->
+
+class ScaleHeightDNDHandler extends ScaleDNDHandler
+  loc_to_value: (x, y) ->
+
+class MultiDNDHandler
+  constructor: (handlers...) ->
+    @handlers = handlers
+
+  move: (x, y) ->
+    APP.cur.imgmask_defer_convert_img_to_bitmap = true
+    for h in @handlers
+      h.move(x, y)
+
+  commit: ->
+    APP.cur.imgmask_defer_convert_img_to_bitmap = false
+    APP.cur.run_pending_imgmask_bitmap_update()
+
+    for h in @handlers
+      h.commit()
 
 class TargetRestrictionOption
   constructor: (@context, @offset, @name) ->
@@ -1718,6 +1793,26 @@ class StochasticSierpinski
       changed = true if p.unhighlight()
     return changed
 
+  get_overlay_highlight_dnd_handler: (side) ->
+    switch side
+      when 'left'   then new XOffsetDNDHandler('imgmask_offset_x')
+      when 'top'    then new YOffsetDNDHandler('imgmask_offset_y')
+      when 'right'  then new ScaleWidthDNDHandler( 'imgmask_scale_width')
+      when 'bottom' then new ScaleHeightDNDHandler('imgmask_scale_height')
+
+      when 'TL'
+        new MultiDNDHandler(
+          new XOffsetDNDHandler('imgmask_offset_x', false),
+          new YOffsetDNDHandler('imgmask_offset_y', false))
+
+      when 'BR'
+        new MultiDNDHandler(
+          new ScaleWidthDNDHandler( 'imgmask_scale_width',  false),
+          new ScaleHeightDNDHandler('imgmask_scale_height', false))
+
+      else
+        null
+
   on_mousedown: (event) =>
     @unhighlight_all()
     loc = @event_to_canvas_loc(event)
@@ -1725,12 +1820,15 @@ class StochasticSierpinski
     if p?
       @dnd_target = p
       p.highlight()
+    else if @imgmask_overlay_highlight?
+      @dnd_target = @get_overlay_highlight_dnd_handler(@imgmask_overlay_highlight)
 
   on_mouseup: (event) =>
     if @dnd_target?
       loc = @event_to_canvas_loc(event)
       if @is_inside_ui(loc)
         @dnd_target.move(loc.x, loc.y)
+        @dnd_target.commit() if @dnd_target.commit?
         @redraw_ui()
         @resumable_reset()
 
@@ -1738,12 +1836,11 @@ class StochasticSierpinski
 
   on_mousemove: (event) =>
     loc = @event_to_canvas_loc(event)
-    @find_nearby_imgmask_highlight(loc.x, loc.y)
     if @dnd_target?
       if @is_inside_ui(loc)
         @dnd_target.move(loc.x, loc.y)
-        @redraw_ui()
-        @resumable_reset()
+        @redraw_ui(false)
+        #@resumable_reset()
     else
       redraw = @unhighlight_all()
 
@@ -1751,13 +1848,22 @@ class StochasticSierpinski
       if p?
         redraw = true if p.highlight()
 
+      if @find_nearby_imgmask_highlight(loc.x, loc.y, false)
+        redraw = true
+
       @redraw_ui() if redraw
 
-  find_nearby_imgmask_highlight: (mx, my) ->
+  find_nearby_imgmask_highlight: (mx, my, redraw_on_change = true) ->
     oldhighlight = @imgmask_overlay_highlight
     esize = 6
+    bsize = 8
 
-    if      @image_edge_x < mx < @image_faredge_x and (@image_edge_y - esize) < my < (@image_edge_y + esize)
+    if      (@image_edge_x - bsize) < mx < (@image_edge_x + bsize) and (@image_edge_y - bsize) < my < (@image_edge_y + bsize)
+      @imgmask_overlay_highlight = 'TL'
+    else if (@image_faredge_x - bsize) < mx < (@image_faredge_x + bsize) and (@image_faredge_y - bsize) < my < (@image_faredge_y + bsize)
+      @imgmask_overlay_highlight = 'BR'
+
+    else if @image_edge_x < mx < @image_faredge_x and (@image_edge_y - esize) < my < (@image_edge_y + esize)
       @imgmask_overlay_highlight = 'top'
     else if @image_edge_y < my < @image_faredge_y and (@image_edge_x - esize) < mx < (@image_edge_x + esize)
       @imgmask_overlay_highlight = 'left'
@@ -1765,11 +1871,15 @@ class StochasticSierpinski
       @imgmask_overlay_highlight = 'bottom'
     else if @image_edge_y < my < @image_faredge_y and (@image_faredge_x - esize) < mx < (@image_faredge_x + esize)
       @imgmask_overlay_highlight = 'right'
+
     else
       @imgmask_overlay_highlight = null
 
     if oldhighlight isnt @imgmask_overlay_highlight
-      @redraw_ui()
+      @redraw_ui() if redraw_on_change
+      return true
+    else
+      return false
 
   resumable_reset: () =>
     @on_reset(true)
@@ -1876,66 +1986,151 @@ class StochasticSierpinski
     @image_faredge_x = @image_edge_x + @image_width
     @image_faredge_y = @image_edge_y + @image_height
 
-  render_imgmask_overlay: ->
+  render_imgmask_overlay: (render_bitmap_preview = true) ->
     @prepare_imgmask_overlay()
-    cw = @graph_ui_canvas.width
-    ch = @graph_ui_canvas.height
+    @render_overlay_bitmap_preview() if @cur.imgmask_img_ready and render_bitmap_preview?
+    @render_overlay_margin_shading()
+    @render_overlay_highlight() if @imgmask_overlay_highlight?
 
-    if @cur.imgmask_img_ready
-      @graph_ui_ctx.save()
-      oldalpha = @graph_ui_ctx.globalAlpha
-      @graph_ui_ctx.globalAlpha = 0.5
-      @graph_ui_ctx.drawImage(@cur.imgmask_bitmap,
-        0, 0, @cur.imgmask_bitmap.width, @cur.imgmask_bitmap.height,
-        0, 0, cw, ch)
-      @graph_ui_ctx.globalAlpha = oldalpha
-      @graph_ui_ctx.restore()
+  render_overlay_bitmap_preview: ->
+    @graph_ui_ctx.save()
+    oldalpha = @graph_ui_ctx.globalAlpha
+    @graph_ui_ctx.globalAlpha = 0.5
+    @graph_ui_ctx.drawImage(@cur.imgmask_bitmap,
+      0, 0, @cur.imgmask_bitmap.width, @cur.imgmask_bitmap.height,
+      @cur.imgmask_offset_x, @cur.imgmask_offset_y, @graph_ui_canvas.width, @graph_ui_canvas.height)
+    @graph_ui_ctx.globalAlpha = oldalpha
+    @graph_ui_ctx.restore()
 
+  render_overlay_margin_shading: ->
     @graph_ui_ctx.save()
     img_region = new Path2D()
     img_region.rect(@image_edge_x, @image_edge_y, @image_width, @image_height)
-    img_region.rect(0, 0, cw, ch)
+    img_region.rect(0, 0, @graph_ui_canvas.width, @graph_ui_canvas.height)
     @graph_ui_ctx.clip(img_region, 'evenodd')
     @graph_ui_ctx.fillStyle = 'rgba(255, 65, 2, 0.2)'
-    @graph_ui_ctx.fillRect(0, 0, cw, ch)
+    @graph_ui_ctx.fillRect(0, 0, @graph_ui_canvas.width, @graph_ui_canvas.height)
     @graph_ui_ctx.restore()
 
-    if @imgmask_overlay_highlight?
-      @graph_ui_ctx.save()
+  render_overlay_highlight: ->
+    @graph_ui_ctx.save()
+
+    linewidth = 3
+    extralinewidth = 2
+    biglinewidth = linewidth + extralinewidth
+    linetrim = biglinewidth + 4
+    cornerbox_size = 2 * linetrim
+
+    dx = @image_faredge_x - @image_edge_x
+    dy = @image_faredge_y - @image_edge_y
+    min_delta = Math.min(dx, dy)
+    linetrim = min_delta if linetrim > min_delta
+
+    cb_offset = 8
+    cb_margin = 3
+
+    draw = null
+    hl_top    = false
+    hl_left   = false
+    hl_bottom = false
+    hl_right  = false
+
+    switch @imgmask_overlay_highlight
+      when 'TL'
+        draw = 'TL'
+        hl_top  = true
+        hl_left = true
+      when 'BR'
+        draw = 'BR'
+        hl_bottom = true
+        hl_right  = true
+
+      when 'top'
+        draw = 'TL'
+        hl_top = true
+      when 'left'
+        draw = 'TL'
+        hl_left = true
+
+      when 'bottom'
+        draw = 'BR'
+        hl_bottom = true
+      when 'right'
+        draw = 'BR'
+        hl_right = true
+
+      else
+        @graph_ui_ctx.restore()
+        return
+
+    @graph_ui_ctx.beginPath()
+
+    switch draw
+      when 'TL'
+        @graph_ui_ctx.moveTo(@image_faredge_x - linetrim, @image_edge_y)
+        @graph_ui_ctx.lineTo(@image_edge_x, @image_edge_y)
+        @graph_ui_ctx.lineTo(@image_edge_x, @image_faredge_y - linetrim)
+      when 'BR'
+        @graph_ui_ctx.moveTo(@image_edge_x + linetrim, @image_faredge_y)
+        @graph_ui_ctx.lineTo(@image_faredge_x, @image_faredge_y)
+        @graph_ui_ctx.lineTo(@image_faredge_x, @image_edge_y + linetrim)
+
+    @graph_ui_ctx.lineCap  = 'round'
+    @graph_ui_ctx.lineJoin = 'round'
+    @graph_ui_ctx.strokeStyle = '#000'
+    @graph_ui_ctx.lineWidth = linewidth + extralinewidth
+    @graph_ui_ctx.stroke()
+
+    @graph_ui_ctx.beginPath()
+    @graph_ui_ctx.lineCap = 'none'
+    @graph_ui_ctx.lineJoin = 'miter'
+    @graph_ui_ctx.strokeStyle = '#FFFF00'
+    @graph_ui_ctx.lineWidth = linewidth
+    @graph_ui_ctx.setLineDash([3, 5])
+
+    if hl_top
+      @graph_ui_ctx.moveTo(@image_faredge_x - linetrim, @image_edge_y)
+      @graph_ui_ctx.lineTo(@image_edge_x + linetrim, @image_edge_y)
+      @graph_ui_ctx.stroke()
+
+    if hl_left
+      @graph_ui_ctx.moveTo(@image_edge_x, @image_faredge_y - linetrim)
+      @graph_ui_ctx.lineTo(@image_edge_x, @image_edge_y + linetrim)
+      @graph_ui_ctx.stroke()
+
+    if hl_bottom
+      @graph_ui_ctx.moveTo(@image_edge_x + linetrim, @image_faredge_y)
+      @graph_ui_ctx.lineTo(@image_faredge_x - linetrim, @image_faredge_y)
+      @graph_ui_ctx.stroke()
+
+    if hl_right
+      @graph_ui_ctx.moveTo(@image_faredge_x, @image_edge_y + linetrim)
+      @graph_ui_ctx.lineTo(@image_faredge_x, @image_faredge_y - linetrim)
+      @graph_ui_ctx.stroke()
+
+    @render_overlay_cornerbox(draw, cornerbox_size, cb_offset, '#000')
+    if @imgmask_overlay_highlight == 'TL' or @imgmask_overlay_highlight == 'BR'
+      @render_overlay_cornerbox(draw, cornerbox_size - (2 * cb_margin), cb_offset - cb_margin, '#FFFF00')
+
+    @graph_ui_ctx.restore()
+
+  render_overlay_cornerbox: (draw, size, offset, style) ->
       @graph_ui_ctx.beginPath()
 
-      switch @imgmask_overlay_highlight
-        when 'top'
-          @graph_ui_ctx.moveTo(@image_edge_x,    @image_edge_y)
-          @graph_ui_ctx.lineTo(@image_faredge_x, @image_edge_y)
-        when 'left'
-          @graph_ui_ctx.moveTo(@image_edge_x,    @image_edge_y)
-          @graph_ui_ctx.lineTo(@image_edge_x,    @image_faredge_y)
-        when 'bottom'
-          @graph_ui_ctx.moveTo(@image_edge_x,    @image_faredge_y)
-          @graph_ui_ctx.lineTo(@image_faredge_x, @image_faredge_y)
-        when 'right'
-          @graph_ui_ctx.moveTo(@image_faredge_x, @image_edge_y)
-          @graph_ui_ctx.lineTo(@image_faredge_x, @image_faredge_y)
-        else
-          return
+      switch draw
+        when 'TL'
+          x = @image_edge_x - offset
+          y = @image_edge_y - offset
+          @graph_ui_ctx.rect(x, y, size, size)
+        when 'BR'
+          x = @image_faredge_x + offset - size
+          y = @image_faredge_y + offset - size
+          @graph_ui_ctx.rect(x, y, size, size)
 
-      linewidth = 3
+      @graph_ui_ctx.fillStyle = style
+      @graph_ui_ctx.fill()
 
-      @graph_ui_ctx.lineCap = 'round'
-      @graph_ui_ctx.strokeStyle = '#000'
-      @graph_ui_ctx.lineWidth = linewidth + 4
-      @graph_ui_ctx.stroke()
-
-      @graph_ui_ctx.lineCap = 'none'
-      @graph_ui_ctx.strokeStyle = '#FFFF00'
-      @graph_ui_ctx.lineWidth = linewidth
-      @graph_ui_ctx.setLineDash([3, 5])
-      @graph_ui_ctx.stroke()
-
-      @graph_ui_ctx.restore()
-
-  redraw_ui: =>
+  redraw_ui: (render_bitmap_preview = true) =>
     @graph_ui_ctx.clearRect(0, 0, @graph_ui_canvas.width, @graph_ui_canvas.height)
 
     @cur?.draw_ui()
@@ -1944,7 +2139,7 @@ class StochasticSierpinski
       p.draw_ui()
 
     if @show_imgmask_overlay or (@mouse_over_graph and @imgmask_enabled)
-      @render_imgmask_overlay()
+      @render_imgmask_overlay(render_bitmap_preview)
 
     return null
 
