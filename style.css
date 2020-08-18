@@ -8,6 +8,29 @@ h1 {
   padding-bottom: 7px;
 }
 
+#debugbox {
+  color: #0F0;
+  background: #000;
+  border-radius: 6px;
+  margin-left: 0;
+  margin-right: 0;
+  padding: 0;
+}
+
+#debugbox .hdr {
+  display: inline-block;
+  background-color: #040;
+  text-shadow: 0px 0px 2px rgb(0, 0, 0);
+  border-right: 1px dotted #0F0;
+  padding: 2px 5px;
+  margin-right: 8px;
+}
+
+#debugbox .msg {
+  display: inline-block;
+  padding: 2px 5px;
+}
+
 .panel {
   border: 1px outset rgba(0, 0, 0, 0.3);
   border-radius: 4px;

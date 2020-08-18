@@ -191,6 +191,29 @@ h1 {
   padding-bottom: 7px;
 }
 
+#debugbox {
+  color: #0F0;
+  background: #000;
+  border-radius: 6px;
+  margin-left: 0;
+  margin-right: 0;
+  padding: 0;
+}
+
+#debugbox .hdr {
+  display: inline-block;
+  background-color: #040;
+  text-shadow: 0px 0px 2px rgb(0, 0, 0);
+  border-right: 1px dotted #0F0;
+  padding: 2px 5px;
+  margin-right: 8px;
+}
+
+#debugbox .msg {
+  display: inline-block;
+  padding: 2px 5px;
+}
+
 .panel {
   border: 1px outset rgba(0, 0, 0, 0.3);
   border-radius: 4px;
@@ -489,6 +512,8 @@ td.move_mode {
     <header>
       <h1>Stochastic Sierpinski</h1>
     </header>
+
+    <pre id="debugbox" class="hidden"><span class="hdr"></span><span class="msg"></span></pre>
 
     <div id="content">
       <div class="graph panel">
@@ -1709,6 +1734,7 @@ td.move_mode {
     DrawPoint.prototype.run_pending_imgmask_bitmap_update = function() {
       if (this.have_deferred_imgmask_bitmap_update) {
         this.have_deferred_imgmask_bitmap_update = false;
+        console.log('running previously deferred bitmap conversion');
         return this.real_update_imgmask_bitmap();
       }
     };
@@ -1716,6 +1742,7 @@ td.move_mode {
     DrawPoint.prototype.update_imgmask_bitmap = function() {
       if (this.imgmask_img_ready) {
         if (this.imgmask_defer_convert_img_to_bitmap) {
+          console.log('deferring bitmap conversion');
           return this.have_deferred_imgmask_bitmap_update = true;
         } else {
           return this.real_update_imgmask_bitmap();
@@ -2065,8 +2092,7 @@ td.move_mode {
 
     DNDHandler.prototype.move = function(x, y) {
       this.newvalue = this.loc_to_value(x, y);
-      this.option.set(this.newvalue);
-      return APP.redraw_ui(false);
+      return this.option.set(this.newvalue);
     };
 
     DNDHandler.prototype.commit = function() {
@@ -2140,6 +2166,10 @@ td.move_mode {
     function ScaleDNDHandler() {
       return ScaleDNDHandler.__super__.constructor.apply(this, arguments);
     }
+
+    ScaleDNDHandler.prototype.on_change = function() {
+      return APP != null ? APP.cur.on_imgmask_scale_change() : void 0;
+    };
 
     return ScaleDNDHandler;
 
@@ -2567,7 +2597,7 @@ td.move_mode {
       if (element == null) {
         element = this.el;
       }
-      return element.value;
+      return parseInt(element.value);
     };
 
     NumberUIOption.prototype.set = function(number_value) {
@@ -2713,6 +2743,7 @@ td.move_mode {
     StochasticSierpinski.prototype.init = function() {
       var i, j, k, r, ref, ref1, s;
       this.running = false;
+      this.enable_imgmask_dnd = false;
       this.mouse_over_graph = false;
       this.show_imgmask_overlay = false;
       this.imgmask_enabled = false;
@@ -2801,6 +2832,19 @@ td.move_mode {
       this.graph_ui_canvas.addEventListener('mousemove', this.on_mousemove);
       window.addEventListener('hashchange', this.on_hashchange);
       return this.clear_update_and_draw();
+    };
+
+    StochasticSierpinski.prototype.debug = function(msg) {
+      var timestamp;
+      if (this.debugbox == null) {
+        this.debugbox = this.context.getElementById('debugbox');
+        this.debugbox_hdr = this.debugbox.querySelector('.hdr');
+        this.debugbox_msg = this.debugbox.querySelector('.msg');
+        this.debugbox.classList.remove('hidden');
+      }
+      timestamp = new Date();
+      this.debugbox_hdr.textContent = timestamp.toISOString();
+      return this.debugbox_msg.textContent = '' + msg;
     };
 
     StochasticSierpinski.prototype.load_default_state = function() {
@@ -3115,7 +3159,6 @@ td.move_mode {
     };
 
     StochasticSierpinski.prototype.open_in_new_window = function(url) {
-      console.log('open in new window', url);
       return window.open(url, '_blank');
     };
 
@@ -3363,14 +3406,27 @@ td.move_mode {
 
     StochasticSierpinski.prototype.on_mousedown = function(event) {
       var loc, p;
+      if (this.dnd_target != null) {
+        if (this.dnd_target.commit != null) {
+          this.dnd_target.commit();
+        }
+        this.dnd_target = null;
+      }
       this.unhighlight_all();
       loc = this.event_to_canvas_loc(event);
       p = this.first_nearby_point(loc);
       if (p != null) {
         this.dnd_target = p;
         return p.highlight();
-      } else if (this.imgmask_overlay_highlight != null) {
-        return this.dnd_target = this.get_overlay_highlight_dnd_handler(this.imgmask_overlay_highlight);
+      } else {
+        if (this.enable_imgmask_dnd) {
+          this.find_nearby_imgmask_highlight(loc.x, loc.y, false);
+          if (this.imgmask_overlay_highlight != null) {
+            return this.dnd_target = this.get_overlay_highlight_dnd_handler(this.imgmask_overlay_highlight);
+          } else {
+
+          }
+        }
       }
     };
 
@@ -3385,8 +3441,12 @@ td.move_mode {
           }
           this.redraw_ui();
           this.resumable_reset();
+        } else {
+
         }
         return this.dnd_target = null;
+      } else {
+
       }
     };
 
@@ -3406,11 +3466,15 @@ td.move_mode {
             redraw = true;
           }
         }
-        if (this.find_nearby_imgmask_highlight(loc.x, loc.y, false)) {
-          redraw = true;
+        if (this.enable_imgmask_dnd) {
+          if (this.find_nearby_imgmask_highlight(loc.x, loc.y, false)) {
+            redraw = true;
+          }
         }
         if (redraw) {
           return this.redraw_ui();
+        } else {
+
         }
       }
     };
@@ -3439,9 +3503,6 @@ td.move_mode {
         this.imgmask_overlay_highlight = null;
       }
       if (oldhighlight !== this.imgmask_overlay_highlight) {
-        if (redraw_on_change) {
-          this.redraw_ui();
-        }
         return true;
       } else {
         return false;
@@ -3564,14 +3625,14 @@ td.move_mode {
       ch = this.graph_ui_canvas.height;
       hcw = cw / 2;
       hch = ch / 2;
-      scaled_half_width = Math.floor(hcw * this.cur.imgmask_scaleperc_width);
-      scaled_half_height = Math.floor(hch * this.cur.imgmask_scaleperc_height);
+      scaled_half_width = Math.floor(hcw * (this.cur.option.imgmask_scale_width.get() / 100));
+      scaled_half_height = Math.floor(hch * (this.cur.option.imgmask_scale_height.get() / 100));
       this.image_width = 2 * scaled_half_width;
       this.image_height = 2 * scaled_half_height;
       this.image_edge_x = hcw - scaled_half_width;
       this.image_edge_y = hch - scaled_half_height;
-      this.image_edge_x += this.cur.imgmask_offset_x;
-      this.image_edge_y += this.cur.imgmask_offset_y;
+      this.image_edge_x += this.cur.option.imgmask_offset_x.get();
+      this.image_edge_y += this.cur.option.imgmask_offset_y.get();
       this.image_faredge_x = this.image_edge_x + this.image_width;
       return this.image_faredge_y = this.image_edge_y + this.image_height;
     };
@@ -3585,7 +3646,7 @@ td.move_mode {
         this.render_overlay_bitmap_preview();
       }
       this.render_overlay_margin_shading();
-      if (this.imgmask_overlay_highlight != null) {
+      if (this.enable_imgmask_dnd && (this.imgmask_overlay_highlight != null)) {
         return this.render_overlay_highlight();
       }
     };
@@ -3614,7 +3675,6 @@ td.move_mode {
 
     StochasticSierpinski.prototype.render_overlay_highlight = function() {
       var biglinewidth, cb_margin, cb_offset, cornerbox_size, draw, dx, dy, extralinewidth, hl_bottom, hl_left, hl_right, hl_top, linetrim, linewidth, min_delta;
-      this.graph_ui_ctx.save();
       linewidth = 3;
       extralinewidth = 2;
       biglinewidth = linewidth + extralinewidth;
@@ -3661,9 +3721,10 @@ td.move_mode {
           hl_right = true;
           break;
         default:
-          this.graph_ui_ctx.restore();
+          console.log('bad @imgmask_overlay_highlight value', this.imgmask_overlay_highlight);
           return;
       }
+      this.graph_ui_ctx.save();
       this.graph_ui_ctx.beginPath();
       switch (draw) {
         case 'TL':
@@ -3746,7 +3807,7 @@ td.move_mode {
         p = ref1[j];
         p.draw_ui();
       }
-      if (this.show_imgmask_overlay || (this.mouse_over_graph && this.imgmask_enabled)) {
+      if (this.show_imgmask_overlay || (this.enable_imgmask_dnd && this.mouse_over_graph && this.imgmask_enabled)) {
         this.render_imgmask_overlay(render_bitmap_preview);
       }
       return null;
@@ -3829,7 +3890,6 @@ td.move_mode {
   document.addEventListener('DOMContentLoaded', (function(_this) {
     return function() {
       APP = new StochasticSierpinski(document);
-      window.APP = APP;
       APP.init();
       APP.on_hashchange();
       return APP.load_from_cookie();

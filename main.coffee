@@ -287,9 +287,6 @@ class UIPoint extends Point
     @set_move_perc(value)
     APP.resumable_reset()
 
-
-
-
   on_move_per_range_input: (event) =>
     @set_move_perc(event.target.value)
     APP.resumable_reset()
@@ -691,11 +688,13 @@ class DrawPoint extends UIPoint
   run_pending_imgmask_bitmap_update: ->
     if @have_deferred_imgmask_bitmap_update
       @have_deferred_imgmask_bitmap_update = false
+      console.log('running previously deferred bitmap conversion')
       @real_update_imgmask_bitmap()
 
   update_imgmask_bitmap: ->
     if @imgmask_img_ready
       if @imgmask_defer_convert_img_to_bitmap
+        console.log('deferring bitmap conversion')
         @have_deferred_imgmask_bitmap_update = true
       else
         @real_update_imgmask_bitmap()
@@ -1001,7 +1000,6 @@ class DNDHandler
   move: (x, y) ->
     @newvalue = @loc_to_value(x, y)
     @option.set(@newvalue)
-    APP.redraw_ui(false)
 
   commit: ->
     if @defer_bitmap_updates
@@ -1258,7 +1256,7 @@ class NumberUIOption extends UIOption
     opt
 
   get: (element = @el) ->
-    element.value
+    parseInt(element.value)
 
   set: (number_value) ->
     @value = parseInt(number_value)
@@ -1318,6 +1316,8 @@ class StochasticSierpinski
 
   init: () ->
     @running = false
+
+    @enable_imgmask_dnd = false
 
     @mouse_over_graph = false
     @show_imgmask_overlay = false
@@ -1422,6 +1422,17 @@ class StochasticSierpinski
     window.addEventListener 'hashchange', @on_hashchange
 
     @clear_update_and_draw()
+
+  debug: (msg) ->
+    unless @debugbox?
+      @debugbox = @context.getElementById('debugbox')
+      @debugbox_hdr = @debugbox.querySelector('.hdr')
+      @debugbox_msg = @debugbox.querySelector('.msg')
+      @debugbox.classList.remove('hidden')
+
+    timestamp = new Date()
+    @debugbox_hdr.textContent = timestamp.toISOString()
+    @debugbox_msg.textContent = '' + msg
 
   load_default_state: ->
     @set_ngon(3)
@@ -1611,7 +1622,6 @@ class StochasticSierpinski
     @open_in_new_window(@graph_canvas.toDataURL('png'))
 
   open_in_new_window: (url) ->
-    console.log('open in new window', url)
     window.open(url, '_blank')
 
   show_serializebox: (title, text, action_callback) ->
@@ -1814,44 +1824,78 @@ class StochasticSierpinski
         null
 
   on_mousedown: (event) =>
+    if @dnd_target?
+      @dnd_target.commit() if @dnd_target.commit?
+      @dnd_target = null
+
     @unhighlight_all()
     loc = @event_to_canvas_loc(event)
     p = @first_nearby_point(loc)
     if p?
       @dnd_target = p
       p.highlight()
-    else if @imgmask_overlay_highlight?
-      @dnd_target = @get_overlay_highlight_dnd_handler(@imgmask_overlay_highlight)
+      #console.log('mousedown point', p)
+    else
+      if @enable_imgmask_dnd
+        @find_nearby_imgmask_highlight(loc.x, loc.y, false)
+        if @imgmask_overlay_highlight?
+          @dnd_target = @get_overlay_highlight_dnd_handler(@imgmask_overlay_highlight)
+          #console.log('mousedown overlay', loc, @dnd_target)
+        else
+          #console.log('mousedown (nothing)')
 
   on_mouseup: (event) =>
     if @dnd_target?
       loc = @event_to_canvas_loc(event)
+      #console.log('mouseup', @dnd_target, 'loc', loc)
       if @is_inside_ui(loc)
         @dnd_target.move(loc.x, loc.y)
         @dnd_target.commit() if @dnd_target.commit?
+        #console.log('@dnd_target movement committed, redrawing ui')
         @redraw_ui()
         @resumable_reset()
+      else
+        #console.log('loc is not inside ui!')
 
       @dnd_target = null
+    else
+      #console.log('mouseup with null @dnd_target!')
 
   on_mousemove: (event) =>
+    # lasttime = (@last_mousemove ? 0)
+    # @last_mousemove = Date.now()
+    # dt = @last_mousemove - lasttime
+    # return if dt < 500
+    # @debug(dt)
+
     loc = @event_to_canvas_loc(event)
     if @dnd_target?
+      #console.log("mousemove(#{dt})", @dnd_target, 'loc', loc)
       if @is_inside_ui(loc)
         @dnd_target.move(loc.x, loc.y)
+        #console.log('@dnd_target moved to loc', loc, '@redraw_ui(false)')
         @redraw_ui(false)
         #@resumable_reset()
+      #else
+        #console.log('loc is not inside ui! (NOT REDRAWING UI)')
     else
+      #console.log("mousemove(#{dt})",'no pending @dnd_target', 'loc', loc)
       redraw = @unhighlight_all()
 
       p = @first_nearby_point(loc)
       if p?
         redraw = true if p.highlight()
 
-      if @find_nearby_imgmask_highlight(loc.x, loc.y, false)
-        redraw = true
+      if @enable_imgmask_dnd
+        if @find_nearby_imgmask_highlight(loc.x, loc.y, false)
+          #console.log('changed highlight to', @imgmask_overlay_highlight)
+          redraw = true
 
-      @redraw_ui() if redraw
+      if redraw
+        #console.log('no pending @dnd_target; @redraw_ui()')
+        @redraw_ui()
+      else
+        #console.log('no pending @dnd_target; (NOT REDRAWING UI)')
 
   find_nearby_imgmask_highlight: (mx, my, redraw_on_change = true) ->
     oldhighlight = @imgmask_overlay_highlight
@@ -1876,7 +1920,6 @@ class StochasticSierpinski
       @imgmask_overlay_highlight = null
 
     if oldhighlight isnt @imgmask_overlay_highlight
-      @redraw_ui() if redraw_on_change
       return true
     else
       return false
@@ -1972,16 +2015,21 @@ class StochasticSierpinski
     hcw = cw / 2
     hch = ch / 2
 
-    scaled_half_width  = Math.floor(hcw * @cur.imgmask_scaleperc_width)
-    scaled_half_height = Math.floor(hch * @cur.imgmask_scaleperc_height)
+    scaled_half_width  = Math.floor(hcw * (@cur.option.imgmask_scale_width.get()  / 100))
+
+    scaled_half_height = Math.floor(hch * (@cur.option.imgmask_scale_height.get() / 100))
 
     @image_width  = 2 * scaled_half_width
     @image_height = 2 * scaled_half_height
     @image_edge_x = hcw - scaled_half_width
     @image_edge_y = hch - scaled_half_height
 
-    @image_edge_x += @cur.imgmask_offset_x
-    @image_edge_y += @cur.imgmask_offset_y
+    #msg = "correcting @image_edge_xy(#{@image_edge_x}, #{@image_edge_y}) + imgmask_offset_xy(#{@cur.option.imgmask_offset_x.get()}, #{@cur.option.imgmask_offset_y.get()}) => (#{@image_edge_x + @cur.option.imgmask_offset_x.get()}, #{@image_edge_y + @cur.option.imgmask_offset_y.get()})"
+    #@debug(msg)
+    #console.log(msg)
+
+    @image_edge_x += @cur.option.imgmask_offset_x.get()
+    @image_edge_y += @cur.option.imgmask_offset_y.get()
 
     @image_faredge_x = @image_edge_x + @image_width
     @image_faredge_y = @image_edge_y + @image_height
@@ -1990,7 +2038,7 @@ class StochasticSierpinski
     @prepare_imgmask_overlay()
     @render_overlay_bitmap_preview() if @cur.imgmask_img_ready and render_bitmap_preview?
     @render_overlay_margin_shading()
-    @render_overlay_highlight() if @imgmask_overlay_highlight?
+    @render_overlay_highlight() if @enable_imgmask_dnd and @imgmask_overlay_highlight?
 
   render_overlay_bitmap_preview: ->
     @graph_ui_ctx.save()
@@ -2013,8 +2061,6 @@ class StochasticSierpinski
     @graph_ui_ctx.restore()
 
   render_overlay_highlight: ->
-    @graph_ui_ctx.save()
-
     linewidth = 3
     extralinewidth = 2
     biglinewidth = linewidth + extralinewidth
@@ -2060,9 +2106,10 @@ class StochasticSierpinski
         hl_right = true
 
       else
-        @graph_ui_ctx.restore()
+        console.log('bad @imgmask_overlay_highlight value', @imgmask_overlay_highlight)
         return
 
+    @graph_ui_ctx.save()
     @graph_ui_ctx.beginPath()
 
     switch draw
@@ -2138,7 +2185,7 @@ class StochasticSierpinski
     for p in @points
       p.draw_ui()
 
-    if @show_imgmask_overlay or (@mouse_over_graph and @imgmask_enabled)
+    if @show_imgmask_overlay or (@enable_imgmask_dnd and @mouse_over_graph and @imgmask_enabled)
       @render_imgmask_overlay(render_bitmap_preview)
 
     return null

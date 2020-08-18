@@ -15,6 +15,8 @@ undivert(`style.css')
       <h1>Stochastic Sierpinski</h1>
     </header>
 
+    <pre id="debugbox" class="hidden"><span class="hdr"></span><span class="msg"></span></pre>
+
     <div id="content">
       <div class="graph panel">
         <div id="graph_wrapper" class="canvas_wrapper canvas_size">
