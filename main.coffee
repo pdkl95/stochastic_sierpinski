@@ -1059,6 +1059,9 @@ class TargetRestrictionOption
     @checkbox_single = @context.querySelector(single_selector)
     @checkbox_double = @context.querySelector(double_selector)
 
+    @replace_with_styled_label(@checkbox_single)
+    @replace_with_styled_label(@checkbox_double)
+
     @callbacks_single = []
     @callbacks_double = []
 
@@ -1068,6 +1071,27 @@ class TargetRestrictionOption
 
     @checkbox_single.addEventListener 'change', @on_change_single
     @checkbox_double.addEventListener 'change', @on_change_double
+
+  replace_with_styled_label: (checkbox) ->
+    cell = checkbox.parentElement
+    container     = @context.createElement('label')
+    mark_inactive = @context.createElement('span')
+    mark_active   = @context.createElement('span')
+
+    mark_active.textContent = '\u2613'
+
+    container.setAttribute('for', checkbox.id)
+    container.classList.add('styled_checkbox_container')
+    checkbox.classList.add('hidden_checkbox')
+    mark_inactive.classList.add('checkmark')
+    mark_inactive.classList.add('inactive')
+    mark_active.classList.add('checkmark')
+    mark_active.classList.add('active')
+
+    container.appendChild(checkbox)
+    container.appendChild(mark_inactive)
+    container.appendChild(mark_active)
+    cell.appendChild(container)
 
   add_callback_on_changes_single: (callback) ->
     @callbacks_single.push(callback)

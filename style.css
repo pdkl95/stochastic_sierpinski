@@ -150,7 +150,11 @@ footer {
   border-spacing: 0;
 }
 
-#restrict_table th,
+#restrict_table th {
+  padding: 3px;
+  text-align: center;
+}
+
 #restrict_table td {
   padding: 3px;
   text-align: center;
@@ -163,6 +167,82 @@ footer {
 #restrict_table .self,
 #restrict_table .opposite {
   background-color: #e2e2e2
+}
+
+#restrict_table .styled_checkbox_container {
+  display: block;
+  position: relative;
+  cursor: pointer;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  margin: 0 4px;
+}
+
+#restrict_table .styled_checkbox_container .hidden_checkbox {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+#restrict_table .styled_checkbox_container .checkmark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 4px;
+}
+
+#restrict_table .styled_checkbox_container,
+#restrict_table .styled_checkbox_container .checkmark {
+  height: 1.2rem;
+  width:  1.2rem;
+}
+
+#restrict_table .styled_checkbox_container .hidden_checkbox ~ .checkmark.inactive {
+  display: block;
+  background-color: #2a2;
+  border: 1px outset #147214;
+  box-shadow: 1px 1px 2px -1px #000;
+}
+
+#restrict_table .styled_checkbox_container .hidden_checkbox ~ .checkmark.active {
+  display: none;
+}
+
+#restrict_table .styled_checkbox_container .hidden_checkbox:checked ~ .checkmark.inactive {
+  display: none;
+}
+
+#restrict_table .styled_checkbox_container .hidden_checkbox:checked ~ .checkmark.active {
+  display: block;
+  color: #eee;
+  background-color: #a22;
+  border: 1px inset #681515;
+  box-shadow: 1px 1px 2px -1px #000 inset;
+  text-align: center;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 12px;
+}
+
+#restrict_table .styled_checkbox_container:hover .hidden_checkbox ~ .checkmark.inactive {
+  border-style: solid;
+  border-color: #681515;
+}
+
+#restrict_table .styled_checkbox_container:hover .hidden_checkbox:checked ~ .checkmark.active {
+  border-style: solid;
+  border-color: #147214;
+}
+
+#restrict_table .styled_checkbox_container .hidden_checkbox:disabled ~ .checkmark {
+  opacity: 0.333;
+  border-style: solid;
+  border-color: #F2F2F2;
+  box-shadow: none;
 }
 
 #imgmask_img_box {
