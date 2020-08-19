@@ -1943,7 +1943,7 @@ td.move_mode {
       if (APP.points.length < 3) {
         return;
       }
-      this.restrictions.set_enabled(APP.points.length);
+      this.restrictions.set_visible(APP.points.length);
       this.restricted.single_origin = this.filtered_choices('single');
       this.restricted.double_origin = this.filtered_choices('double');
       return this.prev_target[0] = this.prev_target[1] = APP.points[0];
@@ -2251,10 +2251,21 @@ td.move_mode {
       double_selector = selector + ".double input[type=\"checkbox\"]";
       this.checkbox_single = this.context.querySelector(single_selector);
       this.checkbox_double = this.context.querySelector(double_selector);
+      this.callbacks_single = [];
+      this.callbacks_double = [];
+      this.visible = false;
       this.reset();
       this.checkbox_single.addEventListener('change', this.on_change_single);
       this.checkbox_double.addEventListener('change', this.on_change_double);
     }
+
+    TargetRestrictionOption.prototype.add_callback_on_changes_single = function(callback) {
+      return this.callbacks_single.push(callback);
+    };
+
+    TargetRestrictionOption.prototype.add_callback_on_changes_double = function(callback) {
+      return this.callbacks_double.push(callback);
+    };
 
     TargetRestrictionOption.prototype.reset = function() {
       this.set_single(false);
@@ -2272,26 +2283,70 @@ td.move_mode {
       return results;
     };
 
-    TargetRestrictionOption.prototype.enable = function() {
-      this.enabled = true;
+    TargetRestrictionOption.prototype.show = function() {
+      this.visible = true;
       return this.set_column_cells('table-cell');
     };
 
-    TargetRestrictionOption.prototype.disable = function() {
-      this.enabled = false;
+    TargetRestrictionOption.prototype.hide = function() {
+      this.visible = false;
       return this.set_column_cells('none');
     };
 
+    TargetRestrictionOption.prototype.enable_single = function() {
+      return this.checkbox_single.disabled = false;
+    };
+
+    TargetRestrictionOption.prototype.enable_double = function() {
+      return this.checkbox_double.disabled = false;
+    };
+
+    TargetRestrictionOption.prototype.disable_single = function() {
+      return this.checkbox_single.disabled = true;
+    };
+
+    TargetRestrictionOption.prototype.disable_double = function() {
+      return this.checkbox_double.disabled = true;
+    };
+
+    TargetRestrictionOption.prototype.is_single_enabled = function() {
+      return !this.checkbox_double.disabled;
+    };
+
+    TargetRestrictionOption.prototype.is_double_enabled = function() {
+      return !this.checkbox_double.disabled;
+    };
+
+    TargetRestrictionOption.prototype.using_double = function() {
+      return this.visible && this.is_double_enabled() && this.value_double;
+    };
+
     TargetRestrictionOption.prototype.set_single = function(value) {
-      this.value_single = value;
-      this.checkbox_single.checked = this.value_single;
-      return APP.update_metadata_and_reset();
+      var cb, j, len1, ref;
+      if (value !== this.value_single) {
+        this.value_single = value;
+        this.checkbox_single.checked = this.value_single;
+        ref = this.callbacks_single;
+        for (j = 0, len1 = ref.length; j < len1; j++) {
+          cb = ref[j];
+          cb(value);
+        }
+        return APP.update_metadata_and_reset();
+      }
     };
 
     TargetRestrictionOption.prototype.set_double = function(value) {
-      this.value_double = value;
-      this.checkbox_double.checked = this.value_double;
-      return APP.update_metadata_and_reset();
+      var cb, j, len1, ref;
+      if (value !== this.value_double) {
+        this.value_double = value;
+        this.checkbox_double.checked = this.value_double;
+        ref = this.callbacks_double;
+        for (j = 0, len1 = ref.length; j < len1; j++) {
+          cb = ref[j];
+          cb(value);
+        }
+        return APP.update_metadata_and_reset();
+      }
     };
 
     TargetRestrictionOption.prototype.on_change_single = function(event) {
@@ -2310,6 +2365,7 @@ td.move_mode {
     function TargetRestriction(context) {
       var j, len1, o, ref;
       this.context = context;
+      this.on_self_singe_change = bind(this.on_self_singe_change, this);
       this.option = {
         prev: [new TargetRestrictionOption(this.context, -1, 'prev1'), new TargetRestrictionOption(this.context, -2, 'prev2'), new TargetRestrictionOption(this.context, -3, 'prev3')],
         self: new TargetRestrictionOption(this.context, 0, 'self'),
@@ -2323,7 +2379,38 @@ td.move_mode {
         o = ref[j];
         this.by_name[o.name] = o;
       }
+      this.option.self.add_callback_on_changes_single(this.on_self_singe_change);
     }
+
+    TargetRestriction.prototype.on_self_singe_change = function(is_restricted) {
+      if (is_restricted) {
+        return this.disable_double();
+      } else {
+        return this.enable_double();
+      }
+    };
+
+    TargetRestriction.prototype.enable_double = function() {
+      var j, len1, o, ref, results;
+      ref = this.options;
+      results = [];
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        o = ref[j];
+        results.push(o.enable_double());
+      }
+      return results;
+    };
+
+    TargetRestriction.prototype.disable_double = function() {
+      var j, len1, o, ref, results;
+      ref = this.options;
+      results = [];
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        o = ref[j];
+        results.push(o.disable_double());
+      }
+      return results;
+    };
 
     TargetRestriction.prototype.find = function(name) {
       if (this.by_name[name] != null) {
@@ -2334,24 +2421,24 @@ td.move_mode {
       }
     };
 
-    TargetRestriction.prototype.set_enabled = function(n) {
+    TargetRestriction.prototype.set_visible = function(n) {
       var j, len1, neighbor, next, o, prev, ref, ref1;
       ref = this.options;
       for (j = 0, len1 = ref.length; j < len1; j++) {
         o = ref[j];
-        o.disable();
+        o.hide();
       }
-      this.option.self.enable();
+      this.option.self.show();
       n -= 1;
       if (n % 2 === 1) {
-        this.option.opposite.enable();
+        this.option.opposite.show();
         n -= 1;
       }
       neighbor = 1;
       while (n >= 2) {
         ref1 = this.neighbor(neighbor), prev = ref1[0], next = ref1[1];
-        prev.enable();
-        next.enable();
+        prev.show();
+        next.show();
         n -= 2;
         neighbor += 1;
       }
@@ -2363,7 +2450,7 @@ td.move_mode {
       ref = this.options;
       for (j = 0, len1 = ref.length; j < len1; j++) {
         o = ref[j];
-        if (o.enabled && o.value_double) {
+        if (o.using_double()) {
           return true;
         }
       }

@@ -867,7 +867,7 @@ class DrawPoint extends UIPoint
 
   update_point_list_metadata: ->
     return if APP.points.length < 3
-    @restrictions.set_enabled(APP.points.length)
+    @restrictions.set_visible(APP.points.length)
     @restricted.single_origin = @filtered_choices('single')
     @restricted.double_origin = @filtered_choices('double')
     @prev_target[0] = @prev_target[1] = APP.points[0]
@@ -1059,10 +1059,21 @@ class TargetRestrictionOption
     @checkbox_single = @context.querySelector(single_selector)
     @checkbox_double = @context.querySelector(double_selector)
 
+    @callbacks_single = []
+    @callbacks_double = []
+
+    @visible = false
+
     @reset()
 
     @checkbox_single.addEventListener 'change', @on_change_single
     @checkbox_double.addEventListener 'change', @on_change_double
+
+  add_callback_on_changes_single: (callback) ->
+    @callbacks_single.push(callback)
+
+  add_callback_on_changes_double: (callback) ->
+    @callbacks_double.push(callback)
 
   reset: ->
     @set_single(false)
@@ -1072,23 +1083,48 @@ class TargetRestrictionOption
     for cell in @column_cells
       cell.style.display = state
 
-  enable: ->
-    @enabled = true
+  show: ->
+    @visible = true
     @set_column_cells('table-cell')
 
-  disable: ->
-    @enabled = false
+  hide: ->
+    @visible = false
     @set_column_cells('none')
 
+  enable_single: ->
+    @checkbox_single.disabled = false
+
+  enable_double: ->
+    @checkbox_double.disabled = false
+
+  disable_single: ->
+    @checkbox_single.disabled = true
+
+  disable_double: ->
+    @checkbox_double.disabled = true
+
+  is_single_enabled: ->
+    not @checkbox_double.disabled
+
+  is_double_enabled: ->
+    not @checkbox_double.disabled
+
+  using_double: ->
+    @visible and @is_double_enabled() and @value_double
+
   set_single: (value) ->
-    @value_single = value
-    @checkbox_single.checked = @value_single
-    APP.update_metadata_and_reset()
+    if value isnt @value_single
+      @value_single = value
+      @checkbox_single.checked = @value_single
+      cb(value) for cb in @callbacks_single
+      APP.update_metadata_and_reset()
 
   set_double: (value) ->
-    @value_double = value
-    @checkbox_double.checked = @value_double
-    APP.update_metadata_and_reset()
+    if value isnt @value_double
+      @value_double = value
+      @checkbox_double.checked = @value_double
+      cb(value) for cb in @callbacks_double
+      APP.update_metadata_and_reset()
 
   on_change_single: (event) =>
     @set_single(event.target.checked)
@@ -1118,6 +1154,22 @@ class TargetRestriction
     for o in @options
       @by_name[o.name] = o
 
+    @option.self.add_callback_on_changes_single(@on_self_singe_change)
+
+  on_self_singe_change: (is_restricted) =>
+    if is_restricted
+      @disable_double()
+    else
+      @enable_double()
+
+  enable_double: ->
+    for o in @options
+      o.enable_double()
+
+  disable_double: ->
+    for o in @options
+      o.disable_double()
+
   find: (name) ->
     if @by_name[name]?
       @by_name[name]
@@ -1125,21 +1177,21 @@ class TargetRestriction
       console.log("no such restriction named '#{name}'")
       null
 
-  set_enabled: (n) ->
-    o.disable() for o in @options
+  set_visible: (n) ->
+    o.hide() for o in @options
 
-    @option.self.enable()
+    @option.self.show()
     n -= 1
 
     if n % 2 == 1
-      @option.opposite.enable()
+      @option.opposite.show()
       n -= 1
 
     neighbor = 1
     while n >= 2
       [prev, next] = @neighbor(neighbor)
-      prev.enable()
-      next.enable()
+      prev.show()
+      next.show()
 
       n -= 2
       neighbor += 1
@@ -1148,7 +1200,7 @@ class TargetRestriction
 
   using_double: ->
     for o in @options
-      return true  if o.enabled and o.value_double
+      return true if o.using_double()
     return false
 
   restricted_single: ->
