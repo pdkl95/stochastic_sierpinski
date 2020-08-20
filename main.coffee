@@ -1364,6 +1364,7 @@ class StochasticSierpinski
   NEARBY_RADIUS: 8
 
   DEFAULT:
+    show_tooltips: true
     graph:
       width:  420
       height: 420
@@ -1403,6 +1404,7 @@ class StochasticSierpinski
     @step_count = 0
 
     @steps_per_frame_el = @context.getElementById('steps_per_frame')
+    @content_el       = @context.getElementById('content')
 
     @graph_wrapper   = @context.getElementById('graph_wrapper')
     @graph_canvas    = @context.getElementById('graph')
@@ -1430,6 +1432,7 @@ class StochasticSierpinski
     @btn_move_all_random      = @context.getElementById('move_all_random')
 
     @option =
+      shows_tooltips:   new BoolUIOption(  'show_tooltips',    APP.DEFAULT.show_tooltips,    @on_show_tooltips_change)
       canvas_width:     new NumberUIOption('canvas_width',     APP.DEFAULT.graph.width,      @on_canvas_width_change)
       canvas_height:    new NumberUIOption('canvas_height',    APP.DEFAULT.graph.height,     @on_canvas_height_change)
       draw_opacity:     new NumberUIOption('draw_opacity',     APP.DEFAULT.draw_opacity,     @on_draw_opacity_change)
@@ -1535,6 +1538,12 @@ class StochasticSierpinski
     el = @create_element('input', id)
     el.type = type
     el
+
+  on_show_tooltips_change: (value) =>
+    if value
+      @content_el.classList.add('show_tt')
+    else
+      @content_el.classList.remove('show_tt')
 
   on_move_range_change: =>
     @set_move_range(@option.move_range_min.get(), @option.move_range_max.get())
@@ -2307,6 +2316,7 @@ class StochasticSierpinski
 
 document.addEventListener 'DOMContentLoaded', =>
   APP = new StochasticSierpinski(document)
+  window.APP = APP
   APP.init()
   APP.on_hashchange()
   APP.load_from_cookie()

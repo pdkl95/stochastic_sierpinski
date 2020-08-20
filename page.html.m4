@@ -17,7 +17,7 @@ undivert(`style.css')
 
     <pre id="debugbox" class="hidden"><span class="hdr"></span><span class="msg"></span></pre>
 
-    <div id="content">
+    <div id="content" class="show_tt">
       <div class="graph panel">
         <div id="graph_wrapper" class="canvas_wrapper canvas_size">
           <canvas id="graph" class="graph_canvas canvas_size" width="420" height="420">
@@ -79,10 +79,10 @@ undivert(`style.css')
 
       <div class="ui panel">
         <div class="runbox buttonbox">
-          <button id="button_reset">Reset</button>
-          <button id="button_step">Step 1x</button>
-          <button id="button_multistep">Step Nx</button>
-          <button id="button_run">Run</button>
+          <button id="button_reset" class="tt ttright" data-title="Reset back to a blank canvas.">Reset</button>
+          <button id="button_step" class="tt ttright" data-title="One step of the chaos game. Selects a random point, moves toward it, and draws a point.">Step 1x</button>
+          <button id="button_multistep" class="tt ttright" data-title="Run a fixed number of steps. The number of steps can be changed with the 'Steps / Frame' option.">Step Nx</button>
+          <button id="button_run" class="tt ttright" data-title="Draws 'Steps / Frame' points every frame until manually stopped by pressing Pause or Step">Run</button>
         </div>
 
         <div class="pointsbox buttonbox">
@@ -91,8 +91,8 @@ undivert(`style.css')
           <input type="number" id="num_points" value="3"
                  min="3" max="8" step="1">
           <span class="title">Move All</span>
-          <button id="move_all_reg_polygon">Reg. Polygon</button>
-          <button id="move_all_random">Random</button>
+          <button id="move_all_reg_polygon" class="tt ttleft" data-title="Move all points into the corners of an N-sided regullar polygon.">Reg. Polygon</button>
+          <button id="move_all_random" class="tt ttleft" data-title="Move all points to random positions.">Random</button>
         </div>
 
         <hr>
@@ -224,8 +224,13 @@ undivert(`style.css')
         <div class="optionsbox buttonbox">
           <table>
             <tr>
+              <th>Show Tooltips</th>
+              <td><input id="show_tooltips" type="checkbox" checked="checked"></td>
+              </td>
+            </tr>
+            <tr>
               <th>Steps / Frame</th>
-              <td colspan=2>
+              <td>
                 <input type="number" id="steps_per_frame"
                        min="0" max="500" step="10">
               </td>
@@ -271,10 +276,10 @@ undivert(`style.css')
         <hr>
 
         <div class="imgbox buttonbox">
-          <button id="button_create_png">Create PNG</button>
-          <button id="button_save_url">Save as URL</button>
-          <button id="button_save">Save as JSON</button>
-          <button id="button_load">Load from JSON</button>
+          <button id="button_create_png" class="tt ttright" data-title="Open the current canvas image as a PNG file in a new tab/window.">Create PNG</button>
+          <button id="button_save_url" class="tt ttright" data-title="Saves the current settings to the hash (#) on the current URL">Save as URL</button>
+          <button id="button_save" class="tt ttright" data-title="Saves the current settings to copy-able JSON-formatted text.">Save as JSON</button>
+          <button id="button_load" class="tt ttright" data-title="Paste the JSON-formatted text (from 'Save as JSON') to load previously saves settings.">Load from JSON</button>
         </div>
       </div>
 
