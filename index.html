@@ -333,7 +333,11 @@ footer {
   border-spacing: 0;
 }
 
-#restrict_table th,
+#restrict_table th {
+  padding: 3px;
+  text-align: center;
+}
+
 #restrict_table td {
   padding: 3px;
   text-align: center;
@@ -346,6 +350,82 @@ footer {
 #restrict_table .self,
 #restrict_table .opposite {
   background-color: #e2e2e2
+}
+
+#restrict_table .styled_checkbox_container {
+  display: block;
+  position: relative;
+  cursor: pointer;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  margin: 0 4px;
+}
+
+#restrict_table .styled_checkbox_container .hidden_checkbox {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+#restrict_table .styled_checkbox_container .checkmark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 4px;
+}
+
+#restrict_table .styled_checkbox_container,
+#restrict_table .styled_checkbox_container .checkmark {
+  height: 1.2rem;
+  width:  1.2rem;
+}
+
+#restrict_table .styled_checkbox_container .hidden_checkbox ~ .checkmark.inactive {
+  display: block;
+  background-color: #2a2;
+  border: 1px outset #147214;
+  box-shadow: 1px 1px 2px -1px #000;
+}
+
+#restrict_table .styled_checkbox_container .hidden_checkbox ~ .checkmark.active {
+  display: none;
+}
+
+#restrict_table .styled_checkbox_container .hidden_checkbox:checked ~ .checkmark.inactive {
+  display: none;
+}
+
+#restrict_table .styled_checkbox_container .hidden_checkbox:checked ~ .checkmark.active {
+  display: block;
+  color: #eee;
+  background-color: #a22;
+  border: 1px inset #681515;
+  box-shadow: 1px 1px 2px -1px #000 inset;
+  text-align: center;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 12px;
+}
+
+#restrict_table .styled_checkbox_container:hover .hidden_checkbox ~ .checkmark.inactive {
+  border-style: solid;
+  border-color: #681515;
+}
+
+#restrict_table .styled_checkbox_container:hover .hidden_checkbox:checked ~ .checkmark.active {
+  border-style: solid;
+  border-color: #147214;
+}
+
+#restrict_table .styled_checkbox_container .hidden_checkbox:disabled ~ .checkmark {
+  opacity: 0.333;
+  border-style: solid;
+  border-color: #F2F2F2;
+  box-shadow: none;
 }
 
 #imgmask_img_box {
@@ -506,6 +586,68 @@ td.move_mode {
   text-align: right;
 }
 
+.tt {
+  position: relative;
+}
+
+.tt::before {
+   content: attr(data-title);
+   display: none;
+   position: absolute;
+   width: 240px;
+   z-index: 2;
+
+   padding: 3px 5px;
+   text-align: left;
+   background-color: #f4f4f4;
+   border: 2px solid #222;
+   border-radius: 6px;
+}
+
+.tt.ttleft::before {
+   top: 165%;
+   right: 0;
+}
+
+.tt.ttright::before {
+   top: 165%;
+   left: 0;
+}
+
+.tt.ttleft::after {
+  content: " ";
+  display: none;
+  position: absolute;
+  z-index: 1;
+  bottom: -12px;
+  left: 50%;
+  margin-top: -8px;
+  border-width: 8px;
+  border-style: solid;
+  border-color: transparent transparent #222 transparent;
+}
+
+.tt.ttright::after {
+  content: " ";
+  display: none;
+  position: absolute;
+  z-index: 1;
+  bottom: -12px;
+  left: 50%;
+  margin-top: -8px;
+  border-width: 8px;
+  border-style: solid;
+  border-color: transparent transparent #222 transparent;
+}
+
+.show_tt .tt:hover::before,
+.show_tt .tt.ttleft:hover::after,
+.show_tt .tt.ttright:hover::after {
+  display: block;
+}
+
+
+
     </style>
   </head>
   <body>
@@ -515,7 +657,7 @@ td.move_mode {
 
     <pre id="debugbox" class="hidden"><span class="hdr"></span><span class="msg"></span></pre>
 
-    <div id="content">
+    <div id="content" class="show_tt">
       <div class="graph panel">
         <div id="graph_wrapper" class="canvas_wrapper canvas_size">
           <canvas id="graph" class="graph_canvas canvas_size" width="420" height="420">
@@ -577,10 +719,10 @@ td.move_mode {
 
       <div class="ui panel">
         <div class="runbox buttonbox">
-          <button id="button_reset">Reset</button>
-          <button id="button_step">Step 1x</button>
-          <button id="button_multistep">Step Nx</button>
-          <button id="button_run">Run</button>
+          <button id="button_reset" class="tt ttright" data-title="Reset back to a blank canvas.">Reset</button>
+          <button id="button_step" class="tt ttright" data-title="One step of the chaos game. Selects a random point, moves toward it, and draws a point.">Step 1x</button>
+          <button id="button_multistep" class="tt ttright" data-title="Run a fixed number of steps. The number of steps can be changed with the 'Steps / Frame' option.">Step Nx</button>
+          <button id="button_run" class="tt ttright" data-title="Draws 'Steps / Frame' points every frame until manually stopped by pressing Pause or Step">Run</button>
         </div>
 
         <div class="pointsbox buttonbox">
@@ -589,8 +731,8 @@ td.move_mode {
           <input type="number" id="num_points" value="3"
                  min="3" max="8" step="1">
           <span class="title">Move All</span>
-          <button id="move_all_reg_polygon">Reg. Polygon</button>
-          <button id="move_all_random">Random</button>
+          <button id="move_all_reg_polygon" class="tt ttleft" data-title="Move all points into the corners of an N-sided regullar polygon.">Reg. Polygon</button>
+          <button id="move_all_random" class="tt ttleft" data-title="Move all points to random positions.">Random</button>
         </div>
 
         <hr>
@@ -722,8 +864,13 @@ td.move_mode {
         <div class="optionsbox buttonbox">
           <table>
             <tr>
+              <th>Show Tooltips</th>
+              <td><input id="show_tooltips" type="checkbox" checked="checked"></td>
+              </td>
+            </tr>
+            <tr>
               <th>Steps / Frame</th>
-              <td colspan=2>
+              <td>
                 <input type="number" id="steps_per_frame"
                        min="0" max="500" step="10">
               </td>
@@ -769,10 +916,10 @@ td.move_mode {
         <hr>
 
         <div class="imgbox buttonbox">
-          <button id="button_create_png">Create PNG</button>
-          <button id="button_save_url">Save as URL</button>
-          <button id="button_save">Save as JSON</button>
-          <button id="button_load">Load from JSON</button>
+          <button id="button_create_png" class="tt ttright" data-title="Open the current canvas image as a PNG file in a new tab/window.">Create PNG</button>
+          <button id="button_save_url" class="tt ttright" data-title="Saves the current settings to the hash (#) on the current URL">Save as URL</button>
+          <button id="button_save" class="tt ttright" data-title="Saves the current settings to copy-able JSON-formatted text.">Save as JSON</button>
+          <button id="button_load" class="tt ttright" data-title="Paste the JSON-formatted text (from 'Save as JSON') to load previously saves settings.">Load from JSON</button>
         </div>
       </div>
 
@@ -1943,7 +2090,7 @@ td.move_mode {
       if (APP.points.length < 3) {
         return;
       }
-      this.restrictions.set_enabled(APP.points.length);
+      this.restrictions.set_visible(APP.points.length);
       this.restricted.single_origin = this.filtered_choices('single');
       this.restricted.double_origin = this.filtered_choices('double');
       return this.prev_target[0] = this.prev_target[1] = APP.points[0];
@@ -2251,10 +2398,43 @@ td.move_mode {
       double_selector = selector + ".double input[type=\"checkbox\"]";
       this.checkbox_single = this.context.querySelector(single_selector);
       this.checkbox_double = this.context.querySelector(double_selector);
+      this.replace_with_styled_label(this.checkbox_single);
+      this.replace_with_styled_label(this.checkbox_double);
+      this.callbacks_single = [];
+      this.callbacks_double = [];
+      this.visible = false;
       this.reset();
       this.checkbox_single.addEventListener('change', this.on_change_single);
       this.checkbox_double.addEventListener('change', this.on_change_double);
     }
+
+    TargetRestrictionOption.prototype.replace_with_styled_label = function(checkbox) {
+      var cell, container, mark_active, mark_inactive;
+      cell = checkbox.parentElement;
+      container = this.context.createElement('label');
+      mark_inactive = this.context.createElement('span');
+      mark_active = this.context.createElement('span');
+      mark_active.textContent = '\u2613';
+      container.setAttribute('for', checkbox.id);
+      container.classList.add('styled_checkbox_container');
+      checkbox.classList.add('hidden_checkbox');
+      mark_inactive.classList.add('checkmark');
+      mark_inactive.classList.add('inactive');
+      mark_active.classList.add('checkmark');
+      mark_active.classList.add('active');
+      container.appendChild(checkbox);
+      container.appendChild(mark_inactive);
+      container.appendChild(mark_active);
+      return cell.appendChild(container);
+    };
+
+    TargetRestrictionOption.prototype.add_callback_on_changes_single = function(callback) {
+      return this.callbacks_single.push(callback);
+    };
+
+    TargetRestrictionOption.prototype.add_callback_on_changes_double = function(callback) {
+      return this.callbacks_double.push(callback);
+    };
 
     TargetRestrictionOption.prototype.reset = function() {
       this.set_single(false);
@@ -2272,26 +2452,70 @@ td.move_mode {
       return results;
     };
 
-    TargetRestrictionOption.prototype.enable = function() {
-      this.enabled = true;
+    TargetRestrictionOption.prototype.show = function() {
+      this.visible = true;
       return this.set_column_cells('table-cell');
     };
 
-    TargetRestrictionOption.prototype.disable = function() {
-      this.enabled = false;
+    TargetRestrictionOption.prototype.hide = function() {
+      this.visible = false;
       return this.set_column_cells('none');
     };
 
+    TargetRestrictionOption.prototype.enable_single = function() {
+      return this.checkbox_single.disabled = false;
+    };
+
+    TargetRestrictionOption.prototype.enable_double = function() {
+      return this.checkbox_double.disabled = false;
+    };
+
+    TargetRestrictionOption.prototype.disable_single = function() {
+      return this.checkbox_single.disabled = true;
+    };
+
+    TargetRestrictionOption.prototype.disable_double = function() {
+      return this.checkbox_double.disabled = true;
+    };
+
+    TargetRestrictionOption.prototype.is_single_enabled = function() {
+      return !this.checkbox_double.disabled;
+    };
+
+    TargetRestrictionOption.prototype.is_double_enabled = function() {
+      return !this.checkbox_double.disabled;
+    };
+
+    TargetRestrictionOption.prototype.using_double = function() {
+      return this.visible && this.is_double_enabled() && this.value_double;
+    };
+
     TargetRestrictionOption.prototype.set_single = function(value) {
-      this.value_single = value;
-      this.checkbox_single.checked = this.value_single;
-      return APP.update_metadata_and_reset();
+      var cb, j, len1, ref;
+      if (value !== this.value_single) {
+        this.value_single = value;
+        this.checkbox_single.checked = this.value_single;
+        ref = this.callbacks_single;
+        for (j = 0, len1 = ref.length; j < len1; j++) {
+          cb = ref[j];
+          cb(value);
+        }
+        return APP.update_metadata_and_reset();
+      }
     };
 
     TargetRestrictionOption.prototype.set_double = function(value) {
-      this.value_double = value;
-      this.checkbox_double.checked = this.value_double;
-      return APP.update_metadata_and_reset();
+      var cb, j, len1, ref;
+      if (value !== this.value_double) {
+        this.value_double = value;
+        this.checkbox_double.checked = this.value_double;
+        ref = this.callbacks_double;
+        for (j = 0, len1 = ref.length; j < len1; j++) {
+          cb = ref[j];
+          cb(value);
+        }
+        return APP.update_metadata_and_reset();
+      }
     };
 
     TargetRestrictionOption.prototype.on_change_single = function(event) {
@@ -2310,6 +2534,7 @@ td.move_mode {
     function TargetRestriction(context) {
       var j, len1, o, ref;
       this.context = context;
+      this.on_self_singe_change = bind(this.on_self_singe_change, this);
       this.option = {
         prev: [new TargetRestrictionOption(this.context, -1, 'prev1'), new TargetRestrictionOption(this.context, -2, 'prev2'), new TargetRestrictionOption(this.context, -3, 'prev3')],
         self: new TargetRestrictionOption(this.context, 0, 'self'),
@@ -2323,7 +2548,38 @@ td.move_mode {
         o = ref[j];
         this.by_name[o.name] = o;
       }
+      this.option.self.add_callback_on_changes_single(this.on_self_singe_change);
     }
+
+    TargetRestriction.prototype.on_self_singe_change = function(is_restricted) {
+      if (is_restricted) {
+        return this.disable_double();
+      } else {
+        return this.enable_double();
+      }
+    };
+
+    TargetRestriction.prototype.enable_double = function() {
+      var j, len1, o, ref, results;
+      ref = this.options;
+      results = [];
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        o = ref[j];
+        results.push(o.enable_double());
+      }
+      return results;
+    };
+
+    TargetRestriction.prototype.disable_double = function() {
+      var j, len1, o, ref, results;
+      ref = this.options;
+      results = [];
+      for (j = 0, len1 = ref.length; j < len1; j++) {
+        o = ref[j];
+        results.push(o.disable_double());
+      }
+      return results;
+    };
 
     TargetRestriction.prototype.find = function(name) {
       if (this.by_name[name] != null) {
@@ -2334,24 +2590,24 @@ td.move_mode {
       }
     };
 
-    TargetRestriction.prototype.set_enabled = function(n) {
+    TargetRestriction.prototype.set_visible = function(n) {
       var j, len1, neighbor, next, o, prev, ref, ref1;
       ref = this.options;
       for (j = 0, len1 = ref.length; j < len1; j++) {
         o = ref[j];
-        o.disable();
+        o.hide();
       }
-      this.option.self.enable();
+      this.option.self.show();
       n -= 1;
       if (n % 2 === 1) {
-        this.option.opposite.enable();
+        this.option.opposite.show();
         n -= 1;
       }
       neighbor = 1;
       while (n >= 2) {
         ref1 = this.neighbor(neighbor), prev = ref1[0], next = ref1[1];
-        prev.enable();
-        next.enable();
+        prev.show();
+        next.show();
         n -= 2;
         neighbor += 1;
       }
@@ -2363,7 +2619,7 @@ td.move_mode {
       ref = this.options;
       for (j = 0, len1 = ref.length; j < len1; j++) {
         o = ref[j];
-        if (o.enabled && o.value_double) {
+        if (o.using_double()) {
           return true;
         }
       }
@@ -2667,6 +2923,7 @@ td.move_mode {
     StochasticSierpinski.prototype.NEARBY_RADIUS = 8;
 
     StochasticSierpinski.prototype.DEFAULT = {
+      show_tooltips: true,
       graph: {
         width: 420,
         height: 420
@@ -2738,6 +2995,7 @@ td.move_mode {
       this.on_mouseenter = bind(this.on_mouseenter, this);
       this.on_draw_opacity_change = bind(this.on_draw_opacity_change, this);
       this.on_move_range_change = bind(this.on_move_range_change, this);
+      this.on_show_tooltips_change = bind(this.on_show_tooltips_change, this);
     }
 
     StochasticSierpinski.prototype.init = function() {
@@ -2750,6 +3008,7 @@ td.move_mode {
       this.imgmask_overlay_highlight = null;
       this.step_count = 0;
       this.steps_per_frame_el = this.context.getElementById('steps_per_frame');
+      this.content_el = this.context.getElementById('content');
       this.graph_wrapper = this.context.getElementById('graph_wrapper');
       this.graph_canvas = this.context.getElementById('graph');
       this.graph_ui_canvas = this.context.getElementById('graph_ui');
@@ -2773,6 +3032,7 @@ td.move_mode {
       this.btn_move_all_reg_polygon = this.context.getElementById('move_all_reg_polygon');
       this.btn_move_all_random = this.context.getElementById('move_all_random');
       this.option = {
+        shows_tooltips: new BoolUIOption('show_tooltips', APP.DEFAULT.show_tooltips, this.on_show_tooltips_change),
         canvas_width: new NumberUIOption('canvas_width', APP.DEFAULT.graph.width, this.on_canvas_width_change),
         canvas_height: new NumberUIOption('canvas_height', APP.DEFAULT.graph.height, this.on_canvas_height_change),
         draw_opacity: new NumberUIOption('draw_opacity', APP.DEFAULT.draw_opacity, this.on_draw_opacity_change),
@@ -2893,6 +3153,14 @@ td.move_mode {
       el = this.create_element('input', id);
       el.type = type;
       return el;
+    };
+
+    StochasticSierpinski.prototype.on_show_tooltips_change = function(value) {
+      if (value) {
+        return this.content_el.classList.add('show_tt');
+      } else {
+        return this.content_el.classList.remove('show_tt');
+      }
     };
 
     StochasticSierpinski.prototype.on_move_range_change = function() {
@@ -3890,6 +4158,7 @@ td.move_mode {
   document.addEventListener('DOMContentLoaded', (function(_this) {
     return function() {
       APP = new StochasticSierpinski(document);
+      window.APP = APP;
       APP.init();
       APP.on_hashchange();
       return APP.load_from_cookie();
