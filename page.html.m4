@@ -204,6 +204,7 @@ undivert(`style.css')
 
         <div id="imgmask_img_box" class="imgmask_img_hide optionbox obright hidden">
           <h3>Masked Location Bitmap</h3>
+          <div class="clear_both"></div>
           <figure>
             <figcaption id="imgmask_img_caption">
               Original
@@ -233,54 +234,60 @@ undivert(`style.css')
           <table>
             <tr>
               <th>Enabled?</th>
-              <td><input id="imgmask_enabled" type="checkbox"></td>
-              <td></td>
+              <td>
+                <input id="imgmask_enabled" type="checkbox">
+              </td>
             </tr>
             <tr>
               <th>Load Image As Bitmap</th>
-              <td><input id="imgmask_file" type="file" accept="image/*"></td>
               <td>
+                <input id="imgmask_file" type="file" accept="image/*">
+                <button id="imgmask_file_button">Load image file...</button>
               </td>
             </tr>
             <tr>
               <th>Bitmap Threshold</th>
-              <td><input id="imgmask_threshold" type="range" value="1"
-                         min="1" max="254" step="1">%</td>
-              <td></td>
+              <td>
+                <input id="imgmask_threshold" type="range" value="1" min="1" max="254" step="1">
+                <label for="imgmask_threshold">%</label>
+              </td>
             </tr>
             <tr>
               <th>Bitmap Size</th>
-              <td>
+              <td class="labeled_2d_number_input">
                 <label for="imgmask_scale_width">L/R</label>
                 <input id="imgmask_scale_width"
                        name="imgmask_scale_width"
                        type="number" value="50"
-                       min="0" max="99" step="1">&nbsp;%
+                       min="0" max="99" step="1">
+                <span class="suffix">%</span>
                 <label for="imgmask_scale_height">T/B</label>
                 <input id="imgmask_scale_height"
                        name="imgmask_scale_height"
                        type="number" value="50"
-                       min="0" max="99" step="1">&nbsp;%
+                       min="0" max="99" step="1">
+                <span class="suffix">%</span>
               </td>
-              <td></td>
             </tr>
             <tr>
               <th>Bitmap Offset</th>
-              <td>
-                <label for="imgmask_offset_x">X</label>
+              <td class="labeled_2d_number_input">
+                <label for="imgmask_offset_x">+X</label>
                 <input id="imgmask_offset_x" name="imgmask_offset_x"
                        type="number" value="0" step="1">
-                <label for="imgmask_offset_y">Y</label>
+                <span class="suffix"></span>
+                <label for="imgmask_offset_y">+Y</label>
                 <input id="imgmask_offset_y" name="imgmask_offset_y"
                        type="number" value="0" step="1">
+                <span class="suffix"></span>
               </td>
-              <td></td>
             </tr>
             <tr>
-              <th>Bitmap Oversampling</th>
-              <td><input id="imgmask_oversample" type="number"
-                         value="1" min="1" max="4" step="1">&nbsp;x
-              <td>
+              <th class="tt ttright" data-title="Multiply the size of the bitmap relative to the original image. You probably don't want this! In rare cases this might antialias images with a lot of mid-level luminosity, at the cost of a LOT of memory and CPU time whenever the bitmap is recalculated.">Bitmap Oversampling</th>
+              <td class="labeled_2d_number_input">
+                <span class="prefix"></span>
+                <input id="imgmask_oversample" type="number" value="1" min="1" max="4" step="1">
+                <span class="suffix">x</label>
               </td>
             </tr>
           </table>

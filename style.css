@@ -331,6 +331,22 @@ td.blank {
   width: 3em;
 }
 
+#imgmask_threshold {
+  margin-left: 0;
+  margin-right: 0;
+  position: relative;
+  top: 1px;
+}
+
+#imgmask_file {
+  display: none;
+}
+
+#imgmask_threshold + label {
+  position: relative;
+  top: -4px;
+}
+
 .imgmask_caption_size_hw {
   margin-left: 0.3em;
   font-weight: light;
@@ -363,14 +379,6 @@ td.blank {
   background-color: #ccc;
 }
 
-#imgmask_scale_width ~ label {
-  margin-left: 1em;
-}
-
-#imgmask_scale_width,
-#imgmask_scale_height,
-#imgmask_offset_x,
-#imgmask_offset_y,
 #imgmask_oversample,
 #steps_per_frame,
 #draw_opacity {
@@ -507,4 +515,26 @@ td.move_mode {
 .show_tt .tt.ttleft:hover::after,
 .show_tt .tt.ttright:hover::after {
   display: block;
+}
+
+.labeled_2d_number_input {
+  display: inline-block;
+  text-align: left;
+}
+
+.labeled_2d_number_input label,
+.labeled_2d_number_input .prefix {
+  display: inline-block;
+  text-align: right;
+  width: 1.5em;
+}
+
+.labeled_2d_number_input input {
+  width: 3.5em;
+}
+
+.labeled_2d_number_input .suffix {
+  display: inline-block;
+  text-align: left;
+  width: 1.5em;
 }

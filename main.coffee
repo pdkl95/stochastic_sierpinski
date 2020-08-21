@@ -500,6 +500,7 @@ class DrawPoint extends UIPoint
     @imgmask_img_hide_list = APP.context.querySelectorAll('.imgmask_img_hide')
 
     @imgmask_file               = APP.context.getElementById('imgmask_file')
+    @imgmask_file_button        = APP.context.getElementById('imgmask_file_button')
     @imgmask_img_caption        = APP.context.getElementById('imgmask_img_caption')
     @imgmask_img_size_width     = APP.context.getElementById('imgmask_img_size_width')
     @imgmask_img_size_height    = APP.context.getElementById('imgmask_img_size_height')
@@ -531,7 +532,8 @@ class DrawPoint extends UIPoint
     @update_imgmask_scale()
     @update_imgmask_offset()
     @on_imgmask_enabled_change()
-    @imgmask_file.addEventListener 'change', @on_imgmask_file_change
+    @imgmask_file.addEventListener('change', @on_imgmask_file_change)
+    @imgmask_file_button.addEventListener('click', @on_imgmask_file_button_click, false)
 
     @btn_set_all_points.addEventListener('click', @on_set_all_points)
 
@@ -806,6 +808,9 @@ class DrawPoint extends UIPoint
 
     reader.readAsDataURL(file)
 
+  on_imgmask_file_button_click: =>
+    @imgmask_file.click() if @imgmask_file?
+
   enable_imgmask: ->
     @option.imgmask_scale_width.enable()
     @option.imgmask_scale_height.enable()
@@ -814,6 +819,7 @@ class DrawPoint extends UIPoint
     @option.imgmask_threshold.enable()
     @option.imgmask_oversample.enable()
     @imgmask_file.disabled = false
+    @imgmask_file_button.disabled = false
 
   disable_imgmask: ->
     @option.imgmask_scale_width.disable()
@@ -823,6 +829,7 @@ class DrawPoint extends UIPoint
     @option.imgmask_threshold.disable()
     @option.imgmask_oversample.disable()
     @imgmask_file.disabled = true
+    @imgmask_file_button.disabled = true
 
   target_chosen_twice: ->
     @prev_target[0] == @prev_target[1]

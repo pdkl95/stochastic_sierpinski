@@ -514,6 +514,22 @@ td.blank {
   width: 3em;
 }
 
+#imgmask_threshold {
+  margin-left: 0;
+  margin-right: 0;
+  position: relative;
+  top: 1px;
+}
+
+#imgmask_file {
+  display: none;
+}
+
+#imgmask_threshold + label {
+  position: relative;
+  top: -4px;
+}
+
 .imgmask_caption_size_hw {
   margin-left: 0.3em;
   font-weight: light;
@@ -546,14 +562,6 @@ td.blank {
   background-color: #ccc;
 }
 
-#imgmask_scale_width ~ label {
-  margin-left: 1em;
-}
-
-#imgmask_scale_width,
-#imgmask_scale_height,
-#imgmask_offset_x,
-#imgmask_offset_y,
 #imgmask_oversample,
 #steps_per_frame,
 #draw_opacity {
@@ -690,6 +698,28 @@ td.move_mode {
 .show_tt .tt.ttleft:hover::after,
 .show_tt .tt.ttright:hover::after {
   display: block;
+}
+
+.labeled_2d_number_input {
+  display: inline-block;
+  text-align: left;
+}
+
+.labeled_2d_number_input label,
+.labeled_2d_number_input .prefix {
+  display: inline-block;
+  text-align: right;
+  width: 1.5em;
+}
+
+.labeled_2d_number_input input {
+  width: 3.5em;
+}
+
+.labeled_2d_number_input .suffix {
+  display: inline-block;
+  text-align: left;
+  width: 1.5em;
 }
 
     </style>
@@ -888,6 +918,7 @@ td.move_mode {
 
         <div id="imgmask_img_box" class="imgmask_img_hide optionbox obright hidden">
           <h3>Masked Location Bitmap</h3>
+          <div class="clear_both"></div>
           <figure>
             <figcaption id="imgmask_img_caption">
               Original
@@ -917,54 +948,60 @@ td.move_mode {
           <table>
             <tr>
               <th>Enabled?</th>
-              <td><input id="imgmask_enabled" type="checkbox"></td>
-              <td></td>
+              <td>
+                <input id="imgmask_enabled" type="checkbox">
+              </td>
             </tr>
             <tr>
               <th>Load Image As Bitmap</th>
-              <td><input id="imgmask_file" type="file" accept="image/*"></td>
               <td>
+                <input id="imgmask_file" type="file" accept="image/*">
+                <button id="imgmask_file_button">Load image file...</button>
               </td>
             </tr>
             <tr>
               <th>Bitmap Threshold</th>
-              <td><input id="imgmask_threshold" type="range" value="1"
-                         min="1" max="254" step="1">%</td>
-              <td></td>
+              <td>
+                <input id="imgmask_threshold" type="range" value="1" min="1" max="254" step="1">
+                <label for="imgmask_threshold">%</label>
+              </td>
             </tr>
             <tr>
               <th>Bitmap Size</th>
-              <td>
+              <td class="labeled_2d_number_input">
                 <label for="imgmask_scale_width">L/R</label>
                 <input id="imgmask_scale_width"
                        name="imgmask_scale_width"
                        type="number" value="50"
-                       min="0" max="99" step="1">&nbsp;%
+                       min="0" max="99" step="1">
+                <span class="suffix">%</span>
                 <label for="imgmask_scale_height">T/B</label>
                 <input id="imgmask_scale_height"
                        name="imgmask_scale_height"
                        type="number" value="50"
-                       min="0" max="99" step="1">&nbsp;%
+                       min="0" max="99" step="1">
+                <span class="suffix">%</span>
               </td>
-              <td></td>
             </tr>
             <tr>
               <th>Bitmap Offset</th>
-              <td>
-                <label for="imgmask_offset_x">X</label>
+              <td class="labeled_2d_number_input">
+                <label for="imgmask_offset_x">+X</label>
                 <input id="imgmask_offset_x" name="imgmask_offset_x"
                        type="number" value="0" step="1">
-                <label for="imgmask_offset_y">Y</label>
+                <span class="suffix"></span>
+                <label for="imgmask_offset_y">+Y</label>
                 <input id="imgmask_offset_y" name="imgmask_offset_y"
                        type="number" value="0" step="1">
+                <span class="suffix"></span>
               </td>
-              <td></td>
             </tr>
             <tr>
-              <th>Bitmap Oversampling</th>
-              <td><input id="imgmask_oversample" type="number"
-                         value="1" min="1" max="4" step="1">&nbsp;x
-              <td>
+              <th class="tt ttright" data-title="Multiply the size of the bitmap relative to the original image. You probably don't want this! In rare cases this might antialias images with a lot of mid-level luminosity, at the cost of a LOT of memory and CPU time whenever the bitmap is recalculated.">Bitmap Oversampling</th>
+              <td class="labeled_2d_number_input">
+                <span class="prefix"></span>
+                <input id="imgmask_oversample" type="number" value="1" min="1" max="4" step="1">
+                <span class="suffix">x</label>
               </td>
             </tr>
           </table>
@@ -1654,6 +1691,7 @@ td.move_mode {
     };
 
     function DrawPoint(name) {
+      this.on_imgmask_file_button_click = bind(this.on_imgmask_file_button_click, this);
       this.on_imgmask_file_change = bind(this.on_imgmask_file_change, this);
       this.on_imgmask_file_reader_load = bind(this.on_imgmask_file_reader_load, this);
       this.on_imgmask_img_load = bind(this.on_imgmask_img_load, this);
@@ -1685,6 +1723,7 @@ td.move_mode {
       this.move_perc_range_el_init();
       this.imgmask_img_hide_list = APP.context.querySelectorAll('.imgmask_img_hide');
       this.imgmask_file = APP.context.getElementById('imgmask_file');
+      this.imgmask_file_button = APP.context.getElementById('imgmask_file_button');
       this.imgmask_img_caption = APP.context.getElementById('imgmask_img_caption');
       this.imgmask_img_size_width = APP.context.getElementById('imgmask_img_size_width');
       this.imgmask_img_size_height = APP.context.getElementById('imgmask_img_size_height');
@@ -1716,6 +1755,7 @@ td.move_mode {
       this.update_imgmask_offset();
       this.on_imgmask_enabled_change();
       this.imgmask_file.addEventListener('change', this.on_imgmask_file_change);
+      this.imgmask_file_button.addEventListener('click', this.on_imgmask_file_button_click, false);
       return this.btn_set_all_points.addEventListener('click', this.on_set_all_points);
     };
 
@@ -2073,6 +2113,12 @@ td.move_mode {
       return reader.readAsDataURL(file);
     };
 
+    DrawPoint.prototype.on_imgmask_file_button_click = function() {
+      if (this.imgmask_file != null) {
+        return this.imgmask_file.click();
+      }
+    };
+
     DrawPoint.prototype.enable_imgmask = function() {
       this.option.imgmask_scale_width.enable();
       this.option.imgmask_scale_height.enable();
@@ -2080,7 +2126,8 @@ td.move_mode {
       this.option.imgmask_offset_y.enable();
       this.option.imgmask_threshold.enable();
       this.option.imgmask_oversample.enable();
-      return this.imgmask_file.disabled = false;
+      this.imgmask_file.disabled = false;
+      return this.imgmask_file_button.disabled = false;
     };
 
     DrawPoint.prototype.disable_imgmask = function() {
@@ -2090,7 +2137,8 @@ td.move_mode {
       this.option.imgmask_offset_y.disable();
       this.option.imgmask_threshold.disable();
       this.option.imgmask_oversample.disable();
-      return this.imgmask_file.disabled = true;
+      this.imgmask_file.disabled = true;
+      return this.imgmask_file_button.disabled = true;
     };
 
     DrawPoint.prototype.target_chosen_twice = function() {
