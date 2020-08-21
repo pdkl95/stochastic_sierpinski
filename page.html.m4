@@ -90,7 +90,7 @@ undivert(`style.css')
           <label for="num_points">
             N =
             <input type="number" id="num_points" value="3"
-                   min="3" max="8" step="1">
+                   min="3" max="10" step="1">
           </label>
           <span class="title">Move All</span>
           <button id="move_all_reg_polygon" class="tt ttleft" data-title="Move all points into the corners of an N-sided regullar polygon.">Reg. Polygon</button>
@@ -166,6 +166,7 @@ undivert(`style.css')
           <table id="restrict_table">
             <tr>
               <td class="blank"></td>
+              <th scope="col" class="header prev prev4">-4</th>
               <th scope="col" class="header prev prev3">-3</th>
               <th scope="col" class="header prev prev2">-2</th>
               <th scope="col" class="header prev prev1">-1</th>
@@ -173,10 +174,12 @@ undivert(`style.css')
               <th scope="col" class="header next next1">+1</th>
               <th scope="col" class="header next next2">+2</th>
               <th scope="col" class="header next next3">+3</th>
+              <th scope="col" class="header next next4">+4</th>
               <th scope="col" class="header opposite">Opp</th>
             </tr>
             <tr>
               <th scope="row">Last</th>
+              <td class="single prev prev4"><input type="checkbox" id="restrict_single_prev_4"></td>
               <td class="single prev prev3"><input type="checkbox" id="restrict_single_prev_3"></td>
               <td class="single prev prev2"><input type="checkbox" id="restrict_single_prev_2"></td>
               <td class="single prev prev1"><input type="checkbox" id="restrict_single_prev_1"></td>
@@ -184,10 +187,12 @@ undivert(`style.css')
               <td class="single next next1"><input type="checkbox" id="restrict_single_next_1"></td>
               <td class="single next next2"><input type="checkbox" id="restrict_single_next_2"></td>
               <td class="single next next3"><input type="checkbox" id="restrict_single_next_3"></td>
+              <td class="single next next4"><input type="checkbox" id="restrict_single_next_4"></td>
               <td class="single opposite">  <input type="checkbox" id="restrict_single_opposite"></td>
             </tr>
             <tr>
               <th scope="row" class="double">Last 2x</th> 
+              <td class="double prev prev4"><input type="checkbox" id="restrict_double_prev_4"></td>
               <td class="double prev prev3"><input type="checkbox" id="restrict_double_prev_3"></td>
               <td class="double prev prev2"><input type="checkbox" id="restrict_double_prev_2"></td>
               <td class="double prev prev1"><input type="checkbox" id="restrict_double_prev_1"></td>
@@ -195,6 +200,7 @@ undivert(`style.css')
               <td class="double next next1"><input type="checkbox" id="restrict_double_next_1"></td>
               <td class="double next next2"><input type="checkbox" id="restrict_double_next_2"></td>
               <td class="double next next3"><input type="checkbox" id="restrict_double_next_3"></td>
+              <td class="double next next4"><input type="checkbox" id="restrict_double_next_4"></td>
               <td class="double opposite">  <input type="checkbox" id="restrict_double_opposite"></td>
             </tr>
           </table>

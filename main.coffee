@@ -1170,14 +1170,16 @@ class TargetRestriction
         new TargetRestrictionOption(@context, -1, 'prev1'),
         new TargetRestrictionOption(@context, -2, 'prev2'),
         new TargetRestrictionOption(@context, -3, 'prev3'),
+        new TargetRestrictionOption(@context, -4, 'prev4')
       ]
       self: new TargetRestrictionOption(@context,  0, 'self')
       next: [
         new TargetRestrictionOption(@context,  1, 'next1'),
         new TargetRestrictionOption(@context,  2, 'next2'),
-        new TargetRestrictionOption(@context,  3, 'next3')
+        new TargetRestrictionOption(@context,  3, 'next3'),
+        new TargetRestrictionOption(@context,  4, 'next4')
       ]
-      opposite: new TargetRestrictionOption(@context,  4, 'opposite'),
+      opposite: new TargetRestrictionOption(@context,  5, 'opposite'),
 
     @options = Object.values(@option).flatten()
 
@@ -1370,7 +1372,7 @@ class EnumUIOption extends UIOption
 
 class StochasticSierpinski
   MIN_POINTS: 3
-  MAX_POINTS: 8
+  MAX_POINTS: 10
   REG_POLYGON_MARGIN: 10
   NEARBY_RADIUS: 8
 
