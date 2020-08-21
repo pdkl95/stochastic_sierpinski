@@ -85,20 +85,84 @@ undivert(`style.css')
           <button id="button_run" class="tt ttright" data-title="Draws 'Steps / Frame' points every frame until manually stopped by pressing Pause or Step">Run</button>
         </div>
 
-        <div class="pointsbox buttonbox">
+        <div class="pointsbox buttonbox bbright">
           <span class="title">Points</span>
-          <label for="num_points">N =</label>
-          <input type="number" id="num_points" value="3"
-                 min="3" max="8" step="1">
+          <label for="num_points">
+            N =
+            <input type="number" id="num_points" value="3"
+                   min="3" max="8" step="1">
+          </label>
           <span class="title">Move All</span>
           <button id="move_all_reg_polygon" class="tt ttleft" data-title="Move all points into the corners of an N-sided regullar polygon.">Reg. Polygon</button>
           <button id="move_all_random" class="tt ttleft" data-title="Move all points to random positions.">Random</button>
         </div>
 
-        <hr>
+        <hr class="clear_both">
 
-        <h3>Random Target Restrictions</h3>
-        <div class="restrictbox buttonbox">
+        <div class="imgbox buttonbox">
+          <button id="button_create_png" class="tt ttright" data-title="Open the current canvas image as a PNG file in a new tab/window.">Create PNG</button>
+          <button id="button_save_url" class="tt ttright" data-title="Saves the current settings to the hash (#) on the current URL">Save as URL</button>
+          <button id="button_save" class="tt ttright" data-title="Saves the current settings to copy-able JSON-formatted text.">Save as JSON</button>
+          <button id="button_load" class="tt ttright" data-title="Paste the JSON-formatted text (from 'Save as JSON') to load previously saves settings.">Load from JSON</button>
+        </div>
+
+        <div class="uioptbox buttonbox bbright">
+          <span class="title tt ttleft" data-title="User-Interface Options. These options do not affect the drawing results, so they are not saved with the other option. Instead, they are saved in a browser cookie.">UI Options</span>
+          <label for="show_tooltips" class="tt ttleft" data-title="Enable/Disable tooltips similar tol what you are reading right now.">
+            Show Tooltips
+            <input id="show_tooltips" type="checkbox" checked="checked">
+          </label>
+          <label for="steps_per_frame" class="tt ttleft" data-title="The number of steps that are computed each frame. Higher values render fast at the cost of greater CPU load.">
+            Steps / Frame
+            <input type="number" id="steps_per_frame" min="0" max="500" step="10">
+          </label>
+        </div>
+
+        <hr class="clear_both">
+
+        <div class="optionsbox optionbox obright">
+          <h3>Draw Options</h3>
+          <table>
+            <tr>
+              <th>Canvas Size</th>
+              <td>
+                <input id="canvas_width" type="number" value="420"
+                       min="64" max="4096" step="1">
+                &nbsp;x&nbsp;
+                <input id="canvas_height" type="number" value="420"
+                       min="64" max="4096" step="1">
+              </td>
+            </tr>
+            <tr>
+              <th>Draw Opacity</th>
+              <td><input id="draw_opacity" type="number"
+                         min="0" max="100" step="5">%</td>
+            </tr>
+            <tr>
+              <th>Draw Style</th>
+              <td>
+                <select id="draw_style" name="draw_style">
+                  <option value="mono">Monochrome (black on white)</option>
+                  <option value="color_target">Target Point's Color</option>
+                  <option value="color_blend_prev_target">blend(target, prev_target)</option>
+                  <option value="color_blend_prev_color">blend(target, prev_blend)</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <th>Data Source</th>
+              <td>
+                <select id="movement_data_source" name="movement_data_source">
+                  <option value="dest">Destination</option>
+                  <option value="orig">Origin</option>
+                </select>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="restrictbox optionbox obleft">
+          <h3>Random Target Restrictions</h3>
           <table id="restrict_table">
             <tr>
               <td class="blank"></td>
@@ -136,9 +200,10 @@ undivert(`style.css')
           </table>
         </div>
 
-        <h3>Restricted Location Bitmap</h3>
+        <div class="clear_both"></div>
 
-        <div id="imgmask_img_box" class="imgmask_img_hide hidden">
+        <div id="imgmask_img_box" class="imgmask_img_hide optionbox obright hidden">
+          <h3>Masked Location Bitmap</h3>
           <figure>
             <figcaption id="imgmask_img_caption">
               Original
@@ -163,7 +228,8 @@ undivert(`style.css')
           </figure>
         </div>
 
-        <div class="imgmaskbox buttonbox">
+        <div class="imgmaskbox optionbox obleft">
+          <h3>Restricted Location Bitmap</h3>
           <table>
             <tr>
               <th>Enabled?</th>
@@ -220,67 +286,7 @@ undivert(`style.css')
           </table>
         </div>
 
-        <h3>Other Options</h3>
-        <div class="optionsbox buttonbox">
-          <table>
-            <tr>
-              <th>Show Tooltips</th>
-              <td><input id="show_tooltips" type="checkbox" checked="checked"></td>
-              </td>
-            </tr>
-            <tr>
-              <th>Steps / Frame</th>
-              <td>
-                <input type="number" id="steps_per_frame"
-                       min="0" max="500" step="10">
-              </td>
-            </tr>
-            <tr>
-              <th>Canvas Size</th>
-              <td>
-                <input id="canvas_width" type="number" value="420"
-                       min="64" max="4096" step="1">
-                &nbsp;x&nbsp;
-                <input id="canvas_height" type="number" value="420"
-                       min="64" max="4096" step="1">
-              </td>
-            </tr>
-            <tr>
-              <th>Draw Style</th>
-              <td>
-                <select id="draw_style" name="draw_style">
-                  <option value="mono">Monochrome (black on white)</option>
-                  <option value="color_target">Color = target</option>
-                  <option value="color_blend_prev_target">Color = blend(target, previous_target)</option>
-                  <option value="color_blend_prev_color">Color = blend(target, previous_blended_color)</option>
-                </select>
-              </td>
-            </tr>
-            <tr>
-              <th>Draw Opacity</th>
-              <td><input id="draw_opacity" type="number"
-                         min="0" max="100" step="5">%</td>
-            </tr>
-            <tr>
-              <th>Movement Data Source</th>
-              <td>
-                <select id="movement_data_source" name="movement_data_source">
-                  <option value="dest">Destination</option>
-                  <option value="orig">Origin</option>
-                </select>
-              </td>
-            </tr>
-          </table>
-        </div>
-
-        <hr>
-
-        <div class="imgbox buttonbox">
-          <button id="button_create_png" class="tt ttright" data-title="Open the current canvas image as a PNG file in a new tab/window.">Create PNG</button>
-          <button id="button_save_url" class="tt ttright" data-title="Saves the current settings to the hash (#) on the current URL">Save as URL</button>
-          <button id="button_save" class="tt ttright" data-title="Saves the current settings to copy-able JSON-formatted text.">Save as JSON</button>
-          <button id="button_load" class="tt ttright" data-title="Paste the JSON-formatted text (from 'Save as JSON') to load previously saves settings.">Load from JSON</button>
-        </div>
+        <div class="clear_both"></div>
       </div>
 
       <div id="serializebox">

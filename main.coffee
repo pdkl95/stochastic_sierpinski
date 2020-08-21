@@ -1322,7 +1322,11 @@ class BoolUIOption extends UIOption
     element.checked
 
   set: (bool_value) ->
-    @value = !!bool_value
+    @value = switch bool_value
+      when 'true'  then true
+      when 'false' then false
+      else
+        !!bool_value
     @el.checked = @value
 
 class NumberUIOption extends UIOption
@@ -1432,7 +1436,7 @@ class StochasticSierpinski
     @btn_move_all_random      = @context.getElementById('move_all_random')
 
     @option =
-      shows_tooltips:   new BoolUIOption(  'show_tooltips',    APP.DEFAULT.show_tooltips,    @on_show_tooltips_change)
+      show_tooltips:    new BoolUIOption(  'show_tooltips',    APP.DEFAULT.show_tooltips,    @on_show_tooltips_change)
       canvas_width:     new NumberUIOption('canvas_width',     APP.DEFAULT.graph.width,      @on_canvas_width_change)
       canvas_height:    new NumberUIOption('canvas_height',    APP.DEFAULT.graph.height,     @on_canvas_height_change)
       draw_opacity:     new NumberUIOption('draw_opacity',     APP.DEFAULT.draw_opacity,     @on_draw_opacity_change)
@@ -1544,6 +1548,8 @@ class StochasticSierpinski
       @content_el.classList.add('show_tt')
     else
       @content_el.classList.remove('show_tt')
+
+    @serialize_cookie('show_tooltips', value)
 
   on_move_range_change: =>
     @set_move_range(@option.move_range_min.get(), @option.move_range_max.get())
@@ -2309,6 +2315,7 @@ class StochasticSierpinski
   deserialize_cookie: (key, value) ->
     switch key
       when 'steps_per_frame' then @set_steps_per_frame(value)
+      when 'show_tooltips'   then @option.show_tooltips.set(value)
 
   load_from_cookie: =>
     for cookie in document.cookie.split('; ')
@@ -2316,7 +2323,6 @@ class StochasticSierpinski
 
 document.addEventListener 'DOMContentLoaded', =>
   APP = new StochasticSierpinski(document)
-  window.APP = APP
   APP.init()
   APP.on_hashchange()
   APP.load_from_cookie()
