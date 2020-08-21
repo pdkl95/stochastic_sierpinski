@@ -804,7 +804,7 @@ td.move_mode {
           <label for="num_points">
             N =
             <input type="number" id="num_points" value="3"
-                   min="3" max="8" step="1">
+                   min="3" max="10" step="1">
           </label>
           <span class="title">Move All</span>
           <button id="move_all_reg_polygon" class="tt ttleft" data-title="Move all points into the corners of an N-sided regullar polygon.">Reg. Polygon</button>
@@ -880,6 +880,7 @@ td.move_mode {
           <table id="restrict_table">
             <tr>
               <td class="blank"></td>
+              <th scope="col" class="header prev prev4">-4</th>
               <th scope="col" class="header prev prev3">-3</th>
               <th scope="col" class="header prev prev2">-2</th>
               <th scope="col" class="header prev prev1">-1</th>
@@ -887,10 +888,12 @@ td.move_mode {
               <th scope="col" class="header next next1">+1</th>
               <th scope="col" class="header next next2">+2</th>
               <th scope="col" class="header next next3">+3</th>
+              <th scope="col" class="header next next4">+4</th>
               <th scope="col" class="header opposite">Opp</th>
             </tr>
             <tr>
               <th scope="row">Last</th>
+              <td class="single prev prev4"><input type="checkbox" id="restrict_single_prev_4"></td>
               <td class="single prev prev3"><input type="checkbox" id="restrict_single_prev_3"></td>
               <td class="single prev prev2"><input type="checkbox" id="restrict_single_prev_2"></td>
               <td class="single prev prev1"><input type="checkbox" id="restrict_single_prev_1"></td>
@@ -898,10 +901,12 @@ td.move_mode {
               <td class="single next next1"><input type="checkbox" id="restrict_single_next_1"></td>
               <td class="single next next2"><input type="checkbox" id="restrict_single_next_2"></td>
               <td class="single next next3"><input type="checkbox" id="restrict_single_next_3"></td>
+              <td class="single next next4"><input type="checkbox" id="restrict_single_next_4"></td>
               <td class="single opposite">  <input type="checkbox" id="restrict_single_opposite"></td>
             </tr>
             <tr>
               <th scope="row" class="double">Last 2x</th> 
+              <td class="double prev prev4"><input type="checkbox" id="restrict_double_prev_4"></td>
               <td class="double prev prev3"><input type="checkbox" id="restrict_double_prev_3"></td>
               <td class="double prev prev2"><input type="checkbox" id="restrict_double_prev_2"></td>
               <td class="double prev prev1"><input type="checkbox" id="restrict_double_prev_1"></td>
@@ -909,6 +914,7 @@ td.move_mode {
               <td class="double next next1"><input type="checkbox" id="restrict_double_next_1"></td>
               <td class="double next next2"><input type="checkbox" id="restrict_double_next_2"></td>
               <td class="double next next3"><input type="checkbox" id="restrict_double_next_3"></td>
+              <td class="double next next4"><input type="checkbox" id="restrict_double_next_4"></td>
               <td class="double opposite">  <input type="checkbox" id="restrict_double_opposite"></td>
             </tr>
           </table>
@@ -2634,10 +2640,10 @@ td.move_mode {
       this.context = context;
       this.on_self_singe_change = bind(this.on_self_singe_change, this);
       this.option = {
-        prev: [new TargetRestrictionOption(this.context, -1, 'prev1'), new TargetRestrictionOption(this.context, -2, 'prev2'), new TargetRestrictionOption(this.context, -3, 'prev3')],
+        prev: [new TargetRestrictionOption(this.context, -1, 'prev1'), new TargetRestrictionOption(this.context, -2, 'prev2'), new TargetRestrictionOption(this.context, -3, 'prev3'), new TargetRestrictionOption(this.context, -4, 'prev4')],
         self: new TargetRestrictionOption(this.context, 0, 'self'),
-        next: [new TargetRestrictionOption(this.context, 1, 'next1'), new TargetRestrictionOption(this.context, 2, 'next2'), new TargetRestrictionOption(this.context, 3, 'next3')],
-        opposite: new TargetRestrictionOption(this.context, 4, 'opposite')
+        next: [new TargetRestrictionOption(this.context, 1, 'next1'), new TargetRestrictionOption(this.context, 2, 'next2'), new TargetRestrictionOption(this.context, 3, 'next3'), new TargetRestrictionOption(this.context, 4, 'next4')],
+        opposite: new TargetRestrictionOption(this.context, 5, 'opposite')
       };
       this.options = Object.values(this.option).flatten();
       this.by_name = {};
@@ -3023,7 +3029,7 @@ td.move_mode {
   StochasticSierpinski = (function() {
     StochasticSierpinski.prototype.MIN_POINTS = 3;
 
-    StochasticSierpinski.prototype.MAX_POINTS = 8;
+    StochasticSierpinski.prototype.MAX_POINTS = 10;
 
     StochasticSierpinski.prototype.REG_POLYGON_MARGIN = 10;
 
