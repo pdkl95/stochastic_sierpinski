@@ -1044,13 +1044,15 @@ td.move_mode {
 
     <script type="text/javascript">
 (function() {
-  var APP, BoolUIOption, Color, DNDHandler, DrawPoint, EnumUIOption, MultiDNDHandler, NumberUIOption, OffsetDNDHandler, Point, PointWidget, ScaleDNDHandler, ScaleHeightDNDHandler, ScaleWidthDNDHandler, StochasticSierpinski, TargetRestriction, TargetRestrictionOption, UIOption, UIPoint, XOffsetDNDHandler, YOffsetDNDHandler, base,
+  var APP, BoolUIOption, Color, DNDHandler, DrawPoint, EnumUIOption, MAX_LARGE_DATA_SIZE, MultiDNDHandler, NumberUIOption, OffsetDNDHandler, Point, PointWidget, ScaleDNDHandler, ScaleHeightDNDHandler, ScaleWidthDNDHandler, StochasticSierpinski, TargetRestriction, TargetRestrictionOption, UIOption, UIPoint, XOffsetDNDHandler, YOffsetDNDHandler, base,
     slice = [].slice,
     bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
     hasProp = {}.hasOwnProperty;
 
   APP = null;
+
+  MAX_LARGE_DATA_SIZE = 255;
 
   if ((base = Array.prototype).flatten == null) {
     base.flatten = function() {
@@ -1635,8 +1637,11 @@ td.move_mode {
       return PointWidget.__super__.draw_ui.apply(this, arguments);
     };
 
-    PointWidget.prototype.save = function() {
+    PointWidget.prototype.save = function(include_large_data) {
       var opt;
+      if (include_large_data == null) {
+        include_large_data = true;
+      }
       return opt = {
         name: this.name,
         x: this.x,
@@ -1777,9 +1782,12 @@ td.move_mode {
       return this.btn_set_all_points.addEventListener('click', this.on_set_all_points);
     };
 
-    DrawPoint.prototype.save_imgmask = function() {
+    DrawPoint.prototype.save_imgmask = function(include_large_data) {
       var opt;
-      return opt = {
+      if (include_large_data == null) {
+        include_large_data = true;
+      }
+      opt = {
         enabled: this.option.imgmask_enabled.get(),
         threshold: this.option.imgmask_threshold.get(),
         oversample: this.option.imgmask_oversample.get(),
@@ -1792,6 +1800,18 @@ td.move_mode {
           y: this.option.imgmask_offset_y.get()
         }
       };
+      if (opt.enabled) {
+        if (this.imgmask_img_url != null) {
+          if (this.imgmask_img_url.length > MAX_LARGE_DATA_SIZE && !include_large_data) {
+            opt.enabled = false;
+          } else {
+            opt.mask_image_url = this.imgmask_img_url;
+          }
+        } else {
+          opt.enabled = false;
+        }
+      }
+      return opt;
     };
 
     DrawPoint.prototype.load_imgmask = function(opt) {
@@ -1810,7 +1830,19 @@ td.move_mode {
       if (opt.offset != null) {
         if ((opt.offset.x != null) && (opt.offset.y != null)) {
           this.option.imgmask_offset_x.set(opt.offset.x);
-          return this.option.imgmask_offset_y.set(opt.offset.y);
+          this.option.imgmask_offset_y.set(opt.offset.y);
+        }
+      }
+      if (opt.enabled != null) {
+        if (opt.enabled) {
+          if (opt.mask_image_url != null) {
+            this.set_imgmask_enabled(true);
+            return this.imgmask_load_image_url(opt.mask_image_url);
+          } else {
+            return this.set_imgmask_enabled(false);
+          }
+        } else {
+          return this.set_imgmask_enabled(false);
         }
       }
     };
@@ -1918,6 +1950,11 @@ td.move_mode {
       this.opacity = opacity;
       this.alpha = opacity / 100;
       return DrawPoint.__super__.set_opacity.call(this, opacity);
+    };
+
+    DrawPoint.prototype.set_imgmask_enabled = function(value) {
+      this.option.imgmask_enabled.set(value);
+      return this.on_imgmask_enabled_change();
     };
 
     DrawPoint.prototype.on_imgmask_enabled_change = function() {
@@ -2103,14 +2140,19 @@ td.move_mode {
       return this.set_imgmask_img_ready(true);
     };
 
-    DrawPoint.prototype.on_imgmask_file_reader_load = function(event) {
+    DrawPoint.prototype.imgmask_load_image_url = function(url) {
+      this.imgmask_img_url = url;
       if (this.imgmask_img != null) {
         this.imgmask_img.remove();
       }
       this.imgmask_img = new Image();
       this.imgmask_img_caption.parentElement.insertBefore(this.imgmask_img, this.imgmask_img_caption);
       this.imgmask_img.onload = this.on_imgmask_img_load;
-      return this.imgmask_img.src = event.target.result;
+      return this.imgmask_img.src = this.imgmask_img_url;
+    };
+
+    DrawPoint.prototype.on_imgmask_file_reader_load = function(event) {
+      return this.imgmask_load_image_url(event.target.result);
     };
 
     DrawPoint.prototype.on_imgmask_file_change = function() {
@@ -2755,8 +2797,11 @@ td.move_mode {
       return [this.by_name["prev" + n], this.by_name["next" + n]];
     };
 
-    TargetRestriction.prototype.save = function() {
+    TargetRestriction.prototype.save = function(include_large_data) {
       var opt;
+      if (include_large_data == null) {
+        include_large_data = true;
+      }
       return opt = {
         single: this.restricted_single().map(function(x) {
           return x.name;
@@ -3625,13 +3670,16 @@ td.move_mode {
       return this.hide_serializebox();
     };
 
-    StochasticSierpinski.prototype.serialize = function() {
+    StochasticSierpinski.prototype.serialize = function(include_large_data) {
       var opt;
+      if (include_large_data == null) {
+        include_large_data = true;
+      }
       opt = {
         points: this.points.map(function(x) {
           return x.save();
         }),
-        restrictions: this.cur.restrictions.save(),
+        restrictions: this.cur.restrictions.save(include_large_data),
         options: {
           canvas_width: this.option.canvas_width.value,
           canvas_height: this.option.canvas_height.value,
@@ -3643,7 +3691,7 @@ td.move_mode {
           move_absolute_magnitude: this.move_absolute_magnitude,
           move_range_min: this.option.move_range_min.get(),
           move_range_max: this.option.move_range_max.get(),
-          imgmask: this.cur.save_imgmask()
+          imgmask: this.cur.save_imgmask(include_large_data)
         }
       };
       return JSON.stringify(opt);
@@ -3710,7 +3758,7 @@ td.move_mode {
 
     StochasticSierpinski.prototype.on_save_url = function() {
       var hash;
-      hash = this.serialize();
+      hash = this.serialize(false);
       return document.location = "#" + hash;
     };
 
