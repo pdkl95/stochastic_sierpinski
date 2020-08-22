@@ -131,6 +131,8 @@ undivert(`style.css')
                 &nbsp;x&nbsp;
                 <input id="canvas_height" type="number" value="420"
                        min="64" max="4096" step="1">
+                <label for="lock_aspect" id="lock_aspect_label" class="tt ttleft" data-title="When enabled, all changes to the canvas size preserve the aspect ratio.">Lock Aspect</label>
+                <input id="lock_aspect" type="checkbox" checked="checked">
               </td>
             </tr>
             <tr>

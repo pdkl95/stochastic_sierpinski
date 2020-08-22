@@ -492,7 +492,17 @@ td.blank {
 
 #canvas_width,
 #canvas_height {
-  width: 5em;
+  width: 4em;
+}
+
+#lock_aspect_label {
+  margin-left: 0.5em;
+}
+
+#lock_aspect {
+  position: relative;
+  top: 3px;
+  left: -1px;
 }
 
 #set_all_points_box {
@@ -845,6 +855,8 @@ td.move_mode {
                 &nbsp;x&nbsp;
                 <input id="canvas_height" type="number" value="420"
                        min="64" max="4096" step="1">
+                <label for="lock_aspect" id="lock_aspect_label" class="tt ttleft" data-title="When enabled, all changes to the canvas size preserve the aspect ratio.">Lock Aspect</label>
+                <input id="lock_aspect" type="checkbox" checked="checked">
               </td>
             </tr>
             <tr>
@@ -1783,9 +1795,6 @@ td.move_mode {
     };
 
     DrawPoint.prototype.load_imgmask = function(opt) {
-      if (opt.enabled != null) {
-        this.option.imgmask_enabled.set(opt.enabled);
-      }
       if (opt.threshold != null) {
         this.option.imgmask_threshold.set(opt.threshold);
       }
@@ -2804,7 +2813,7 @@ td.move_mode {
     function UIOption(id1, _default, on_change_callback) {
       this.id = id1;
       this["default"] = _default;
-      this.on_change_callback = on_change_callback;
+      this.on_change_callback = on_change_callback != null ? on_change_callback : null;
       this.on_mouseleave = bind(this.on_mouseleave, this);
       this.on_mouseenter = bind(this.on_mouseenter, this);
       this.on_blur = bind(this.on_blur, this);
@@ -3041,6 +3050,7 @@ td.move_mode {
         width: 420,
         height: 420
       },
+      lock_aspect: true,
       draw_opacity: 35,
       move_range_min: 0,
       move_range_max: 100,
@@ -3148,6 +3158,7 @@ td.move_mode {
         show_tooltips: new BoolUIOption('show_tooltips', APP.DEFAULT.show_tooltips, this.on_show_tooltips_change),
         canvas_width: new NumberUIOption('canvas_width', APP.DEFAULT.graph.width, this.on_canvas_width_change),
         canvas_height: new NumberUIOption('canvas_height', APP.DEFAULT.graph.height, this.on_canvas_height_change),
+        lock_aspect: new BoolUIOption('lock_aspect', APP.DEFAULT.lock_aspect),
         draw_opacity: new NumberUIOption('draw_opacity', APP.DEFAULT.draw_opacity, this.on_draw_opacity_change),
         move_range_min: new NumberUIOption('move_range_min', APP.DEFAULT.move_range_min, this.on_move_range_change),
         move_range_max: new NumberUIOption('move_range_max', APP.DEFAULT.move_range_max, this.on_move_range_change)
@@ -3333,7 +3344,7 @@ td.move_mode {
 
     StochasticSierpinski.prototype.on_graph_wrapper_mutate = function(event) {
       if (this.graph_wrapper.offsetWidth !== this.graph_ui_canvas.width || this.graph_wrapper.offsetHeight !== this.graph_ui_canvas.height) {
-        this.resize_graph(this.graph_wrapper.offsetWidth, this.graph_wrapper.offsetHeight);
+        this.aspect_safe_resize_graph(this.graph_wrapper.offsetWidth, this.graph_wrapper.offsetHeight);
         return APP.resumable_reset();
       }
     };
@@ -3363,8 +3374,41 @@ td.move_mode {
       return results;
     };
 
+    StochasticSierpinski.prototype.save_aspect_ratio = function() {
+      return this.aspect_ratio = this.graph_canvas.width / this.graph_canvas.height;
+    };
+
+    StochasticSierpinski.prototype.aspect_safe_resize_graph_width = function(w) {
+      var h;
+      if (this.option.lock_aspect.value) {
+        h = w / this.aspect_ratio;
+        return this.resize_graph(w, h);
+      } else {
+        return this.resize_graph_width(w);
+      }
+    };
+
+    StochasticSierpinski.prototype.aspect_safe_resize_graph_height = function(h) {
+      var w;
+      if (this.option.lock_aspect.value) {
+        w = h * this.aspect_ratio;
+        return this.resize_graph(w, h);
+      } else {
+        return this.resize_graph_height(h);
+      }
+    };
+
+    StochasticSierpinski.prototype.aspect_safe_resize_graph = function(w, h) {
+      if (this.option.lock_aspect.value) {
+        return this.aspect_safe_resize_graph_width(w);
+      } else {
+        return this.resize_graph(w, h);
+      }
+    };
+
     StochasticSierpinski.prototype.resize_graph_width = function(w) {
       var j, len1, p, ref, scale, style_width;
+      w = parseInt(w);
       scale = w / this.graph_canvas.width;
       ref = this.points;
       for (j = 0, len1 = ref.length; j < len1; j++) {
@@ -3377,11 +3421,13 @@ td.move_mode {
       this.graph_wrapper.style.width = style_width;
       this.canvas_size_rule.style.width = style_width;
       this.option.canvas_width.set(w);
+      this.save_aspect_ratio();
       return APP.prepare_imgmask_overlay();
     };
 
     StochasticSierpinski.prototype.resize_graph_height = function(h) {
       var j, len1, p, ref, scale, style_height;
+      h = parseInt(h);
       scale = h / this.graph_canvas.height;
       ref = this.points;
       for (j = 0, len1 = ref.length; j < len1; j++) {
@@ -3394,6 +3440,7 @@ td.move_mode {
       this.graph_wrapper.style.height = style_height;
       this.canvas_size_rule.style.height = style_height;
       this.option.canvas_height.set(h);
+      this.save_aspect_ratio();
       return APP.prepare_imgmask_overlay();
     };
 
@@ -3403,12 +3450,12 @@ td.move_mode {
     };
 
     StochasticSierpinski.prototype.on_canvas_width_change = function() {
-      this.resize_graph_width(this.option.canvas_width.value);
+      this.aspect_safe_resize_graph_width(this.option.canvas_width.value);
       return this.resumable_reset();
     };
 
     StochasticSierpinski.prototype.on_canvas_height_change = function() {
-      this.resize_graph_height(this.option.canvas_height.value);
+      this.aspect_safe_resize_graph_height(this.option.canvas_height.value);
       return this.resumable_reset();
     };
 
@@ -3588,6 +3635,7 @@ td.move_mode {
         options: {
           canvas_width: this.option.canvas_width.value,
           canvas_height: this.option.canvas_height.value,
+          lock_aspect: this.option.lock_aspect.value,
           draw_opacity: this.option.draw_opacity.value,
           draw_style: this.cur.option.draw_style.get(),
           data_source: this.cur.option.data_source.get(),
@@ -3607,6 +3655,9 @@ td.move_mode {
       if (opt.options != null) {
         if ((opt.options.canvas_width != null) && (opt.options.canvas_width != null)) {
           this.resize_graph(opt.options.canvas_width, opt.options.canvas_width);
+        }
+        if (opt.options.lock_aspect != null) {
+          this.option.lock_aspect.set(opt.options.lock_aspect);
         }
         if (opt.options.draw_opacity != null) {
           this.option.draw_opacity.set(opt.options.draw_opacity);
@@ -4214,8 +4265,6 @@ td.move_mode {
 
     StochasticSierpinski.prototype.on_keydown = function(event) {
       switch (event.key) {
-        case "Enter":
-          return this.on_run();
         case "Escape":
         case "Esc":
           return this.stop();

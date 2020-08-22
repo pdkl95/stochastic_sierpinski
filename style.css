@@ -309,7 +309,17 @@ td.blank {
 
 #canvas_width,
 #canvas_height {
-  width: 5em;
+  width: 4em;
+}
+
+#lock_aspect_label {
+  margin-left: 0.5em;
+}
+
+#lock_aspect {
+  position: relative;
+  top: 3px;
+  left: -1px;
 }
 
 #set_all_points_box {

@@ -550,8 +550,8 @@ class DrawPoint extends UIPoint
         y: @option.imgmask_offset_y.get()
 
   load_imgmask: (opt) ->
-    if opt.enabled?
-      @option.imgmask_enabled.set(opt.enabled)
+    # if opt.enabled?
+    #   @option.imgmask_enabled.set(opt.enabled)
 
     if opt.threshold?
       @option.imgmask_threshold.set(opt.threshold)
@@ -1267,7 +1267,7 @@ class TargetRestriction
     o.reset() for o in @options
 
 class UIOption
-  constructor: (@id, @default, @on_change_callback) ->
+  constructor: (@id, @default, @on_change_callback = null) ->
     if @id instanceof Element
       @el = @id
       @id = @el.id
@@ -1381,6 +1381,7 @@ class StochasticSierpinski
     graph:
       width:  420
       height: 420
+    lock_aspect: true
     draw_opacity:   35
     move_range_min: 0
     move_range_max: 100
@@ -1448,6 +1449,7 @@ class StochasticSierpinski
       show_tooltips:    new BoolUIOption(  'show_tooltips',    APP.DEFAULT.show_tooltips,    @on_show_tooltips_change)
       canvas_width:     new NumberUIOption('canvas_width',     APP.DEFAULT.graph.width,      @on_canvas_width_change)
       canvas_height:    new NumberUIOption('canvas_height',    APP.DEFAULT.graph.height,     @on_canvas_height_change)
+      lock_aspect:      new BoolUIOption(  'lock_aspect',      APP.DEFAULT.lock_aspect)
       draw_opacity:     new NumberUIOption('draw_opacity',     APP.DEFAULT.draw_opacity,     @on_draw_opacity_change)
       move_range_min:   new NumberUIOption('move_range_min',   APP.DEFAULT.move_range_min,   @on_move_range_change)
       move_range_max:   new NumberUIOption('move_range_max',   APP.DEFAULT.move_range_max,   @on_move_range_change)
@@ -1592,7 +1594,7 @@ class StochasticSierpinski
 
   on_graph_wrapper_mutate: (event) =>
     if @graph_wrapper.offsetWidth != @graph_ui_canvas.width or @graph_wrapper.offsetHeight != @graph_ui_canvas.height
-      @resize_graph(@graph_wrapper.offsetWidth, @graph_wrapper.offsetHeight)
+      @aspect_safe_resize_graph(@graph_wrapper.offsetWidth, @graph_wrapper.offsetHeight)
       APP.resumable_reset()
 
   clamp_points_to_canvas: ->
@@ -1604,7 +1606,32 @@ class StochasticSierpinski
       p.x = width  - 1 if p.x >= width
       p.y = height - 1 if p.y >= height
 
+  save_aspect_ratio: ->
+    @aspect_ratio = @graph_canvas.width / @graph_canvas.height
+
+  aspect_safe_resize_graph_width: (w) ->
+    if @option.lock_aspect.value
+      h = w / @aspect_ratio
+      @resize_graph(w, h)
+    else
+      @resize_graph_width(w)
+
+  aspect_safe_resize_graph_height: (h) ->
+    if @option.lock_aspect.value
+      w = h * @aspect_ratio
+      @resize_graph(w, h)
+    else
+      @resize_graph_height(h)
+
+  aspect_safe_resize_graph: (w, h) ->
+    if @option.lock_aspect.value
+      @aspect_safe_resize_graph_width(w)
+    else
+      @resize_graph(w, h)
+
   resize_graph_width: (w) ->
+    w = parseInt(w)
+
     scale = w / @graph_canvas.width
     p.scale_width(scale) for p in @points
 
@@ -1614,9 +1641,13 @@ class StochasticSierpinski
     @graph_wrapper.style.width = style_width
     @canvas_size_rule.style.width = style_width
     @option.canvas_width.set(w)
+
+    @save_aspect_ratio()
     APP.prepare_imgmask_overlay()
 
   resize_graph_height: (h) ->
+    h = parseInt(h)
+
     scale = h / @graph_canvas.height
     p.scale_height(scale) for p in @points
 
@@ -1627,6 +1658,8 @@ class StochasticSierpinski
     @graph_wrapper.style.height = style_height
     @canvas_size_rule.style.height = style_height
     @option.canvas_height.set(h)
+
+    @save_aspect_ratio()
     APP.prepare_imgmask_overlay()
 
   resize_graph: (w, h) ->
@@ -1634,11 +1667,11 @@ class StochasticSierpinski
     @resize_graph_height(h)
 
   on_canvas_width_change: =>
-    @resize_graph_width(@option.canvas_width.value) 
+    @aspect_safe_resize_graph_width(@option.canvas_width.value) 
     @resumable_reset()
 
   on_canvas_height_change: =>
-    @resize_graph_height(@option.canvas_height.value)
+    @aspect_safe_resize_graph_height(@option.canvas_height.value)
     @resumable_reset()
 
   attach_point: (point) ->
@@ -1762,6 +1795,7 @@ class StochasticSierpinski
       options:
         canvas_width:  @option.canvas_width.value
         canvas_height: @option.canvas_height.value
+        lock_aspect:   @option.lock_aspect.value
         draw_opacity:  @option.draw_opacity.value
         draw_style:    @cur.option.draw_style.get()
         data_source:   @cur.option.data_source.get()
@@ -1779,6 +1813,9 @@ class StochasticSierpinski
     if opt.options?
       if opt.options.canvas_width? and opt.options.canvas_width?
         @resize_graph(opt.options.canvas_width, opt.options.canvas_width)
+
+      if opt.options.lock_aspect?
+        @option.lock_aspect.set(opt.options.lock_aspect)
 
       if opt.options.draw_opacity?
         @option.draw_opacity.set(opt.options.draw_opacity)
@@ -2305,7 +2342,7 @@ class StochasticSierpinski
 
   on_keydown: (event) =>
     switch event.key
-      when "Enter"         then @on_run()
+      #when "Enter"         then @on_run()
       when "Escape", "Esc" then @stop()
       when "r", "R"        then @resumable_reset()
       when "p", "P"        then @on_create_png()
