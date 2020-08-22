@@ -1995,8 +1995,8 @@ td.move_mode {
     };
 
     DrawPoint.prototype.update_imgmask_offset = function() {
-      this.imgmask_offset_x = this.option.imgmask_offset_x.value;
-      return this.imgmask_offset_y = this.option.imgmask_offset_y.value;
+      this.imgmask_offset_x = this.option.imgmask_offset_x.get();
+      return this.imgmask_offset_y = this.option.imgmask_offset_y.get();
     };
 
     DrawPoint.prototype.on_imgmask_scale_change = function() {
@@ -2058,6 +2058,8 @@ td.move_mode {
 
     DrawPoint.prototype.imgmask_prepare_bitmap = function() {
       var canvas_height, canvas_width, ref;
+      this.update_imgmask_scale();
+      this.update_imgmask_offset();
       if (this.imgmask_bitmap != null) {
         this.imgmask_image_data = null;
         this.imgmask_bitmap.remove();
@@ -2370,6 +2372,8 @@ td.move_mode {
 
     DrawPoint.prototype.collides_with_bitmap = function(x, y) {
       var offset, testx, testy;
+      x -= this.imgmask_offset_x;
+      y -= this.imgmask_offset_y;
       testx = Math.floor(x * this.canvas_width_to_bitmap_width);
       testy = Math.floor(y * this.canvas_height_to_bitmap_height);
       offset = ((testy * this.imgmask_bitmap.width) + testx) * 4;
