@@ -1,5 +1,7 @@
 APP = null
 
+MAX_LARGE_DATA_SIZE = 255
+
 Array::flatten ?= () ->
   result = []
   for el in this
@@ -425,7 +427,7 @@ class PointWidget extends UIPoint
 
     super
 
-  save: () ->
+  save: (include_large_data = true) ->
     opt =
       name:      @name
       x:         @x
@@ -537,7 +539,7 @@ class DrawPoint extends UIPoint
 
     @btn_set_all_points.addEventListener('click', @on_set_all_points)
 
-  save_imgmask: ->
+  save_imgmask: (include_large_data = true) ->
     opt =
       enabled: @option.imgmask_enabled.get()
       threshold:  @option.imgmask_threshold.get()
@@ -549,10 +551,18 @@ class DrawPoint extends UIPoint
         x: @option.imgmask_offset_x.get()
         y: @option.imgmask_offset_y.get()
 
-  load_imgmask: (opt) ->
-    # if opt.enabled?
-    #   @option.imgmask_enabled.set(opt.enabled)
+    if opt.enabled
+      if @imgmask_img_url?
+        if @imgmask_img_url.length > MAX_LARGE_DATA_SIZE and not include_large_data
+          opt.enabled = false
+        else
+          opt.mask_image_url = @imgmask_img_url
+      else
+        opt.enabled = false
 
+    opt
+
+  load_imgmask: (opt) ->
     if opt.threshold?
       @option.imgmask_threshold.set(opt.threshold)
 
@@ -568,6 +578,16 @@ class DrawPoint extends UIPoint
       if opt.offset.x? and opt.offset.y?
         @option.imgmask_offset_x.set(opt.offset.x)
         @option.imgmask_offset_y.set(opt.offset.y)
+
+    if opt.enabled?
+      if opt.enabled
+        if opt.mask_image_url?
+          @set_imgmask_enabled(true)
+          @imgmask_load_image_url(opt.mask_image_url)
+        else
+          @set_imgmask_enabled(false)
+      else
+        @set_imgmask_enabled(false)
 
   on_set_all_points: (event) =>
     APP.set_all_points_move_perc(@move_perc * 100)
@@ -640,6 +660,10 @@ class DrawPoint extends UIPoint
     @opacity = opacity
     @alpha   = opacity / 100
     super(opacity)
+
+  set_imgmask_enabled: (value) ->
+    @option.imgmask_enabled.set(value)
+    @on_imgmask_enabled_change()
 
   on_imgmask_enabled_change: =>
     if @option?.imgmask_enabled?
@@ -790,12 +814,16 @@ class DrawPoint extends UIPoint
     @imgmask_prepare_bitmap()
     @set_imgmask_img_ready(true)
 
-  on_imgmask_file_reader_load: (event) =>
+  imgmask_load_image_url: (url) ->
+    @imgmask_img_url = url
     @imgmask_img.remove() if @imgmask_img?
     @imgmask_img = new Image()
     @imgmask_img_caption.parentElement.insertBefore(@imgmask_img, @imgmask_img_caption)
     @imgmask_img.onload = @on_imgmask_img_load
-    @imgmask_img.src = event.target.result
+    @imgmask_img.src = @imgmask_img_url
+
+  on_imgmask_file_reader_load: (event) =>
+    @imgmask_load_image_url(event.target.result)
 
   on_imgmask_file_change: =>
     return if @imgmask_file.files.length < 1
@@ -1245,7 +1273,7 @@ class TargetRestriction
   neighbor: (n) ->
     [@by_name["prev#{n}"], @by_name["next#{n}"]]
 
-  save: ->
+  save: (include_large_data = true) ->
     opt =
       single: @restricted_single().map( (x) -> x.name )
       double: @restricted_double().map( (x) -> x.name )
@@ -1788,10 +1816,10 @@ class StochasticSierpinski
   on_serializebox_cancel: =>
     @hide_serializebox()
 
-  serialize: ->
+  serialize: (include_large_data = true) ->
     opt =
       points: @points.map( (x) -> x.save() )
-      restrictions: @cur.restrictions.save()
+      restrictions: @cur.restrictions.save(include_large_data)
       options:
         canvas_width:  @option.canvas_width.value
         canvas_height: @option.canvas_height.value
@@ -1803,7 +1831,7 @@ class StochasticSierpinski
         move_absolute_magnitude: @move_absolute_magnitude
         move_range_min: @option.move_range_min.get()
         move_range_max: @option.move_range_max.get()
-        imgmask: @cur.save_imgmask()
+        imgmask: @cur.save_imgmask(include_large_data)
 
     JSON.stringify(opt)
 
@@ -1859,7 +1887,7 @@ class StochasticSierpinski
     @show_serializebox('Load', null, @deserialize)
 
   on_save_url: =>
-    hash = @serialize()
+    hash = @serialize(false)
     document.location = "##{hash}"
 
   on_move_all_reg_polygon: =>
