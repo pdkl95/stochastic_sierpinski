@@ -692,8 +692,8 @@ class DrawPoint extends UIPoint
     @imgmask_scaleperc_height = @option.imgmask_scale_height.value / 100
 
   update_imgmask_offset: ->
-    @imgmask_offset_x = @option.imgmask_offset_x.value
-    @imgmask_offset_y = @option.imgmask_offset_y.value
+    @imgmask_offset_x = @option.imgmask_offset_x.get()
+    @imgmask_offset_y = @option.imgmask_offset_y.get()
 
   on_imgmask_scale_change: =>
     @update_imgmask_scale()
@@ -738,6 +738,9 @@ class DrawPoint extends UIPoint
     APP.redraw_ui()
 
   imgmask_prepare_bitmap: ->
+    @update_imgmask_scale()
+    @update_imgmask_offset()
+
     if @imgmask_bitmap?
       @imgmask_image_data = null
       @imgmask_bitmap.remove()
@@ -1013,6 +1016,9 @@ class DrawPoint extends UIPoint
   collides_with_bitmap: (x, y) ->
     #return false unless @imgmask_scale_width  < x < @imgmask_img_redge_x
     #return false unless @imgmask_scale_height < y < @imgmask_img_redge_y
+
+    x -= @imgmask_offset_x
+    y -= @imgmask_offset_y
 
     testx = Math.floor(x * @canvas_width_to_bitmap_width)
     testy = Math.floor(y * @canvas_height_to_bitmap_height)
