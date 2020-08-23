@@ -818,13 +818,22 @@ class DrawPoint extends UIPoint
         el.classList.add('hidden')
 
   on_imgmask_img_load: =>
-    @imgmask_img_width  = @imgmask_img.width
-    @imgmask_img_height = @imgmask_img.height
+    @imgmask_img_width  = @imgmask_img.naturalWidth  ? @imgmask_img.width
+    @imgmask_img_height = @imgmask_img.naturalHeight ? @imgmask_img.height
     @imgmask_prepare_bitmap()
     @set_imgmask_img_ready(true)
 
   imgmask_load_image_url: (url) ->
+    return unless url?
+    uobj = @is_valid_imgmask_url(url)
+    return unless url?
+
     @imgmask_img_url = url
+
+    if uobj.protocol isnt 'data:' and url.length < MAX_LARGE_DATA_SIZE
+      @imgmask_url.value = url
+      @on_imgmask_url_change()
+
     @imgmask_img.remove() if @imgmask_img?
     @imgmask_img = new Image()
     @imgmask_img_caption.parentElement.insertBefore(@imgmask_img, @imgmask_img_caption)
@@ -869,7 +878,7 @@ class DrawPoint extends UIPoint
         throw e
 
   on_imgmask_url_keyup: (event) =>
-    if (event.key) == "Enter"
+    if (event.key) is "Enter"
       @on_imgmask_url_button_click()
 
   enable_imgmask: ->

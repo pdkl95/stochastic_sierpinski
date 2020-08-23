@@ -2166,14 +2166,27 @@ td.move_mode {
     };
 
     DrawPoint.prototype.on_imgmask_img_load = function() {
-      this.imgmask_img_width = this.imgmask_img.width;
-      this.imgmask_img_height = this.imgmask_img.height;
+      var ref, ref1;
+      this.imgmask_img_width = (ref = this.imgmask_img.naturalWidth) != null ? ref : this.imgmask_img.width;
+      this.imgmask_img_height = (ref1 = this.imgmask_img.naturalHeight) != null ? ref1 : this.imgmask_img.height;
       this.imgmask_prepare_bitmap();
       return this.set_imgmask_img_ready(true);
     };
 
     DrawPoint.prototype.imgmask_load_image_url = function(url) {
+      var uobj;
+      if (url == null) {
+        return;
+      }
+      uobj = this.is_valid_imgmask_url(url);
+      if (url == null) {
+        return;
+      }
       this.imgmask_img_url = url;
+      if (uobj.protocol !== 'data:' && url.length < MAX_LARGE_DATA_SIZE) {
+        this.imgmask_url.value = url;
+        this.on_imgmask_url_change();
+      }
       if (this.imgmask_img != null) {
         this.imgmask_img.remove();
       }
