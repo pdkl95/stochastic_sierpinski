@@ -535,7 +535,8 @@ td.blank {
   display: none;
 }
 
-#imgmask_url {
+#imgmask_url,
+#imgmask_example {
   width: 11em;
 }
 
@@ -544,7 +545,8 @@ td.blank {
   font-style: italic;
 }
 
-#imgmask_url_button {
+#imgmask_url_button,
+#imgmask_example_button {
   font-weight: bold;
   padding-left: 1px;
   padding-right: 1px;
@@ -997,6 +999,18 @@ td.move_mode {
               <td>
                 <input id="imgmask_url" type="text" placeholder="https://example.com/..." spellcheck="false">
                 <button id="imgmask_url_button">&#8658;</button>
+              </td>
+            </tr>
+            <tr>
+              <th>Load Image Example</th>
+              <td>
+                <select id="imgmask_example" name="imgmask_example">
+                  <option value="" selected></option>
+                  <option value="masks/circle.png">Circle</option>
+                  <option value="masks/ring.png">Ring</option>
+                  <option value="masks/ring-4star.png">Ring + 4-Star</option>
+                </select>
+                <button id="imgmask_example_button">&#8658;</button>
               </td>
             </tr>
             <tr>
@@ -1736,6 +1750,8 @@ td.move_mode {
     };
 
     function DrawPoint(name) {
+      this.on_imgmask_example_button_click = bind(this.on_imgmask_example_button_click, this);
+      this.on_imgmask_example_change = bind(this.on_imgmask_example_change, this);
       this.on_imgmask_url_keyup = bind(this.on_imgmask_url_keyup, this);
       this.on_imgmask_url_button_click = bind(this.on_imgmask_url_button_click, this);
       this.on_imgmask_url_change = bind(this.on_imgmask_url_change, this);
@@ -1774,6 +1790,8 @@ td.move_mode {
       this.imgmask_file_button = APP.context.getElementById('imgmask_file_button');
       this.imgmask_url = APP.context.getElementById('imgmask_url');
       this.imgmask_url_button = APP.context.getElementById('imgmask_url_button');
+      this.imgmask_example = APP.context.getElementById('imgmask_example');
+      this.imgmask_example_button = APP.context.getElementById('imgmask_example_button');
       this.imgmask_img_caption = APP.context.getElementById('imgmask_img_caption');
       this.imgmask_img_size_width = APP.context.getElementById('imgmask_img_size_width');
       this.imgmask_img_size_height = APP.context.getElementById('imgmask_img_size_height');
@@ -1809,6 +1827,8 @@ td.move_mode {
       this.imgmask_url.addEventListener('input', this.on_imgmask_url_change);
       this.imgmask_url.addEventListener('keyup', this.on_imgmask_url_keyup);
       this.imgmask_url_button.addEventListener('click', this.on_imgmask_url_button_click, false);
+      this.imgmask_example.addEventListener('change', this.on_imgmask_example_change);
+      this.imgmask_example_button.addEventListener('click', this.on_imgmask_example_button_click, false);
       return this.btn_set_all_points.addEventListener('click', this.on_set_all_points);
     };
 
@@ -2166,14 +2186,27 @@ td.move_mode {
     };
 
     DrawPoint.prototype.on_imgmask_img_load = function() {
-      this.imgmask_img_width = this.imgmask_img.width;
-      this.imgmask_img_height = this.imgmask_img.height;
+      var ref, ref1;
+      this.imgmask_img_width = (ref = this.imgmask_img.naturalWidth) != null ? ref : this.imgmask_img.width;
+      this.imgmask_img_height = (ref1 = this.imgmask_img.naturalHeight) != null ? ref1 : this.imgmask_img.height;
       this.imgmask_prepare_bitmap();
       return this.set_imgmask_img_ready(true);
     };
 
     DrawPoint.prototype.imgmask_load_image_url = function(url) {
+      var uobj;
+      if (url == null) {
+        return;
+      }
+      uobj = this.is_valid_imgmask_url(url);
+      if (url == null) {
+        return;
+      }
       this.imgmask_img_url = url;
+      if (uobj.protocol !== 'data:' && url.length < MAX_LARGE_DATA_SIZE) {
+        this.imgmask_url.value = url;
+        this.on_imgmask_url_change();
+      }
       if (this.imgmask_img != null) {
         this.imgmask_img.remove();
       }
@@ -2220,7 +2253,8 @@ td.move_mode {
     };
 
     DrawPoint.prototype.on_imgmask_url_button_click = function() {
-      return this.imgmask_load_image_url(this.imgmask_url.value);
+      this.imgmask_load_image_url(this.imgmask_url.value);
+      return APP.resumable_reset();
     };
 
     DrawPoint.prototype.is_valid_imgmask_url = function(str) {
@@ -2243,6 +2277,22 @@ td.move_mode {
       }
     };
 
+    DrawPoint.prototype.on_imgmask_example_change = function() {
+      var url;
+      this.imgmask_example_button.disabled = true;
+      url = this.imgmask_example.value;
+      if ((url != null ? url.length : void 0) > 0) {
+        if (this.is_valid_imgmask_url(url)) {
+          return this.imgmask_example_button.disabled = false;
+        }
+      }
+    };
+
+    DrawPoint.prototype.on_imgmask_example_button_click = function() {
+      this.imgmask_load_image_url(this.imgmask_example.value);
+      return APP.resumable_reset();
+    };
+
     DrawPoint.prototype.enable_imgmask = function() {
       this.option.imgmask_scale_width.enable();
       this.option.imgmask_scale_height.enable();
@@ -2253,7 +2303,9 @@ td.move_mode {
       this.imgmask_file.disabled = false;
       this.imgmask_file_button.disabled = false;
       this.imgmask_url.disabled = false;
-      return this.on_imgmask_url_change();
+      this.on_imgmask_url_change();
+      this.imgmask_example.disabled = false;
+      return this.on_imgmask_example_change();
     };
 
     DrawPoint.prototype.disable_imgmask = function() {
@@ -2266,7 +2318,9 @@ td.move_mode {
       this.imgmask_file.disabled = true;
       this.imgmask_file_button.disabled = true;
       this.imgmask_url.disabled = true;
-      return this.imgmask_url_button.disabled = true;
+      this.imgmask_url_button.disabled = true;
+      this.imgmask_example.disabled = true;
+      return this.imgmask_example_button.disabled = true;
     };
 
     DrawPoint.prototype.target_chosen_twice = function() {
