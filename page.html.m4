@@ -261,6 +261,18 @@ undivert(`style.css')
               </td>
             </tr>
             <tr>
+              <th>Load Image Example</th>
+              <td>
+                <select id="imgmask_example" name="imgmask_example">
+                  <option value="" selected></option>
+                  <option value="masks/circle.png">Circle</option>
+                  <option value="masks/ring.png">Ring</option>
+                  <option value="masks/ring-4star.png">Ring + 4-Star</option>
+                </select>
+                <button id="imgmask_example_button">&#8658;</button>
+              </td>
+            </tr>
+            <tr>
               <th>Bitmap Threshold</th>
               <td>
                 <input id="imgmask_threshold" type="range" value="1" min="1" max="254" step="1">

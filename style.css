@@ -352,7 +352,8 @@ td.blank {
   display: none;
 }
 
-#imgmask_url {
+#imgmask_url,
+#imgmask_example {
   width: 11em;
 }
 
@@ -361,7 +362,8 @@ td.blank {
   font-style: italic;
 }
 
-#imgmask_url_button {
+#imgmask_url_button,
+#imgmask_example_button {
   font-weight: bold;
   padding-left: 1px;
   padding-right: 1px;
