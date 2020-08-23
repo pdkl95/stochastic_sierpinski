@@ -503,6 +503,8 @@ class DrawPoint extends UIPoint
 
     @imgmask_file               = APP.context.getElementById('imgmask_file')
     @imgmask_file_button        = APP.context.getElementById('imgmask_file_button')
+    @imgmask_url                = APP.context.getElementById('imgmask_url')
+    @imgmask_url_button         = APP.context.getElementById('imgmask_url_button')
     @imgmask_img_caption        = APP.context.getElementById('imgmask_img_caption')
     @imgmask_img_size_width     = APP.context.getElementById('imgmask_img_size_width')
     @imgmask_img_size_height    = APP.context.getElementById('imgmask_img_size_height')
@@ -536,6 +538,10 @@ class DrawPoint extends UIPoint
     @on_imgmask_enabled_change()
     @imgmask_file.addEventListener('change', @on_imgmask_file_change)
     @imgmask_file_button.addEventListener('click', @on_imgmask_file_button_click, false)
+
+    @imgmask_url.addEventListener('input', @on_imgmask_url_change)
+    @imgmask_url.addEventListener('keyup', @on_imgmask_url_keyup)
+    @imgmask_url_button.addEventListener('click', @on_imgmask_url_button_click, false)
 
     @btn_set_all_points.addEventListener('click', @on_set_all_points)
 
@@ -842,6 +848,30 @@ class DrawPoint extends UIPoint
   on_imgmask_file_button_click: =>
     @imgmask_file.click() if @imgmask_file?
 
+  on_imgmask_url_change: =>
+    @imgmask_url_button.disabled = true
+
+    str = @imgmask_url.value
+    if str?.length > 0
+      if @is_valid_imgmask_url(str)
+        @imgmask_url_button.disabled = false
+
+  on_imgmask_url_button_click: =>
+    @imgmask_load_image_url(@imgmask_url.value)
+
+  is_valid_imgmask_url: (str) ->
+    try
+      new URL(str, window.location)
+    catch e
+      if e instanceof TypeError
+        return false
+      else
+        throw e
+
+  on_imgmask_url_keyup: (event) =>
+    if (event.key) == "Enter"
+      @on_imgmask_url_button_click()
+
   enable_imgmask: ->
     @option.imgmask_scale_width.enable()
     @option.imgmask_scale_height.enable()
@@ -851,6 +881,8 @@ class DrawPoint extends UIPoint
     @option.imgmask_oversample.enable()
     @imgmask_file.disabled = false
     @imgmask_file_button.disabled = false
+    @imgmask_url.disabled = false
+    @on_imgmask_url_change()
 
   disable_imgmask: ->
     @option.imgmask_scale_width.disable()
@@ -861,6 +893,8 @@ class DrawPoint extends UIPoint
     @option.imgmask_oversample.disable()
     @imgmask_file.disabled = true
     @imgmask_file_button.disabled = true
+    @imgmask_url.disabled = true
+    @imgmask_url_button.disabled = true
 
   target_chosen_twice: ->
     @prev_target[0] == @prev_target[1]
@@ -2378,10 +2412,10 @@ class StochasticSierpinski
     switch event.key
       #when "Enter"         then @on_run()
       when "Escape", "Esc" then @stop()
-      when "r", "R"        then @resumable_reset()
-      when "p", "P"        then @on_create_png()
-      when "s", "S"        then @on_save()
-      when "l", "L"        then @on_load()
+      #when "r", "R"        then @resumable_reset()
+      #when "p", "P"        then @on_create_png()
+      #when "s", "S"        then @on_save()
+      #when "l", "L"        then @on_load()
 
   on_hashchange: =>
     if document.location.hash?.length > 1

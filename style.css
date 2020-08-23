@@ -352,6 +352,21 @@ td.blank {
   display: none;
 }
 
+#imgmask_url {
+  width: 11em;
+}
+
+#imgmask_url::placeholder {
+  font-size: 8px;
+  font-style: italic;
+}
+
+#imgmask_url_button {
+  font-weight: bold;
+  padding-left: 1px;
+  padding-right: 1px;
+}
+
 #imgmask_threshold + label {
   position: relative;
   top: -4px;

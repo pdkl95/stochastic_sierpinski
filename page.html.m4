@@ -247,10 +247,17 @@ undivert(`style.css')
               </td>
             </tr>
             <tr>
-              <th>Load Image As Bitmap</th>
+              <th>Load Image File</th>
               <td>
                 <input id="imgmask_file" type="file" accept="image/*">
                 <button id="imgmask_file_button">Load image file...</button>
+              </td>
+            </tr>
+            <tr>
+              <th>Load Image URL</th>
+              <td>
+                <input id="imgmask_url" type="text" placeholder="https://example.com/..." spellcheck="false">
+                <button id="imgmask_url_button">&#8658;</button>
               </td>
             </tr>
             <tr>
