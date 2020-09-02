@@ -1,5 +1,5 @@
 # stochastic_sierpinski
-Interactive ["Chaos Game"](https://en.wikipedia.org/wiki/Chaos_game) ([IFS](https://en.wikipedia.org/wiki/Iterated_function_system)) fractal generator in a self-contained HTML5 page.
+Interactive "[Chaos Game](https://en.wikipedia.org/wiki/Chaos_game)" ([IFS](https://en.wikipedia.org/wiki/Iterated_function_system)) fractal generator in a self-contained HTML5 page.
 
 ## Usage
 
@@ -23,7 +23,9 @@ The "Chaos Game" is a stochastic method of rendering a fractal. The general meth
 
 4. Iterate step #3 until the fractal appears.
 
-Using 3 points and movement fraction of 50% produces the [Sierpinski triangle](https://en.wikipedia.org/wiki/Sierpinski_triangle)
+Using 3 points and movement fraction of 50% produces the [Sierpinski triangle](https://en.wikipedia.org/wiki/Sierpinski_triangle).
+
+Numberphile has a [good explanation](https://www.youtube.com/watch?v=kbKtFN71Lfs) of the Chaos Game.
 
 ## Examples
 
@@ -65,6 +67,8 @@ https://en.wikipedia.org/wiki/Iterated_function_system
 https://beltoforion.de/en/recreational_mathematics/chaos_game.php
 
 https://resources.wolframcloud.com/FunctionRepository/resources/GeneralizedChaosGame
+
+https://www.youtube.com/watch?v=kbKtFN71Lfs
 
 ## License
 
