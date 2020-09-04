@@ -841,6 +841,7 @@ class DrawPoint extends UIPoint
 
     @imgmask_img.remove() if @imgmask_img?
     @imgmask_img = new Image()
+    @imgmask_img.crossOrigin = "anonymous"
     @imgmask_img_caption.parentElement.insertBefore(@imgmask_img, @imgmask_img_caption)
     @imgmask_img.onload = @on_imgmask_img_load
     @imgmask_img.src = @imgmask_img_url
@@ -1906,8 +1907,16 @@ class StochasticSierpinski
 
     JSON.stringify(opt)
 
+  safe_json_parse: (text) ->
+    try
+      JSON.parse(text)
+    catch e
+      alert("JSON.parse failed: #{e}")
+      null
+
   deserialize: (text) =>
-    opt = JSON.parse(text)
+    opt = @safe_json_parse(text)
+    return unless opt?
 
     if opt.options?
       if opt.options.canvas_width? and opt.options.canvas_width?
@@ -2450,7 +2459,9 @@ class StochasticSierpinski
 
   on_hashchange: =>
     if document.location.hash?.length > 1
-      @deserialize(document.location.hash.slice(1))
+      hash = location.href.split('#').splice(1).join('#')
+      json = unescape(hash)
+      @deserialize(json)
     else
       @load_default_state()
 
