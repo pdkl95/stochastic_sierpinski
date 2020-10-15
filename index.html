@@ -2211,6 +2211,7 @@ td.move_mode {
         this.imgmask_img.remove();
       }
       this.imgmask_img = new Image();
+      this.imgmask_img.crossOrigin = "anonymous";
       this.imgmask_img_caption.parentElement.insertBefore(this.imgmask_img, this.imgmask_img_caption);
       this.imgmask_img.onload = this.on_imgmask_img_load;
       return this.imgmask_img.src = this.imgmask_img_url;
@@ -3824,9 +3825,23 @@ td.move_mode {
       return JSON.stringify(opt);
     };
 
+    StochasticSierpinski.prototype.safe_json_parse = function(text) {
+      var e;
+      try {
+        return JSON.parse(text);
+      } catch (error) {
+        e = error;
+        alert("JSON.parse failed: " + e);
+        return null;
+      }
+    };
+
     StochasticSierpinski.prototype.deserialize = function(text) {
       var i, j, len1, opt, p, ref;
-      opt = JSON.parse(text);
+      opt = this.safe_json_parse(text);
+      if (opt == null) {
+        return;
+      }
       if (opt.options != null) {
         if ((opt.options.canvas_width != null) && (opt.options.canvas_width != null)) {
           this.resize_graph(opt.options.canvas_width, opt.options.canvas_width);
@@ -4447,9 +4462,11 @@ td.move_mode {
     };
 
     StochasticSierpinski.prototype.on_hashchange = function() {
-      var ref;
+      var hash, json, ref;
       if (((ref = document.location.hash) != null ? ref.length : void 0) > 1) {
-        return this.deserialize(document.location.hash.slice(1));
+        hash = location.href.split('#').splice(1).join('#');
+        json = unescape(hash);
+        return this.deserialize(json);
       } else {
         return this.load_default_state();
       }
